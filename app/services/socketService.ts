@@ -6,6 +6,8 @@ export interface Player {
   avatar: string;
   ready: boolean;
   role?: 'attacker' | 'defender';
+  displayRole?: 'attacker' | 'defender'; // Visual role (can be different from actual role)
+  originalRole?: 'attacker' | 'defender'; // Store original role assignment
 }
 
 export interface GameRoom {
@@ -29,6 +31,32 @@ export interface GameRoom {
 export interface PlayerData {
   name: string;
   avatar: string;
+  userId?: string;
+  rating?: number;
+  gamesPlayed?: number;
+  gamesWon?: number;
+  gamesLost?: number;
+  pointsWon?: number;
+  pointsLost?: number;
+  winPercentage?: number;
+  averageArgumentScore?: number;
+  bestArgumentScore?: number;
+  worstArgumentScore?: number;
+  totalRoundsPlayed?: number;
+  totalRoundsWon?: number;
+  averageGameDuration?: number;
+  longestWinStreak?: number;
+  currentWinStreak?: number;
+  // Role-specific stats
+  attackerGamesPlayed?: number;
+  attackerGamesWon?: number;
+  attackerPointsWon?: number;
+  attackerAverageScore?: number;
+  defenderGamesPlayed?: number;
+  defenderGamesWon?: number;
+  defenderPointsWon?: number;
+  defenderAverageScore?: number;
+  preferredRole?: 'attacker' | 'defender' | 'none';
 }
 
 class SocketService {

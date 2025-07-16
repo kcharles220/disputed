@@ -2,11 +2,13 @@
 
 import { useState, useEffect } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
+import { useSession, signOut } from 'next-auth/react';
 import { socketService, PlayerData } from '../services/socketService';
 
 export default function JoinGame() {
   const router = useRouter();
   const searchParams = useSearchParams();
+  const { data: session, status } = useSession();
   const roomIdFromUrl = searchParams.get('room');
   const nameFromUrl = searchParams.get('name');
   const avatarFromUrl = searchParams.get('avatar');
@@ -19,12 +21,39 @@ export default function JoinGame() {
   const [error, setError] = useState('');
   const [isClient, setIsClient] = useState(false);
   const [placeholderName, setPlaceholderName] = useState('');
+  const [currentUser, setCurrentUser] = useState<any>(null);
+  const [isLoadingUser, setIsLoadingUser] = useState(false);
+  const [hasLoadedUser, setHasLoadedUser] = useState(false);
 
   const avatarOptions = ['⚖️', '👨‍💼', '👩‍💼', '👨‍⚖️', '👩‍⚖️', '🎭', '⚔️', '🏛️'];
   const guestNameSuggestions = [
     'LegalEagle2024', 'CourtCrusher', 'LawyerLegend', 'JusticeWarrior', 
     'ArgumentAce', 'DebateDefender', 'CaseCracker', 'VerdictVanguard'
   ];
+
+  // Loading skeleton component
+  const LoadingSkeleton = ({ className }: { className?: string }) => (
+    <div className={`animate-pulse bg-gray-200 rounded ${className || 'h-4 w-16'}`}></div>
+  );
+
+  // Fetch fresh user data from database
+  const fetchCurrentUser = async () => {
+    if (session?.user?.id && !hasLoadedUser) {
+      setIsLoadingUser(true);
+      try {
+        const response = await fetch('/api/user/current');
+        if (response.ok) {
+          const userData = await response.json();
+          setCurrentUser(userData);
+          setHasLoadedUser(true);
+        }
+      } catch (error) {
+        console.error('Error fetching current user:', error);
+      } finally {
+        setIsLoadingUser(false);
+      }
+    }
+  };
 
   useEffect(() => {
     setIsClient(true);
@@ -35,6 +64,21 @@ export default function JoinGame() {
       setPlaceholderName(nameFromUrl);
     }
   }, [nameFromUrl]);
+
+  // Set player name from session when available and fetch user data
+  useEffect(() => {
+    if (session?.user?.username || session?.user?.name) {
+      setPlayerName(session.user.username || session.user.name || '');
+    }
+    if (session?.user?.id) {
+      fetchCurrentUser();
+    } else {
+      // Reset state when user logs out
+      setCurrentUser(null);
+      setHasLoadedUser(false);
+      setIsLoadingUser(false);
+    }
+  }, [session?.user?.id, hasLoadedUser]);
 
   const handleJoinGame = async () => {
     if (!roomId.trim()) {
@@ -49,9 +93,30 @@ export default function JoinGame() {
       // Connect to socket
       await socketService.connect();
 
+      // Use session data if available, otherwise use form data
+      const finalName = session?.user?.username || session?.user?.name || playerName.trim() || placeholderName;
+
       const playerData: PlayerData = {
-        name: playerName.trim() || placeholderName,
-        avatar: selectedAvatar
+        name: finalName,
+        avatar: selectedAvatar,
+        // Include fresh user data if available, otherwise use session data
+        ...(session && {
+          userId: session.user?.id,
+          rating: currentUser?.rating || session.user?.rating || 1000,
+          gamesPlayed: currentUser?.gamesPlayed || session.user?.gamesPlayed || 0,
+          gamesWon: currentUser?.gamesWon || session.user?.gamesWon || 0,
+          gamesLost: currentUser?.gamesLost || session.user?.gamesLost || 0,
+          winPercentage: currentUser?.winPercentage || session.user?.winPercentage || 0,
+          averageArgumentScore: currentUser?.averageArgumentScore || session.user?.averageArgumentScore || 0,
+          bestArgumentScore: currentUser?.bestArgumentScore || session.user?.bestArgumentScore || 0,
+          worstArgumentScore: currentUser?.worstArgumentScore || session.user?.worstArgumentScore || 0,
+          totalRoundsPlayed: currentUser?.totalRoundsPlayed || session.user?.totalRoundsPlayed || 0,
+          totalRoundsWon: currentUser?.totalRoundsWon || session.user?.totalRoundsWon || 0,
+          totalRoundsLost: currentUser?.totalRoundsLost || session.user?.totalRoundsLost || 0,
+          averageGameDuration: currentUser?.averageGameDuration || session.user?.averageGameDuration || 0,
+          longestWinStreak: currentUser?.longestWinStreak || session.user?.longestWinStreak || 0,
+          currentWinStreak: currentUser?.currentWinStreak || session.user?.currentWinStreak || 0
+        })
       };
 
       // Join the room
@@ -80,13 +145,73 @@ export default function JoinGame() {
       <div className="absolute top-6 left-6 z-30">
         <button
           onClick={() => {
-            const name = playerName.trim() || placeholderName;
+            const name = session?.user?.username || session?.user?.name || playerName.trim() || placeholderName;
             router.push(`/?name=${encodeURIComponent(name)}&avatar=${encodeURIComponent(selectedAvatar)}`);
           }}
           className="px-5 py-2.5 bg-white/10 backdrop-blur-sm text-white border border-white/20 rounded-lg font-medium hover:bg-white/20 transition-all duration-200 cursor-pointer"
         >
           ← Back to Home
         </button>
+      </div>
+
+      {/* Top Right Corner - Auth Section */}
+      <div className="absolute top-6 right-6 flex flex-col gap-3 z-30">
+        {status === 'loading' ? (
+          <div className="px-5 py-2.5 bg-white/10 backdrop-blur-sm text-white/70 border border-white/20 rounded-lg font-medium">
+            Loading...
+          </div>
+        ) : session ? (
+          <div className="flex flex-col gap-3">
+            {/* Profile Button */}
+            <button
+              onClick={() => router.push('/profile')}
+              className="flex items-center gap-5 text-white/90 text-lg bg-white/10 backdrop-blur-sm px-8 py-6 rounded-xl border border-white/20 hover:bg-white/20 transition-all duration-200 cursor-pointer min-w-[280px]"
+            >
+              <div className="w-16 h-16 bg-gradient-to-br from-purple-400 to-blue-400 rounded-full flex items-center justify-center text-3xl">
+                {(currentUser?.image || session.user?.image) ? (
+                  <img src={currentUser?.image || session.user.image} alt="Avatar" className="w-16 h-16 rounded-full" />
+                ) : (
+                  <span>⚖️</span>
+                )}
+              </div>
+              <div className="text-left flex-1">
+                <div className="font-bold text-xl">{currentUser?.username || session.user?.username || session.user?.name}</div>
+                <div className="text-base text-white/70">
+                  Rating: <span className="text-yellow-300 font-bold text-xl">
+                    {isLoadingUser ? (
+                      <LoadingSkeleton className="h-6 w-16 inline-block" />
+                    ) : (
+                      currentUser?.rating || session.user?.rating || 1000
+                    )}
+                  </span>
+                </div>
+              </div>
+            </button>
+            
+            {/* Sign Out Button */}
+            <button
+              onClick={() => signOut({ callbackUrl: '/' })}
+              className="px-5 py-2.5 bg-red-600/80 backdrop-blur-sm text-white border border-red-500/30 rounded-lg font-medium hover:bg-red-600 transition-all duration-200 cursor-pointer"
+            >
+              Sign Out
+            </button>
+          </div>
+        ) : (
+          <div className="flex gap-4">
+            <button
+              onClick={() => router.push('/auth/signin')}
+              className="px-8 py-4 bg-white/10 backdrop-blur-sm text-white border border-white/20 rounded-xl font-semibold text-lg hover:bg-white/20 transition-all duration-200 cursor-pointer min-w-[120px]"
+            >
+              Login
+            </button>
+            <button
+              onClick={() => router.push('/auth/signup')}
+              className="px-8 py-4 bg-blue-600/80 backdrop-blur-sm text-white border border-blue-500/30 rounded-xl font-semibold text-lg hover:bg-blue-600 transition-all duration-200 cursor-pointer min-w-[120px]"
+            >
+              Register
+            </button>
+          </div>
+        )}
       </div>
 
       {/* Main Container */}
@@ -168,8 +293,18 @@ export default function JoinGame() {
                 value={playerName}
                 onChange={(e) => setPlayerName(e.target.value)}
                 placeholder={isClient ? placeholderName : 'Loading...'}
-                className="w-full px-4 py-3 text-lg border-2 border-gray-200 rounded-xl focus:border-purple-500 focus:outline-none transition-all duration-200 bg-white shadow-sm placeholder-gray-400 text-black"
+                disabled={!!session}
+                className={`w-full px-4 py-3 text-lg border-2 rounded-xl focus:outline-none transition-all duration-200 shadow-sm text-black ${
+                  session 
+                    ? 'border-gray-300 bg-gray-100 cursor-not-allowed placeholder-gray-500' 
+                    : 'border-gray-200 bg-white focus:border-purple-500 placeholder-gray-400'
+                }`}
               />
+              {session && (
+                <p className="mt-1 text-sm text-gray-600">
+                  Username is set from your account profile
+                </p>
+              )}
             </div>
           </div>
 

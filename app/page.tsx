@@ -1,22 +1,25 @@
 'use client';
 
-import { useState, useMemo, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
+import { useSession, signOut } from 'next-auth/react';
 import { socketService, PlayerData } from './services/socketService';
 
 export default function Home() {
   const router = useRouter();
   const searchParams = useSearchParams();
+  const { data: session, status } = useSession();
   const nameFromUrl = searchParams.get('name');
   const avatarFromUrl = searchParams.get('avatar');
   
   const [selectedAvatar, setSelectedAvatar] = useState(avatarFromUrl || '⚖️');
   const [showAvatarPicker, setShowAvatarPicker] = useState(false);
   const [playerName, setPlayerName] = useState(nameFromUrl || '');
-  const [showLogin, setShowLogin] = useState(false);
-  const [showRegister, setShowRegister] = useState(false);
   const [isCreatingGame, setIsCreatingGame] = useState(false);
   const [error, setError] = useState('');
+  const [currentUser, setCurrentUser] = useState<any>(null);
+  const [isLoadingUser, setIsLoadingUser] = useState(false);
+  const [hasLoadedUser, setHasLoadedUser] = useState(false);
 
   const avatarOptions = ['⚖️', '👨‍💼', '👩‍💼', '👨‍⚖️', '👩‍⚖️', '🎭', '⚔️', '🏛️'];
   const guestNameSuggestions = [
@@ -24,9 +27,33 @@ export default function Home() {
     'ArgumentAce', 'DebateDefender', 'CaseCracker', 'VerdictVanguard'
   ];
 
+  // Loading skeleton component
+  const LoadingSkeleton = ({ className }: { className?: string }) => (
+    <div className={`animate-pulse bg-gray-200 rounded ${className || 'h-4 w-16'}`}></div>
+  );
+
   // Use useState with null initially to avoid hydration mismatch
   const [placeholderName, setPlaceholderName] = useState('');
   const [isClient, setIsClient] = useState(false);
+
+  // Fetch fresh user data from database
+  const fetchCurrentUser = async () => {
+    if (session?.user?.id && !hasLoadedUser) {
+      setIsLoadingUser(true);
+      try {
+        const response = await fetch('/api/user/current');
+        if (response.ok) {
+          const userData = await response.json();
+          setCurrentUser(userData);
+          setHasLoadedUser(true);
+        }
+      } catch (error) {
+        console.error('Error fetching current user:', error);
+      } finally {
+        setIsLoadingUser(false);
+      }
+    }
+  };
 
   // Set the placeholder name only on the client side after hydration
   useEffect(() => {
@@ -39,6 +66,18 @@ export default function Home() {
     }
   }, [nameFromUrl]);
 
+  // Fetch user data when session changes
+  useEffect(() => {
+    if (session?.user?.id) {
+      fetchCurrentUser();
+    } else {
+      // Reset state when user logs out
+      setCurrentUser(null);
+      setHasLoadedUser(false);
+      setIsLoadingUser(false);
+    }
+  }, [session?.user?.id, hasLoadedUser]);
+
   const handleCreateGame = async () => {
     setIsCreatingGame(true);
     setError('');
@@ -47,9 +86,29 @@ export default function Home() {
       // Connect to socket
       await socketService.connect();
 
+      const finalName = session?.user?.username || session?.user?.name || playerName.trim() || placeholderName;
+      
       const playerData: PlayerData = {
-        name: playerName.trim() || placeholderName,
-        avatar: selectedAvatar
+        name: finalName,
+        avatar: selectedAvatar,
+        // Include fresh user data if available, otherwise use session data
+        ...(session && {
+          userId: session.user?.id,
+          rating: currentUser?.rating || session.user?.rating || 1000,
+          gamesPlayed: currentUser?.gamesPlayed || session.user?.gamesPlayed || 0,
+          gamesWon: currentUser?.gamesWon || session.user?.gamesWon || 0,
+          gamesLost: currentUser?.gamesLost || session.user?.gamesLost || 0,
+          winPercentage: currentUser?.winPercentage || session.user?.winPercentage || 0,
+          averageArgumentScore: currentUser?.averageArgumentScore || session.user?.averageArgumentScore || 0,
+          bestArgumentScore: currentUser?.bestArgumentScore || session.user?.bestArgumentScore || 0,
+          worstArgumentScore: currentUser?.worstArgumentScore || session.user?.worstArgumentScore || 0,
+          totalRoundsPlayed: currentUser?.totalRoundsPlayed || session.user?.totalRoundsPlayed || 0,
+          totalRoundsWon: currentUser?.totalRoundsWon || session.user?.totalRoundsWon || 0,
+          totalRoundsLost: currentUser?.totalRoundsLost || session.user?.totalRoundsLost || 0,
+          averageGameDuration: currentUser?.averageGameDuration || session.user?.averageGameDuration || 0,
+          longestWinStreak: currentUser?.longestWinStreak || session.user?.longestWinStreak || 0,
+          currentWinStreak: currentUser?.currentWinStreak || session.user?.currentWinStreak || 0
+        })
       };
 
       // Create room
@@ -67,8 +126,46 @@ export default function Home() {
   };
 
   const handleJoinGame = () => {
-    const name = playerName.trim() || placeholderName;
-    router.push(`/join?name=${encodeURIComponent(name)}&avatar=${encodeURIComponent(selectedAvatar)}`);
+    const finalName = session?.user?.username || session?.user?.name || playerName.trim() || placeholderName;
+    const params = new URLSearchParams({
+      name: finalName,
+      avatar: selectedAvatar
+    });
+    
+    // Add fresh user data if available, otherwise use session data
+    if (session) {
+      if (session.user?.id) params.append('userId', session.user.id);
+      const rating = currentUser?.rating || session.user?.rating || 1000;
+      params.append('rating', rating.toString());
+      const gamesPlayed = currentUser?.gamesPlayed || session.user?.gamesPlayed || 0;
+      params.append('gamesPlayed', gamesPlayed.toString());
+      const gamesWon = currentUser?.gamesWon || session.user?.gamesWon || 0;
+      params.append('gamesWon', gamesWon.toString());
+      const gamesLost = currentUser?.gamesLost || session.user?.gamesLost || 0;
+      params.append('gamesLost', gamesLost.toString());
+      const winPercentage = currentUser?.winPercentage || session.user?.winPercentage || 0;
+      params.append('winPercentage', winPercentage.toString());
+      const averageArgumentScore = currentUser?.averageArgumentScore || session.user?.averageArgumentScore || 0;
+      params.append('averageArgumentScore', averageArgumentScore.toString());
+      const bestArgumentScore = currentUser?.bestArgumentScore || session.user?.bestArgumentScore || 0;
+      params.append('bestArgumentScore', bestArgumentScore.toString());
+      const worstArgumentScore = currentUser?.worstArgumentScore || session.user?.worstArgumentScore || 0;
+      params.append('worstArgumentScore', worstArgumentScore.toString());
+      const totalRoundsPlayed = currentUser?.totalRoundsPlayed || session.user?.totalRoundsPlayed || 0;
+      params.append('totalRoundsPlayed', totalRoundsPlayed.toString());
+      const totalRoundsWon = currentUser?.totalRoundsWon || session.user?.totalRoundsWon || 0;
+      params.append('totalRoundsWon', totalRoundsWon.toString());
+      const totalRoundsLost = currentUser?.totalRoundsLost || session.user?.totalRoundsLost || 0;
+      params.append('totalRoundsLost', totalRoundsLost.toString());
+      const averageGameDuration = currentUser?.averageGameDuration || session.user?.averageGameDuration || 0;
+      params.append('averageGameDuration', averageGameDuration.toString());
+      const longestWinStreak = currentUser?.longestWinStreak || session.user?.longestWinStreak || 0;
+      params.append('longestWinStreak', longestWinStreak.toString());
+      const currentWinStreak = currentUser?.currentWinStreak || session.user?.currentWinStreak || 0;
+      params.append('currentWinStreak', currentWinStreak.toString());
+    }
+    
+    router.push(`/join?${params.toString()}`);
   };
 
   return (
@@ -80,20 +177,64 @@ export default function Home() {
         <div className="absolute top-3/4 left-3/4 w-72 h-72 bg-indigo-500/20 rounded-full blur-3xl animate-pulse delay-2000"></div>
       </div>
 
-      {/* Top Right Corner - Login/Register */}
-      <div className="absolute top-6 right-6 flex gap-3 z-30">
-        <button
-          onClick={() => setShowLogin(true)}
-          className="px-5 py-2.5 bg-white/10 backdrop-blur-sm text-white border border-white/20 rounded-lg font-medium hover:bg-white/20 transition-all duration-200 cursor-pointer"
-        >
-          Login
-        </button>
-        <button
-          onClick={() => setShowRegister(true)}
-          className="px-5 py-2.5 bg-blue-600/80 backdrop-blur-sm text-white border border-blue-500/30 rounded-lg font-medium hover:bg-blue-600 transition-all duration-200 cursor-pointer"
-        >
-          Register
-        </button>
+      {/* Top Right Corner - Auth Section */}
+      <div className="absolute top-6 right-6 flex flex-col gap-3 z-30">
+        {status === 'loading' ? (
+          <div className="px-5 py-2.5 bg-white/10 backdrop-blur-sm text-white/70 border border-white/20 rounded-lg font-medium">
+            Loading...
+          </div>
+        ) : session ? (
+          <div className="flex flex-col gap-3">
+            {/* Profile Button */}
+            <button
+              onClick={() => router.push('/profile')}
+              className="flex items-center gap-5 text-white/90 text-lg bg-white/10 backdrop-blur-sm px-8 py-6 rounded-xl border border-white/20 hover:bg-white/20 transition-all duration-200 cursor-pointer min-w-[280px]"
+            >
+              <div className="w-16 h-16 bg-gradient-to-br from-purple-400 to-blue-400 rounded-full flex items-center justify-center text-3xl">
+                {(currentUser?.image || session.user?.image) ? (
+                  <img src={currentUser?.image || session.user.image} alt="Avatar" className="w-16 h-16 rounded-full" />
+                ) : (
+                  <span>⚖️</span>
+                )}
+              </div>
+              <div className="text-left flex-1">
+                <div className="font-bold text-xl">{currentUser?.username || session.user?.username || session.user?.name}</div>
+                <div className="text-base text-white/70">
+                  Rating: <span className="text-yellow-300 font-bold text-xl">
+                    {isLoadingUser ? (
+                      <LoadingSkeleton className="h-6 w-16 inline-block" />
+                    ) : (
+                      currentUser?.rating || session.user?.rating || 1000
+                    )}
+                  </span>
+                </div>
+              </div>
+            </button>
+            
+            {/* Sign Out Button */}
+            <button
+              onClick={() => signOut({ callbackUrl: '/' })}
+              className="px-5 py-2.5 bg-red-600/80 backdrop-blur-sm text-white border border-red-500/30 rounded-lg font-medium hover:bg-red-600 transition-all duration-200 cursor-pointer"
+            >
+              Sign Out
+            </button>
+          </div>
+        ) : (
+          <div className="flex gap-4">
+            <button
+              onClick={() => router.push('/auth/signin')}
+              className="px-8 py-4 bg-white/10 backdrop-blur-sm text-white border border-white/20 rounded-xl font-semibold text-lg hover:bg-white/20 transition-all duration-200 cursor-pointer min-w-[120px]"
+            >
+              Login
+            </button>
+            <button
+              onClick={() => router.push('/auth/signup')}
+              className="px-8 py-4 bg-blue-600/80 backdrop-blur-sm text-white border border-blue-500/30 rounded-xl font-semibold text-lg hover:bg-blue-600 transition-all duration-200 cursor-pointer min-w-[120px]"
+            >
+              Register
+            </button>
+          </div>
+        )}
       </div>
 
       {/* Main Container */}
@@ -159,11 +300,12 @@ export default function Home() {
             {/* Name Input */}
             <div className="flex-1">
               <input
-              type="text"
-              value={playerName}
-              onChange={(e) => setPlayerName(e.target.value)}
-              placeholder={isClient ? placeholderName : 'Loading...'}
-              className="w-full px-4 py-3 text-lg border-2 border-gray-200 rounded-xl focus:border-blue-500 focus:outline-none transition-all duration-200 bg-white shadow-sm placeholder-gray-400 text-black"
+                type="text"
+                value={playerName}
+                onChange={(e) => setPlayerName(e.target.value)}
+                placeholder={session ? (session.user?.username || session.user?.name || 'Enter display name') : (isClient ? placeholderName : 'Loading...')}
+                className="w-full px-4 py-3 text-lg border-2 border-gray-200 rounded-xl focus:border-blue-500 focus:outline-none transition-all duration-200 bg-white shadow-sm placeholder-gray-400 text-black"
+                disabled={session ? true : false}
               />
             </div>
           </div>
@@ -193,75 +335,6 @@ export default function Home() {
         </div>
       </div>
 
-      {/* Login Modal */}
-      {showLogin && (
-        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4">
-          <div className="bg-white/95 backdrop-blur-xl rounded-xl p-8 max-w-sm w-full border border-white/30 shadow-2xl">
-            <h2 className="text-2xl font-bold mb-6 text-center text-gray-800">Welcome Back</h2>
-            <div className="space-y-4">
-              <input
-                type="email"
-                placeholder="Email address"
-                className="w-full px-4 py-3 border-2 border-gray-200 rounded-lg focus:border-blue-500 focus:outline-none transition-all duration-200"
-              />
-              <input
-                type="password"
-                placeholder="Password"
-                className="w-full px-4 py-3 border-2 border-gray-200 rounded-lg focus:border-blue-500 focus:outline-none transition-all duration-200"
-              />
-              <button className="w-full py-3 bg-blue-600 text-white rounded-lg font-semibold hover:bg-blue-700 cursor-pointer transition-all duration-200">
-                Sign In
-              </button>
-              <button
-                onClick={() => setShowLogin(false)}
-                className="w-full py-3 bg-gray-100 text-gray-600 rounded-lg font-medium hover:bg-gray-200 cursor-pointer transition-all duration-200"
-              >
-                Cancel
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Register Modal */}
-      {showRegister && (
-        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4">
-          <div className="bg-white/95 backdrop-blur-xl rounded-xl p-8 max-w-sm w-full border border-white/30 shadow-2xl">
-            <h2 className="text-2xl font-bold mb-6 text-center text-gray-800">Join the Arena</h2>
-            <div className="space-y-4">
-              <input
-                type="text"
-                placeholder="Username"
-                className="w-full px-4 py-3 border-2 border-gray-200 rounded-lg focus:border-blue-500 focus:outline-none transition-all duration-200"
-              />
-              <input
-                type="email"
-                placeholder="Email address"
-                className="w-full px-4 py-3 border-2 border-gray-200 rounded-lg focus:border-blue-500 focus:outline-none transition-all duration-200"
-              />
-              <input
-                type="password"
-                placeholder="Create password"
-                className="w-full px-4 py-3 border-2 border-gray-200 rounded-lg focus:border-blue-500 focus:outline-none transition-all duration-200"
-              />
-              <input
-                type="password"
-                placeholder="Confirm password"
-                className="w-full px-4 py-3 border-2 border-gray-200 rounded-lg focus:border-blue-500 focus:outline-none transition-all duration-200"
-              />
-              <button className="w-full py-3 bg-blue-600 text-white rounded-lg font-semibold hover:bg-blue-700 cursor-pointer transition-all duration-200">
-                Create Account
-              </button>
-              <button
-                onClick={() => setShowRegister(false)}
-                className="w-full py-3 bg-gray-100 text-gray-600 rounded-lg font-medium hover:bg-gray-200 cursor-pointer transition-all duration-200"
-              >
-                Cancel
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
     </div>
   );
 }

@@ -21,6 +21,9 @@ const gameRooms = new Map();
 // Store active timers for each room
 const roomTimers = new Map();
 
+// Store auto-start timers for each room (separate from room data to avoid circular references)
+const autoStartTimers = new Map();
+
 // Start argument timer for a room
 function startArgumentTimer(roomId, currentTurn) {
   // Clear any existing timer for this room
@@ -85,6 +88,35 @@ function stopArgumentTimer(roomId) {
     clearInterval(roomTimers.get(roomId));
     roomTimers.delete(roomId);
   }
+}
+
+// Start the next round (called when both players are ready or timeout)
+function startNextRound(roomId) {
+  const room = gameRooms.get(roomId);
+  if (!room) return;
+  
+  // Clear auto-start timer if it exists
+  if (autoStartTimers.has(roomId)) {
+    clearTimeout(autoStartTimers.get(roomId));
+    autoStartTimers.delete(roomId);
+  }
+  
+  // Clear readiness tracking
+  delete room.nextRoundReady;
+  
+  // Start the round
+  room.currentTurn = 'attacker';
+  
+  io.to(roomId).emit('next-round-started', {
+    round: room.currentRound,
+    scores: room.scores,
+    players: room.players
+  });
+  
+  // Start timer for the new round
+  setTimeout(() => {
+    startArgumentTimer(roomId, 'attacker');
+  }, 2000);
 }
 
 // Generate random room ID
@@ -276,7 +308,20 @@ io.on('connection', (socket) => {
           room.players[0].role = shuffledRoles[0];
           room.players[1].role = shuffledRoles[1];
           
-          console.log('Roles assigned:', room.players.map(p => ({ name: p.name, role: p.role })));
+          // Store original roles immediately when first assigned
+          room.players[0].originalRole = shuffledRoles[0];
+          room.players[1].originalRole = shuffledRoles[1];
+          
+          // Initialize display roles to match original roles (Round 1)
+          room.players[0].displayRole = shuffledRoles[0];
+          room.players[1].displayRole = shuffledRoles[1];
+          
+          console.log('Roles assigned:', room.players.map(p => ({ 
+            name: p.name, 
+            role: p.role, 
+            originalRole: p.originalRole,
+            displayRole: p.displayRole 
+          })));
           
           io.to(roomId).emit('game-starting', room);
         } else {
@@ -383,66 +428,357 @@ io.on('connection', (socket) => {
         // Analyze arguments and determine round winner
         const roundResult = analyzeArgumentsAndDetermineWinner(attackerArgs, defenderArgs);
         
-        // Update scores
-        if (roundResult.winner === 'attacker') {
-          room.scores.attacker += 1;
-        } else {
-          room.scores.defender += 1;
+        // Initialize player-based scores if needed
+        if (!room.playerScores) {
+          room.playerScores = {};
         }
         
-        console.log(`Round ${room.currentRound} complete. Winner: ${roundResult.winner}. Scores: ${room.scores.attacker}-${room.scores.defender}`);
+        // Update player-based scores (tracks wins by actual player, not role)
+        // Find the player who was playing the winning role this round
+        const winningPlayer = room.players.find(p => p.role === roundResult.winner);
+        if (winningPlayer) {
+          if (!room.playerScores[winningPlayer.id]) {
+            room.playerScores[winningPlayer.id] = 0;
+          }
+          room.playerScores[winningPlayer.id] += 1;
+          console.log(`SERVER: Player ${winningPlayer.name} (${winningPlayer.id}) wins round ${room.currentRound} as ${roundResult.winner}. Player now has ${room.playerScores[winningPlayer.id]} wins.`);
+        }
         
-        // Broadcast round results
+        // Update role-based scores for UI compatibility (based on original roles, not current roles)
+        const originalAttackerPlayer = room.players.find(p => p.originalRole === 'attacker');
+        const originalDefenderPlayer = room.players.find(p => p.originalRole === 'defender');
+        
+        room.scores.attacker = originalAttackerPlayer ? (room.playerScores[originalAttackerPlayer.id] || 0) : 0;
+        room.scores.defender = originalDefenderPlayer ? (room.playerScores[originalDefenderPlayer.id] || 0) : 0;
+        
+        console.log(`Round ${room.currentRound} complete. Winner: ${roundResult.winner}. Role-based scores: ${room.scores.attacker}-${room.scores.defender}. Player scores:`, 
+          Object.entries(room.playerScores).map(([id, score]) => {
+            const player = room.players.find(p => p.id === id);
+            return `${player ? player.name : id}: ${score}`;
+          }).join(', ')
+        );
+        
+        // Store individual player performance for side choice decisions - INITIALIZE FIRST
+        if (!room.playerPerformance) {
+          room.playerPerformance = {};
+        }
+        
+        // Track individual player performance scores
+        const attackerPlayer = room.players.find(p => p.role === 'attacker');
+        const defenderPlayer = room.players.find(p => p.role === 'defender');
+        
+        if (attackerPlayer) {
+          if (!room.playerPerformance[attackerPlayer.id]) {
+            room.playerPerformance[attackerPlayer.id] = { totalScore: 0, rounds: 0 };
+          }
+          room.playerPerformance[attackerPlayer.id].totalScore += roundResult.attackerScore;
+          room.playerPerformance[attackerPlayer.id].rounds += 1;
+        }
+        
+        if (defenderPlayer) {
+          if (!room.playerPerformance[defenderPlayer.id]) {
+            room.playerPerformance[defenderPlayer.id] = { totalScore: 0, rounds: 0 };
+          }
+          room.playerPerformance[defenderPlayer.id].totalScore += roundResult.defenderScore;
+          room.playerPerformance[defenderPlayer.id].rounds += 1;
+        }
+
+        // Detailed player information logging - NOW SAFE TO ACCESS playerPerformance
+        console.log('\n=== ROUND END PLAYER DETAILS ===');
+        console.log(`Room ID: ${roomId} | Round: ${room.currentRound}`);
+        
+        room.players.forEach(player => {
+          const playerRoundWins = room.playerScores[player.id] || 0;
+          const playerPerformance = room.playerPerformance[player.id];
+          const averageScore = playerPerformance ? (playerPerformance.totalScore / playerPerformance.rounds).toFixed(1) : '0.0';
+          const currentRoundScore = player.role === 'attacker' ? roundResult.attackerScore : roundResult.defenderScore;
+          
+          console.log(`Player: ${player.name}`);
+          console.log(`  - Socket ID: ${player.id}`);
+          console.log(`  - Current Role: ${player.role}`);
+          console.log(`  - Original Role: ${player.originalRole || player.role}`);
+          console.log(`  - Display Role: ${player.displayRole || player.role}`);
+          console.log(`  - Round Wins: ${playerRoundWins}`);
+          console.log(`  - Current Round Score: ${currentRoundScore.toFixed(1)} points`);
+          console.log(`  - Average Score: ${averageScore} points`);
+          console.log(`  - Total Points Earned: ${playerPerformance ? playerPerformance.totalScore.toFixed(1) : '0.0'}`);
+          console.log(`  - Rounds Played: ${playerPerformance ? playerPerformance.rounds : 0}`);
+          console.log(`  - Is Round Winner: ${player.role === roundResult.winner ? 'YES' : 'NO'}`);
+          console.log('');
+        });
+        
+        console.log(`Round Analysis: ${roundResult.analysis}`);
+        console.log('=== END ROUND DETAILS ===\n');
+
+        // Broadcast round results with enhanced data
         io.to(roomId).emit('round-complete', {
           round: room.currentRound,
           winner: roundResult.winner,
-          scores: room.scores,
+          scores: room.scores, // Role-based scores for UI compatibility
+          playerScores: room.playerScores, // Player-based scores for accuracy
+          playerPerformance: room.playerPerformance, // Individual performance data
           analysis: roundResult.analysis,
           attackerScore: roundResult.attackerScore,
           defenderScore: roundResult.defenderScore
         });
         
-        // Check if game should end
+        // Check if game should end - use player-based scoring
+        const playerWins = Object.values(room.playerScores || {});
+        const maxPlayerWins = Math.max(...(playerWins.length > 0 ? playerWins : [0]));
+        
         const shouldEndGame = 
-          room.scores.attacker >= 2 || 
-          room.scores.defender >= 2 || 
+          maxPlayerWins >= 2 || 
           room.currentRound >= room.maxRounds;
         
+        console.log(`SERVER: Checking game end conditions. Max player wins: ${maxPlayerWins}, Current round: ${room.currentRound}, Should end: ${shouldEndGame}`);
+        
         if (shouldEndGame) {
-          // Determine overall winner
-          let gameWinner;
-          if (room.scores.attacker > room.scores.defender) {
-            gameWinner = 'attacker';
-          } else if (room.scores.defender > room.scores.attacker) {
-            gameWinner = 'defender';
+          // Determine overall winner based on player scores
+          let gameWinner = null;
+          let winningPlayerId = null;
+          let maxWins = 0;
+          
+          for (const [playerId, wins] of Object.entries(room.playerScores || {})) {
+            if (wins > maxWins) {
+              maxWins = wins;
+              winningPlayerId = playerId;
+            }
+          }
+          
+          if (winningPlayerId && maxWins > 0) {
+            const winningPlayer = room.players.find(p => p.id === winningPlayerId);
+            const winningPlayerOriginalRole = winningPlayer?.originalRole;
+            gameWinner = winningPlayerOriginalRole; // Send 'attacker' or 'defender' for UI compatibility
+            console.log(`SERVER: Game winner determined: ${winningPlayer?.name} (original role: ${gameWinner}) with ${maxWins} wins`);
           } else {
             gameWinner = 'tie';
+            console.log(`SERVER: Game ends in tie`);
           }
           
           setTimeout(() => {
             io.to(roomId).emit('game-end', { 
               winner: gameWinner,
-              finalScores: room.scores,
-              message: gameWinner === 'tie' ? 'The battle ends in a tie!' : `${gameWinner.charAt(0).toUpperCase() + gameWinner.slice(1)} wins the battle!`
+              finalScores: room.scores, // Keep role-based scores for UI compatibility
+              playerScores: room.playerScores, // Add player-based scores
+              message: gameWinner === 'tie' ? 'The battle ends in a tie!' : `${gameWinner} wins the battle!`
             });
           }, 3000);
         } else {
-          // Start next round
+          // Start next round with role switching logic - DELAY role switching
           room.currentRound += 1;
-          room.currentTurn = 'attacker'; // Reset to attacker for new round
-          setTimeout(() => {
-            io.to(roomId).emit('next-round', {
-              round: room.currentRound,
-              scores: room.scores
+          
+          // Initialize next round readiness tracking
+          room.nextRoundReady = {};
+          room.players.forEach(player => {
+            room.nextRoundReady[player.id] = false;
+          });
+          
+          // Start 1-minute auto-start timer
+          const autoStartTimer = setTimeout(() => {
+            const currentRoom = gameRooms.get(roomId);
+            if (currentRoom && currentRoom.nextRoundReady) {
+              console.log(`Auto-starting round ${currentRoom.currentRound} after 1 minute timeout`);
+              startNextRound(roomId);
+            }
+          }, 60000); // 1 minute
+          
+          // Store timer separately to avoid circular references in Socket.IO
+          autoStartTimers.set(roomId, autoStartTimer);
+          
+          // Determine if roles should switch or if side choice is needed
+          if (room.currentRound === 2) {
+            // Round 2: Switch roles for actual gameplay - IMMEDIATE
+            console.log('Round 2: Switching roles for new round');
+            
+            // Switch roles immediately after round complete
+            room.players.forEach(player => {
+              // Ensure originalRole is preserved
+              if (!player.originalRole) {
+                player.originalRole = player.role; // Store original role if somehow missing
+              }
+              // Switch both display role and current role (opposite of original role)
+              player.displayRole = player.originalRole === 'attacker' ? 'defender' : 'attacker';
+              player.role = player.originalRole === 'attacker' ? 'defender' : 'attacker';
+              console.log(`Player ${player.name}: originalRole=${player.originalRole}, displayRole=${player.displayRole}, role=${player.role}`);
             });
             
-            // Start timer for the new round
-            startArgumentTimer(roomId, 'attacker');
-          }, 3000);
+            // Send updated player data to clients immediately
+            io.to(roomId).emit('players-updated', {
+              round: room.currentRound,
+              scores: room.scores,
+              players: room.players,
+              message: 'Roles have been switched for Round 2!'
+            });
+            
+          } else if (room.currentRound === 3) {
+            // Round 3: Check if it's a tie using player-based scores
+            const playerScores = Object.values(room.playerScores || {});
+            const isTie = playerScores.length === 2 && playerScores.every(score => score === 1);
+            
+            console.log(`SERVER: Round 3 logic. Player scores:`, room.playerScores, `Is tie: ${isTie}`);
+            
+            if (isTie) {
+              // It's a draw, let the better performer choose side
+              console.log('Round 3: Draw detected, allowing side choice');
+              
+              // Find the player with better average performance
+              let bestPlayerId = null;
+              let bestAverage = -1;
+              
+              for (const [playerId, performance] of Object.entries(room.playerPerformance)) {
+                const average = performance.totalScore / performance.rounds;
+                if (average > bestAverage) {
+                  bestAverage = average;
+                  bestPlayerId = playerId;
+                }
+              }
+              
+              if (bestPlayerId) {
+                const chooserPlayer = room.players.find(p => p.id === bestPlayerId);
+                console.log(`Player ${chooserPlayer.name} gets to choose side for round 3`);
+                
+                // Set room state to waiting for side choice
+                room.waitingForSideChoice = {
+                  playerId: bestPlayerId,
+                  playerName: chooserPlayer.name
+                };
+                
+                setTimeout(() => {
+                  io.to(roomId).emit('side-choice-needed', {
+                    round: room.currentRound,
+                    scores: room.scores,
+                    chooserPlayerId: bestPlayerId,
+                    chooserPlayerName: chooserPlayer.name,
+                    playerPerformance: room.playerPerformance
+                  });
+                }, 3000);
+              }
+            } else {
+              // Round 3: Not a draw, continue with switched roles from Round 2 - DELAYED
+              setTimeout(() => {
+                room.players.forEach(player => {
+                  // Ensure originalRole is preserved
+                  if (!player.originalRole) {
+                    player.originalRole = player.role;
+                  }
+                  // Keep the role and display role from Round 2 (switched from original)
+                  if (!player.displayRole) {
+                    player.displayRole = player.originalRole === 'attacker' ? 'defender' : 'attacker';
+                    player.role = player.originalRole === 'attacker' ? 'defender' : 'attacker';
+                  }
+                  console.log(`Round 3 (no draw) - Player ${player.name}: originalRole=${player.originalRole}, displayRole=${player.displayRole}, role=${player.role}`);
+                });
+                
+                // Notify players to get ready for final round
+                io.to(roomId).emit('next-round-ready-check', {
+                  round: room.currentRound,
+                  scores: room.scores,
+                  players: room.players,
+                  message: 'Final round! Keep your current roles.',
+                  autoStartIn: 60 // seconds
+                });
+                
+              }, 3000); // 3 second delay to allow round complete modal to be processed
+            }
+          }
         }
       } else {
         // Round not complete yet, start timer for next player's turn
         startArgumentTimer(roomId, room.currentTurn);
+      }
+    }
+  });
+
+  // Handle side choice for round 3 when it's a draw
+  socket.on('choose-side', (data) => {
+    const { roomId, chosenSide } = data; // chosenSide: 'attacker' or 'defender'
+    console.log('Side choice received for room:', roomId, 'side:', chosenSide, 'from socket:', socket.id);
+    
+    const room = gameRooms.get(roomId);
+    if (room && room.waitingForSideChoice && room.waitingForSideChoice.playerId === socket.id) {
+      const chooserPlayer = room.players.find(p => p.id === socket.id);
+      const otherPlayer = room.players.find(p => p.id !== socket.id);
+      
+      if (chooserPlayer && otherPlayer) {
+        // Ensure original roles are preserved
+        if (!chooserPlayer.originalRole) {
+          chooserPlayer.originalRole = chooserPlayer.role;
+        }
+        if (!otherPlayer.originalRole) {
+          otherPlayer.originalRole = otherPlayer.role;
+        }
+        
+        // Assign display roles based on choice (keep original roles unchanged)
+        chooserPlayer.displayRole = chosenSide;
+        otherPlayer.displayRole = chosenSide === 'attacker' ? 'defender' : 'attacker';
+        
+        // Also update the current role to match the chosen display role
+        chooserPlayer.role = chosenSide;
+        otherPlayer.role = chosenSide === 'attacker' ? 'defender' : 'attacker';
+        
+        console.log(`Side choice complete:`);
+        console.log(`${chooserPlayer.name}: originalRole=${chooserPlayer.originalRole}, displayRole=${chooserPlayer.displayRole}, role=${chooserPlayer.role}`);
+        console.log(`${otherPlayer.name}: originalRole=${otherPlayer.originalRole}, displayRole=${otherPlayer.displayRole}, role=${otherPlayer.role}`);
+        
+        // Clear the waiting state
+        delete room.waitingForSideChoice;
+        
+        // Start the round
+        room.currentTurn = 'attacker';
+        
+        io.to(roomId).emit('side-choice-complete', {
+          round: room.currentRound,
+          scores: room.scores,
+          players: room.players,
+          chooserName: chooserPlayer.name,
+          chosenSide: chosenSide
+        });
+        
+        // Start timer for the new round after a brief delay
+        setTimeout(() => {
+          startArgumentTimer(roomId, 'attacker');
+        }, 2000);
+      }
+    }
+  });
+
+  // Handle next round readiness
+  socket.on('next-round-ready', (data) => {
+    const { roomId, ready } = data;
+    console.log('Next round readiness received for room:', roomId, 'ready:', ready, 'from socket:', socket.id);
+    
+    const room = gameRooms.get(roomId);
+    if (room && room.nextRoundReady) {
+      const player = room.players.find(p => p.id === socket.id);
+      if (player) {
+        room.nextRoundReady[socket.id] = ready;
+        
+        console.log(`Player ${player.name} readiness for round ${room.currentRound}: ${ready}`);
+        
+        // Notify all players of readiness update
+        io.to(roomId).emit('next-round-ready-update', {
+          playerId: socket.id,
+          playerName: player.name,
+          ready: ready,
+          readyPlayers: Object.values(room.nextRoundReady).filter(r => r).length,
+          totalPlayers: room.players.length
+        });
+        
+        // Check if both players are ready
+        const allReady = Object.values(room.nextRoundReady).every(r => r);
+        if (allReady) {
+          console.log(`Both players ready for round ${room.currentRound}! Starting round.`);
+          
+          // Clear the auto-start timer since we're starting manually
+          if (autoStartTimers.has(roomId)) {
+            clearTimeout(autoStartTimers.get(roomId));
+            autoStartTimers.delete(roomId);
+          }
+          
+          setTimeout(() => {
+            startNextRound(roomId);
+          }, 1000); // Brief delay to show "both ready" state
+        }
       }
     }
   });
@@ -529,9 +865,16 @@ io.on('connection', (socket) => {
         room.players.splice(playerIndex, 1);
         
         if (room.players.length === 0) {
-          // Delete empty room and clean up timer
+          // Delete empty room and clean up all timers
           gameRooms.delete(roomId);
           stopArgumentTimer(roomId);
+          
+          // Clean up auto-start timer
+          if (autoStartTimers.has(roomId)) {
+            clearTimeout(autoStartTimers.get(roomId));
+            autoStartTimers.delete(roomId);
+          }
+          
           console.log(`Room ${roomId} deleted - empty`);
         } else {
           // Notify remaining players
