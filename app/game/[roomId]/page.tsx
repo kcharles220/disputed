@@ -4,6 +4,10 @@ import { useState, useEffect, useRef } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import { useSession } from 'next-auth/react';
 import { socketService, GameRoom, Player } from '../../services/socketService';
+import CaseReadingModal from './components/CaseReadingModal';
+import RoundCompleteModal from './components/RoundCompleteModal';
+import SideChoiceModal from './components/SideChoiceModal';
+import GameCompleteModal from './components/GameCompleteModal';
 
 interface GameArgument {
     id: string;
@@ -107,16 +111,45 @@ export default function GameBattle() {
     const [caseReadingTimeLeft, setCaseReadingTimeLeft] = useState(120); // 2 minutes to read case
     const [canInterrupt, setCanInterrupt] = useState(false);
     
-    // Next round readiness states
+    // Next round readiness states - simplified
     const [isNextRoundReady, setIsNextRoundReady] = useState(false);
     const [otherPlayerNextRoundReady, setOtherPlayerNextRoundReady] = useState(false);
     const [nextRoundAutoStartTime, setNextRoundAutoStartTime] = useState(60);
     const [showNextRoundReadyCheck, setShowNextRoundReadyCheck] = useState(false);
     const [nextRoundMessage, setNextRoundMessage] = useState('');
 
+    // Game completion states
+    const [gameHasEnded, setGameHasEnded] = useState(false);
+    const [showGameCompleteModal, setShowGameCompleteModal] = useState(false);
+    const [showFullBattleLog, setShowFullBattleLog] = useState(false);
+
     // Refs to capture current values in event handlers
     const currentPlayerRef = useRef<Player | null>(null);
     const currentArgumentRef = useRef<string>('');
+    const gameHasEndedRef = useRef<boolean>(false);
+
+    // Track page visibility to handle timer sync when tab becomes active again
+    const [isPageVisible, setIsPageVisible] = useState(true);
+
+    // Handle page visibility changes for timer synchronization
+    useEffect(() => {
+        const handleVisibilityChange = () => {
+            const visible = !document.hidden;
+            setIsPageVisible(visible);
+            
+            if (visible && roomId) {
+                console.log('Tab became visible, requesting timer sync from server');
+                // Request fresh timer state from server when tab becomes visible
+                socketService.getSocket()?.emit('request-timer-sync', { roomId });
+            }
+        };
+
+        document.addEventListener('visibilitychange', handleVisibilityChange);
+        
+        return () => {
+            document.removeEventListener('visibilitychange', handleVisibilityChange);
+        };
+    }, [roomId]);
 
     // Function to update user stats when game ends
     const updateUserStats = async (gameResult: any) => {
@@ -245,6 +278,14 @@ export default function GameBattle() {
     }, [currentArgument]);
 
     useEffect(() => {
+        gameHasEndedRef.current = gameHasEnded;
+    }, [gameHasEnded]);
+
+    useEffect(() => {
+        gameHasEndedRef.current = gameHasEnded;
+    }, [gameHasEnded]);
+
+    useEffect(() => {
         console.log('Game page useEffect - roomId:', roomId);
         if (!roomId || roomId === 'undefined') {
             console.log('No valid roomId, redirecting to home');
@@ -361,16 +402,37 @@ export default function GameBattle() {
                     // Check if game will continue to determine if we should show ready check
                     const playerWins = Object.values(result.playerScores || {}) as number[];
                     const maxPlayerWins = Math.max(...(playerWins.length > 0 ? playerWins : [0]));
-                    const gameWillContinue = maxPlayerWins < 2 && result.round < 3; // Assuming max 3 rounds
+                    const gameWillContinue = maxPlayerWins < 2 && result.round < 3; // Use maxRounds directly since gameState isn't updated yet
+                    
+                    console.log('Round complete - checking if game continues:', {
+                        round: result.round,
+                        maxRounds: 3,
+                        playerWins,
+                        maxPlayerWins,
+                        gameWillContinue
+                    });
+                    
+                    // Check for 1-1 tie scenario going to round 3 (side choice needed)
+                    const playerWinCounts = Object.values(result.playerScores || {}) as number[];
+                    const is1v1Tie = result.round === 2 && playerWinCounts.length === 2 && 
+                                     playerWinCounts.every(wins => wins === 1);
                     
                     if (gameWillContinue) {
-                        // Enable ready check in the round complete modal after a short delay
+                        // Enable ready check for all scenarios where game continues
+                        // This includes 1-1 ties that will need side choice
                         setTimeout(() => {
                             setShowNextRoundReadyCheck(true);
                             setNextRoundAutoStartTime(60);
                             setIsNextRoundReady(false);
                             setOtherPlayerNextRoundReady(false);
+                            if (is1v1Tie) {
+                                console.log('Ready check enabled for 1-1 tie scenario - side choice after both ready');
+                            } else {
+                                console.log('Ready check enabled for next round');
+                            }
                         }, 2000); // 2 second delay to let users read the analysis first
+                    } else {
+                        console.log('Game will not continue - no ready check needed');
                     }
                 });
 
@@ -437,6 +499,12 @@ export default function GameBattle() {
                         roundResult: undefined
                     }));
                     
+                    // Reset ready states for new round
+                    setIsNextRoundReady(false);
+                    setOtherPlayerNextRoundReady(false);
+                    setShowNextRoundReadyCheck(false);
+                    setNextRoundAutoStartTime(60);
+                    
                     // Reset turn to attacker for new round (will be updated based on current player's role)
                     // Note: We'll let the turn checking useEffect handle this properly
                 });
@@ -444,9 +512,13 @@ export default function GameBattle() {
                 // Listen for side choice needed (round 3 draw)
                 socketService.getSocket()?.on('side-choice-needed', (data) => {
                     console.log('Side choice needed:', data);
+                    console.log('Current ready states - isNextRoundReady:', isNextRoundReady, 'otherPlayerNextRoundReady:', otherPlayerNextRoundReady);
+                    
+                    // Store the side choice data but don't change game phase yet
+                    // The modal will only appear when both players are ready
+                    console.log('Storing side choice data, waiting for both players to be ready');
                     setGameState(prev => ({
                         ...prev,
-                        gamePhase: 'side-choice',
                         currentRound: data.round,
                         scores: data.scores,
                         sideChoice: {
@@ -455,6 +527,8 @@ export default function GameBattle() {
                             playerPerformance: data.playerPerformance
                         }
                     }));
+                    
+                    // Don't transition to side choice here - let the useEffect handle it when both are ready
                 });
 
                 // Listen for side choice completion
@@ -501,27 +575,51 @@ export default function GameBattle() {
                         }
                     }
                     
-                    // Update game state for the new round
+                    // Update game state for the new round but keep the round-complete phase
+                    // This ensures the modal continues to show with the ready check
                     setGameState(prev => ({
                         ...prev,
                         currentRound: data.round,
                         scores: data.scores,
                         gamePhase: 'round-complete' // Keep in round-complete so modal shows with ready check
                     }));
+                    
+                    // Enable ready check if not already enabled
+                    setTimeout(() => {
+                        setShowNextRoundReadyCheck(true);
+                        setNextRoundAutoStartTime(60);
+                        setIsNextRoundReady(false);
+                        setOtherPlayerNextRoundReady(false);
+                        console.log('Ready check enabled after players-updated');
+                    }, 1000);
                 });
 
-                // Listen for next round ready updates
+                // Listen for next round ready updates - simplified
                 socketService.getSocket()?.on('next-round-ready-update', (data) => {
                     console.log('Next round ready update:', data);
+                    
+                    // Update other player's readiness if this update is not for current player
                     if (data.playerId !== socketService.getSocket()?.id) {
-                        setOtherPlayerNextRoundReady(data.ready);
+                        setOtherPlayerNextRoundReady(data.readyCount > 1);
+                    }
+                    
+                    // If all players are ready, both will be ready soon
+                    if (data.allReady) {
+                        console.log('All players are ready, round will start soon');
                     }
                 });
 
                 // Listen for next round started
                 socketService.getSocket()?.on('next-round-started', (data) => {
                     console.log('Next round started:', data);
+                    
+                    // Reset all readiness states for the new round
                     setShowNextRoundReadyCheck(false);
+                    setIsNextRoundReady(false);
+                    setOtherPlayerNextRoundReady(false);
+                    setNextRoundAutoStartTime(60);
+                    setNextRoundMessage(''); // Clear any role switch message when new round starts
+                    
                     setGameState(prev => ({
                         ...prev,
                         currentRound: data.round,
@@ -535,10 +633,18 @@ export default function GameBattle() {
 
                 socketService.onGameEnd((result) => {
                     console.log('Game ended:', result);
+                    
+                    // Stop all game activities but keep the modal visible
+                    setGameHasEnded(true);
+                    setShowNextRoundReadyCheck(false);
+                    setIsNextRoundReady(false);
+                    setOtherPlayerNextRoundReady(false);
+                    
                     setGameState(prev => ({
                         ...prev,
-                        gamePhase: 'finished',
                         winner: result.winner
+                        // Keep gamePhase as 'round-complete' so modal stays visible
+                        // GameCompleteModal will only show when user clicks "View Final Results"
                     }));
 
                     // Update user stats if authenticated
@@ -560,6 +666,8 @@ export default function GameBattle() {
 
                 // Listen for server-side timer updates
                 socketService.getSocket()?.on('timer-update', (data) => {
+                    if (gameHasEndedRef.current) return; // Ignore timer updates after game ends
+                    
                     console.log('Timer update:', data);
                     setTimeLeft(data.timeLeft);
                     setTimerPhase(data.phase || 1);
@@ -569,8 +677,34 @@ export default function GameBattle() {
                     }));
                 });
 
+                // Listen for server-side case reading timer updates
+                socketService.getSocket()?.on('case-reading-timer-update', (data) => {
+                    if (gameHasEndedRef.current) return;
+                    
+                    console.log('Case reading timer update:', data);
+                    setCaseReadingTimeLeft(data.timeLeft);
+                    
+                    // Auto-start game when server timer reaches 0
+                    if (data.timeLeft === 0 && showCaseModal && !gameHasEnded) {
+                        console.log('Server case reading timer expired, starting game');
+                        startGame();
+                    }
+                });
+
+                // Listen for server-side next round timer updates
+                socketService.getSocket()?.on('next-round-timer-update', (data) => {
+                    if (gameHasEndedRef.current) return;
+                    
+                    console.log('Next round timer update:', data);
+                    setNextRoundAutoStartTime(data.timeLeft);
+                    
+                    // Server will handle auto-start when timer reaches 0
+                });
+
                 // Listen for time up events (only Phase 2 - final auto-submission)
                 socketService.getSocket()?.on('time-up', (data) => {
+                    if (gameHasEndedRef.current) return; // Ignore time-up events after game ends
+                    
                     console.log('Time up (Phase 2):', data);
                     
                     // Only auto-submit if it's phase 2 and my turn
@@ -595,6 +729,8 @@ export default function GameBattle() {
 
                 // Listen for interrupt availability (Phase 2 only)
                 socketService.getSocket()?.on('interrupt-available', (data) => {
+                    if (gameHasEndedRef.current) return; // Ignore interrupt events after game ends
+                    
                     console.log('Interrupt now available (Phase 2):', data);
                     // Only allow interrupt in phase 2 and if it's not my turn
                     if (data.phase === 2) {
@@ -605,6 +741,8 @@ export default function GameBattle() {
 
                 // Listen for player interruptions
                 socketService.getSocket()?.on('player-interrupted', (data) => {
+                    if (gameHasEndedRef.current) return; // Ignore interrupt events after game ends
+                    
                     console.log('Player interrupted:', data);
                     setCanInterrupt(false);
                     
@@ -649,17 +787,20 @@ export default function GameBattle() {
         };
     }, [roomId, router, gameState.currentTurn]);
 
-    // Case reading timer countdown
+    // Case reading timer countdown - DISABLED: Timer now handled server-side for synchronization
+    // Client timers cause desync when browser tabs are backgrounded
+    // The server will send case-reading-timer-update events to keep all clients synchronized
     useEffect(() => {
-        if (showCaseModal && gameState.gamePhase === 'case-reading' && caseReadingTimeLeft > 0) {
-            const timer = setTimeout(() => {
-                setCaseReadingTimeLeft(prev => prev - 1);
-            }, 1000);
-            return () => clearTimeout(timer);
-        } else if (caseReadingTimeLeft === 0 && showCaseModal) {
-            // Auto-start game when timer runs out
-            startGame();
-        }
+        // Remove client-side timer - server handles this now
+        // if (showCaseModal && gameState.gamePhase === 'case-reading' && caseReadingTimeLeft > 0) {
+        //     const timer = setTimeout(() => {
+        //         setCaseReadingTimeLeft(prev => prev - 1);
+        //     }, 1000);
+        //     return () => clearTimeout(timer);
+        // } else if (caseReadingTimeLeft === 0 && showCaseModal && !gameHasEnded) {
+        //     // Auto-start game when timer runs out
+        //     startGame();
+        // }
     }, [showCaseModal, gameState.gamePhase, caseReadingTimeLeft]);
 
     // Handle turn changes
@@ -683,18 +824,60 @@ export default function GameBattle() {
         }
     }, [gameState.currentTurn, currentPlayer, gameState.gamePhase, isMyTurn]);
 
-    // Next round auto-start countdown
+    // Handle transition to side choice when ready states change
     useEffect(() => {
-        if (showNextRoundReadyCheck && nextRoundAutoStartTime > 0) {
-            const timer = setTimeout(() => {
-                setNextRoundAutoStartTime(prev => prev - 1);
-            }, 1000);
-            return () => clearTimeout(timer);
+        console.log('Ready state change detected:', {
+            gamePhase: gameState.gamePhase,
+            hasSideChoice: !!gameState.sideChoice,
+            isNextRoundReady,
+            otherPlayerNextRoundReady,
+            bothReady: isNextRoundReady && otherPlayerNextRoundReady
+        });
+        
+        // If we have side choice data stored but are still in round-complete phase,
+        // and both players are now ready, transition to side choice phase
+        if (gameState.gamePhase === 'round-complete' && 
+            gameState.sideChoice && 
+            isNextRoundReady && 
+            otherPlayerNextRoundReady) {
+            console.log('🎯 TRANSITION TRIGGERED: Both players now ready for 1-1 tie, transitioning to side choice phase');
+            
+            // Stop the auto-start timer when entering side choice phase
+            setShowNextRoundReadyCheck(false);
+            setNextRoundAutoStartTime(0);
+            
+            // Clear ready states to prevent server auto-start during side choice
+            setIsNextRoundReady(false);
+            setOtherPlayerNextRoundReady(false);
+            
+            setGameState(prev => ({
+                ...prev,
+                gamePhase: 'side-choice'
+            }));
+            
+            console.log('✅ Successfully transitioned to side choice phase');
         }
-    }, [showNextRoundReadyCheck, nextRoundAutoStartTime]);
+    }, [isNextRoundReady, otherPlayerNextRoundReady, gameState.gamePhase, gameState.sideChoice]);
+
+    // Next round auto-start countdown - DISABLED: Client timers cause desync
+    // Server will handle auto-start timing and send synchronized updates
+    useEffect(() => {
+        // Don't run auto-start timer during side choice phase
+        // DISABLED: Client-side countdown causes desynchronization when tabs are backgrounded
+        // Server will send next-round-timer-update events to keep all clients synchronized
+        // if (showNextRoundReadyCheck && 
+        //     nextRoundAutoStartTime > 0 && 
+        //     !gameHasEnded && 
+        //     gameState.gamePhase !== 'side-choice') {
+        //     const timer = setTimeout(() => {
+        //         setNextRoundAutoStartTime(prev => prev - 1);
+        //     }, 1000);
+        //     return () => clearTimeout(timer);
+        // }
+    }, [showNextRoundReadyCheck, nextRoundAutoStartTime, gameHasEnded, gameState.gamePhase]);
 
     const handleSubmitArgument = () => {
-        if (!currentArgument.trim() || !currentPlayer) return;
+        if (!currentArgument.trim() || !currentPlayer || gameHasEnded) return;
 
         console.log('Submitting argument:', currentArgument.trim());
 
@@ -718,10 +901,18 @@ export default function GameBattle() {
 
     const handleSideChoice = (chosenSide: 'attacker' | 'defender') => {
         console.log('Player chose side:', chosenSide);
+        console.log('Current game state before side choice:', {
+            gamePhase: gameState.gamePhase,
+            currentRound: gameState.currentRound,
+            hasSideChoice: !!gameState.sideChoice
+        });
+        
         socketService.getSocket()?.emit('choose-side', {
             roomId: roomId,
             chosenSide: chosenSide
         });
+        
+        console.log('Side choice sent to server');
     };
 
     const handleInterrupt = () => {
@@ -734,13 +925,28 @@ export default function GameBattle() {
         console.log('Interrupt signal sent to server');
     };
 
-    const handleNextRoundReady = (ready: boolean) => {
-        console.log('Setting next round ready state:', ready);
-        setIsNextRoundReady(ready);
+    // Simplified next round ready handler
+    const handleNextRoundReady = () => {
+        if (gameHasEnded || isNextRoundReady) return;
+        
+        console.log('Player clicked ready for next round');
+        setIsNextRoundReady(true);
+        
+        // Send ready signal to server (no ready/unready toggle, just ready once)
         socketService.getSocket()?.emit('next-round-ready', {
-            roomId,
-            ready
+            roomId
         });
+    };
+
+    const handleProceedToGameComplete = (winner: 'attacker' | 'defender') => {
+        console.log('Proceeding to game complete with winner:', winner);
+        setGameHasEnded(true);
+        setGameState(prev => ({
+            ...prev,
+            gamePhase: 'finished',
+            winner: winner
+        }));
+        setShowGameCompleteModal(true);
     };
 
     const startGame = () => {
@@ -768,8 +974,6 @@ export default function GameBattle() {
         return `${mins}:${secs.toString().padStart(2, '0')}`;
     };
 
-    const [showFullBattleLog, setShowFullBattleLog] = useState(false);
-
     const formatScore = (score: number) => {
         return score % 1 === 0 ? score.toString() : score.toFixed(1);
     };
@@ -788,28 +992,28 @@ export default function GameBattle() {
     };
 
     const getAttackerScore = () => {
-        const attackerPlayer = room?.players.find(p => p.role === 'attacker');
+        const attackerPlayer = room?.players.find(p => (p.originalRole || p.role) === 'attacker');
         const score = attackerPlayer ? getPlayerScore(attackerPlayer.id) : 0;
         console.log('CLIENT: Attacker score:', score, 'for player:', attackerPlayer?.name);
         return score;
     };
 
     const getDefenderScore = () => {
-        const defenderPlayer = room?.players.find(p => p.role === 'defender');
+        const defenderPlayer = room?.players.find(p => (p.originalRole || p.role) === 'defender');
         const score = defenderPlayer ? getPlayerScore(defenderPlayer.id) : 0;
         console.log('CLIENT: Defender score:', score, 'for player:', defenderPlayer?.name);
         return score;
     };
 
     const getAttackerRoundWins = () => {
-        const attackerPlayer = room?.players.find(p => p.role === 'attacker');
+        const attackerPlayer = room?.players.find(p => (p.originalRole || p.role) === 'attacker');
         const wins = attackerPlayer ? getPlayerRoundWins(attackerPlayer.id) : 0;
         console.log('Attacker round wins:', wins, 'for player:', attackerPlayer?.name);
         return wins;
     };
 
     const getDefenderRoundWins = () => {
-        const defenderPlayer = room?.players.find(p => p.role === 'defender');
+        const defenderPlayer = room?.players.find(p => (p.originalRole || p.role) === 'defender');
         const wins = defenderPlayer ? getPlayerRoundWins(defenderPlayer.id) : 0;
         console.log('Defender round wins:', wins, 'for player:', defenderPlayer?.name);
         return wins;
@@ -846,462 +1050,70 @@ export default function GameBattle() {
 
     return (
         <div className="min-h-screen bg-gradient-to-br from-gray-900 via-gray-800 to-black text-white">
-
             {/* Case Modal */}
-            {showCaseModal && (
-                <div 
-                    className="fixed inset-0 bg-black/80 backdrop-blur-sm flex items-center justify-center z-50 p-4"
-                    onClick={(e) => {
-                        if (e.target === e.currentTarget) {
-                            setShowCaseModal(false);
-                        }
-                    }}
-                >
-                    <div className="bg-gradient-to-br from-gray-800 to-gray-900 rounded-2xl shadow-2xl max-w-4xl w-full border border-gray-600 max-h-[90vh] overflow-y-auto relative">
-                        <button
-                            onClick={() => setShowCaseModal(false)}
-                            className="absolute top-4 right-4 w-8 h-8 bg-gray-700 hover:bg-gray-600 rounded-full flex items-center justify-center text-gray-300 hover:text-white transition-all duration-200 z-10"
-                        >
-                            ✕
-                        </button>
-                        <div className="p-8">
-                            <div className="text-center mb-6">
-                                <h1 className="text-4xl font-bold bg-gradient-to-r from-yellow-400 to-orange-500 bg-clip-text text-transparent mb-2">
-                                    ⚖️ LEGAL BATTLE ⚖️
-                                </h1>
-                                <p className="text-gray-300">Study the case carefully. The battle begins shortly!</p>
-                            </div>
-
-                            <div className="bg-gray-700/50 rounded-xl p-6 mb-6">
-                                <h2 className="text-2xl font-bold text-yellow-400 mb-4">📋 {gameState.case.title}</h2>
-                                
-                                <div className="bg-gray-800/50 rounded-lg p-6 mb-4">
-                                    <h3 className="text-lg font-semibold text-blue-400 mb-3">The Situation:</h3>
-                                    <p className="text-gray-200 text-lg leading-relaxed mb-4">{gameState.case.description}</p>
-                                    <p className="text-gray-300 text-sm leading-relaxed">{gameState.case.context}</p>
-                                    
-                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-4">
-                                        <div className="bg-red-900/30 rounded-lg p-4">
-                                            <h4 className="font-bold text-red-400 mb-2">🏢 Attacker's Side:</h4>
-                                            <p className="text-sm text-gray-300">{gameState.case.attackerSide}</p>
-                                        </div>
-                                        <div className="bg-blue-900/30 rounded-lg p-4">
-                                            <h4 className="font-bold text-blue-400 mb-2">👩‍💼 Defender's Side:</h4>
-                                            <p className="text-sm text-gray-300">{gameState.case.defenderSide}</p>
-                                        </div>
-                                    </div>
-                                </div>
-                            </div>
-
-                            <div className="grid grid-cols-2 gap-6 mb-6">
-                                {/* Left side - Original Attacker Position */}
-                                {(() => {
-                                    const leftPlayer = room.players.find(p => p.role === 'attacker' || p.originalRole === 'attacker');
-                                    const leftPlayerDisplayRole = leftPlayer ? getPlayerDisplayRole(leftPlayer) : 'attacker';
-                                    const isCurrentPlayerOnLeft = isPlayerOnLeftSide(currentPlayer);
-                                    const leftPlayerLabel = leftPlayerDisplayRole === 'attacker' ? 'ATTACKER' : 'DEFENDER';
-                                    const leftPlayerIsAttacker = leftPlayerDisplayRole === 'attacker';
-                                    
-                                    return (
-                                        <div className={`border-2 rounded-lg p-4 text-center transition-all duration-200 ${
-                                            isCurrentPlayerOnLeft 
-                                                ? (leftPlayerIsAttacker ? 'bg-red-900/30 border-red-500' : 'bg-blue-900/30 border-blue-500')
-                                                : (leftPlayerIsAttacker ? 'bg-red-900/10 border-red-500/30' : 'bg-blue-900/10 border-blue-500/30')
-                                        }`}>
-                                            <h3 className={`text-xl font-bold mb-2 ${leftPlayerIsAttacker ? 'text-red-400' : 'text-blue-400'}`}>
-                                                {leftPlayer?.avatar || '⚖️'} {leftPlayerLabel} {isCurrentPlayerOnLeft && (
-                                                    <span className="mx-2 text-yellow-400 text-lg font-semibold">(YOU)</span>
-                                                )}
-                                            </h3>
-                                            <p className="text-gray-300 font-medium mb-2">{leftPlayer?.name}</p>
-                                            
-                                            <div className="flex items-center justify-center mb-2">
-                                                {isCurrentPlayerOnLeft ? (
-                                                    isReady ? (
-                                                        <span className="text-green-400 font-bold">✅ Ready!</span>
-                                                    ) : (
-                                                        <span className="text-gray-400">⏳ Reading...</span>
-                                                    )
-                                                ) : (
-                                                    otherPlayerReady ? (
-                                                        <span className="text-green-400 font-bold">✅ Ready!</span>
-                                                    ) : (
-                                                        <span className="text-gray-400">⏳ Reading...</span>
-                                                    )
-                                                )}
-                                            </div>
-                                            <p className="text-sm text-gray-400">
-                                                Arguments for {leftPlayerDisplayRole === 'attacker' ? gameState.case.attackerSide : gameState.case.defenderSide}
-                                            </p>
-                                        </div>
-                                    );
-                                })()}
-                                
-                                {/* Right side - Original Defender Position */}
-                                {(() => {
-                                    const rightPlayer = room.players.find(p => p.role === 'defender' || p.originalRole === 'defender');
-                                    const rightPlayerDisplayRole = rightPlayer ? getPlayerDisplayRole(rightPlayer) : 'defender';
-                                    const isCurrentPlayerOnRight = !isPlayerOnLeftSide(currentPlayer);
-                                    const rightPlayerLabel = rightPlayerDisplayRole === 'attacker' ? 'ATTACKER' : 'DEFENDER';
-                                    const rightPlayerIsAttacker = rightPlayerDisplayRole === 'attacker';
-                                    
-                                    return (
-                                        <div className={`border-2 rounded-lg p-4 text-center transition-all duration-200 ${
-                                            isCurrentPlayerOnRight 
-                                                ? (rightPlayerIsAttacker ? 'bg-red-900/30 border-red-500' : 'bg-blue-900/30 border-blue-500')
-                                                : (rightPlayerIsAttacker ? 'bg-red-900/10 border-red-500/30' : 'bg-blue-900/10 border-blue-500/30')
-                                        }`}>
-                                            <h3 className={`text-xl font-bold mb-2 ${rightPlayerIsAttacker ? 'text-red-400' : 'text-blue-400'}`}>
-                                                {rightPlayer?.avatar || '⚖️'} {rightPlayerLabel} {isCurrentPlayerOnRight && (
-                                                    <span className="mx-2 text-yellow-400 text-lg font-semibold">(YOU)</span>
-                                                )}
-                                            </h3>
-                                            <p className="text-gray-300 font-medium mb-2">{rightPlayer?.name}</p>
-                                            
-                                            <div className="flex items-center justify-center mb-2">
-                                                {isCurrentPlayerOnRight ? (
-                                                    isReady ? (
-                                                        <span className="text-green-400 font-bold">✅ Ready!</span>
-                                                    ) : (
-                                                        <span className="text-gray-400">⏳ Reading...</span>
-                                                    )
-                                                ) : (
-                                                    otherPlayerReady ? (
-                                                        <span className="text-green-400 font-bold">✅ Ready!</span>
-                                                    ) : (
-                                                        <span className="text-gray-400">⏳ Reading...</span>
-                                                    )
-                                                )}
-                                            </div>
-                                            <p className="text-sm text-gray-400">
-                                                Arguments for {rightPlayerDisplayRole === 'attacker' ? gameState.case.attackerSide : gameState.case.defenderSide}
-                                            </p>
-                                        </div>
-                                    );
-                                })()}
-                            </div>
-
-                            <div className="text-center">
-                                <div className="mb-6">
-                                    <div className="flex items-center justify-center gap-4 mb-4">
-                                        <div className={`px-4 py-2 rounded-lg border-2 transition-all duration-200 ${caseReadingTimeLeft <= 30 ? 'border-red-500 bg-red-900/20' : 'border-yellow-500 bg-yellow-900/20'}`}>
-                                            <span className={`font-bold ${caseReadingTimeLeft <= 30 ? 'text-red-400' : 'text-yellow-400'}`}>
-                                                ⏰ Time Remaining: {formatTime(caseReadingTimeLeft)}
-                                            </span>
-                                        </div>
-                                    </div>
-
-                                    {isReady && otherPlayerReady ? (
-                                        <div className="mb-4">
-                                            <div className="text-green-400 font-bold text-lg mb-2">🚀 Both players ready! Starting battle...</div>
-                                        </div>
-                                    ) : isReady ? (
-                                        <div className="mb-4">
-                                            <div className="text-yellow-400 font-bold mb-2">✅ You're ready! Waiting for opponent...</div>
-                                        </div>
-                                    ) : null}
-
-                                    <button
-                                        onClick={toggleReady}
-                                        disabled={isReady && otherPlayerReady}
-                                        className={`px-8 py-4 font-bold rounded-lg transition-all duration-200 transform hover:scale-105 shadow-lg ${
-                                            isReady 
-                                                ? 'bg-gradient-to-r from-green-600 to-green-700 hover:from-green-700 hover:to-green-800 text-white'
-                                                : 'bg-gradient-to-r from-yellow-500 to-orange-600 hover:from-yellow-600 hover:to-orange-700 text-white'
-                                        } ${isReady && otherPlayerReady ? 'opacity-50 cursor-not-allowed' : ''}`}
-                                    >
-                                        {isReady ? '✅ Ready!' : '📖 I\'m Ready to Battle!'}
-                                    </button>
-                                    
-                                    {caseReadingTimeLeft <= 10 && (
-                                        <div className="mt-4 text-red-400 font-bold animate-pulse">
-                                            ⚠️ Battle will start automatically in {caseReadingTimeLeft} seconds!
-                                        </div>
-                                    )}
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            )}
+            <CaseReadingModal
+                showCaseModal={showCaseModal}
+                setShowCaseModal={setShowCaseModal}
+                gameState={gameState}
+                room={room}
+                currentPlayer={currentPlayer}
+                isReady={isReady}
+                otherPlayerReady={otherPlayerReady}
+                caseReadingTimeLeft={caseReadingTimeLeft}
+                toggleReady={toggleReady}
+                formatTime={formatTime}
+                getPlayerDisplayRole={getPlayerDisplayRole}
+                isPlayerOnLeftSide={isPlayerOnLeftSide}
+            />
 
             {/* Round Complete Modal */}
-            {gameState.gamePhase === 'round-complete' && gameState.roundResult && (
-                <div className="fixed inset-0 bg-black/80 backdrop-blur-sm flex items-center justify-center z-50 p-4">
-                    <div className="bg-gradient-to-br from-gray-800 to-gray-900 rounded-2xl shadow-2xl p-8 max-w-2xl w-full border border-gray-600">
-                        <div className="text-center mb-6">
-                            <h1 className="text-4xl font-bold mb-2">
-                                {gameState.roundResult.winner === 'attacker' ? '🔥' : '🛡️'} Round {gameState.roundResult.round} Complete!
-                            </h1>
-                            <h2 className={`text-3xl font-bold mb-4 ${gameState.roundResult.winner === 'attacker' ? 'text-red-400' : 'text-blue-400'}`}>
-                                {gameState.roundResult.winner === 'attacker' ? 'Attacker' : 'Defender'} Wins!
-                            </h2>
-                            {/* Show role switch message if applicable */}
-                            {nextRoundMessage && (
-                                <div className="bg-yellow-900/20 border border-yellow-500/30 rounded-lg p-3 mt-4">
-                                    <div className="text-yellow-400 font-bold text-lg">
-                                        🔄 {nextRoundMessage}
-                                    </div>
-                                </div>
-                            )}
-                        </div>
+            <RoundCompleteModal
+                gameState={gameState}
+                room={room}
+                currentPlayer={currentPlayer}
+                isNextRoundReady={isNextRoundReady}
+                otherPlayerNextRoundReady={otherPlayerNextRoundReady}
+                nextRoundAutoStartTime={nextRoundAutoStartTime}
+                showNextRoundReadyCheck={showNextRoundReadyCheck}
+                nextRoundMessage={nextRoundMessage}
+                handleNextRoundReady={handleNextRoundReady}
+                handleProceedToGameComplete={handleProceedToGameComplete}
+                formatTime={formatTime}
+                formatScore={formatScore}
+                getPlayerRoundWins={getPlayerRoundWins}
+                getPlayerScore={getPlayerScore}
+                getAttackerRoundWins={getAttackerRoundWins}
+                getDefenderRoundWins={getDefenderRoundWins}
+                gameHasEnded={gameHasEnded}
+            />
 
-                        <div className="bg-gray-700/50 rounded-xl p-6 mb-6">
-                            <h3 className="text-lg font-bold text-yellow-400 mb-3">🤖 AI Analysis:</h3>
-                            <p className="text-gray-200 mb-4">{gameState.roundResult.analysis}</p>
-                            <div className="text-sm text-gray-400 mb-4">
-                                AI analyzed 3 exchanges (6 total arguments) to determine the round winner.
-                            </div>
-                            
-                            <div className="grid grid-cols-2 gap-4">
-                                <div className="bg-red-900/30 rounded-lg p-4 text-center">
-                                    <h4 className="font-bold text-red-400 mb-2">🔥 Attacker Score</h4>
-                                    <span className="text-2xl font-bold text-white">{gameState.roundResult.attackerScore}</span>
-                                </div>
-                                <div className="bg-blue-900/30 rounded-lg p-4 text-center">
-                                    <h4 className="font-bold text-blue-400 mb-2">🛡️ Defender Score</h4>
-                                    <span className="text-2xl font-bold text-white">{gameState.roundResult.defenderScore}</span>
-                                </div>
-                            </div>
-                        </div>
+            {/* Side Choice Modal */}
+            <SideChoiceModal
+                gameState={gameState}
+                currentPlayer={currentPlayer}
+                handleSideChoice={handleSideChoice}
+                getAttackerRoundWins={getAttackerRoundWins}
+                getDefenderRoundWins={getDefenderRoundWins}
+                getAttackerScore={getAttackerScore}
+                getDefenderScore={getDefenderScore}
+                formatScore={formatScore}
+            />
 
-                        {/* Next Round Ready Check - only show if not final round and if game will continue */}
-                        {(() => {
-                            const attackerWins = getAttackerRoundWins();
-                            const defenderWins = getDefenderRoundWins();
-                            const gameWillContinue = attackerWins < 2 && defenderWins < 2 && gameState.currentRound < gameState.maxRounds;
-                            
-                            if (gameWillContinue) {
-                                return (
-                                    <>
-                                        {/* Player Readiness Status */}
-                                        <div className="grid grid-cols-2 gap-6 mb-6">
-                                            {/* Current Player */}
-                                            <div className={`border-2 rounded-lg p-4 text-center transition-all duration-200 ${
-                                                isNextRoundReady 
-                                                    ? 'bg-green-900/30 border-green-500' 
-                                                    : 'bg-gray-900/30 border-gray-500'
-                                            }`}>
-                                                <h3 className="text-xl font-bold mb-2 text-white">
-                                                    {currentPlayer?.name} (You)
-                                                </h3>
-                                                
-                                                <div className="text-lg font-semibold mb-2 text-yellow-400">
-                                                    {getPlayerDisplayRole(currentPlayer) === 'attacker' ? '🔥' : '🛡️'} {getPlayerDisplayRole(currentPlayer!) === 'attacker' ? 'ATTACKER' : 'DEFENDER'}
-                                                </div>
-                                                
-                                                {/* Player Scores */}
-                                                <div className="bg-black/20 rounded-lg p-3 mb-3">
-                                                    <div className="text-sm text-gray-400 mb-1">Round Wins</div>
-                                                    <div className="text-2xl font-bold text-white mb-1">
-                                                        {getPlayerRoundWins(currentPlayer!.id)}
-                                                    </div>
-                                                    <div className="text-xs text-gray-400">
-                                                        Total Points: {formatScore(getPlayerScore(currentPlayer!.id))}
-                                                    </div>
-                                                </div>
-                                                
-                                                <div className="flex items-center justify-center mb-2">
-                                                    {isNextRoundReady ? (
-                                                        <span className="text-green-400 font-bold">✅ Ready</span>
-                                                    ) : (
-                                                        <span className="text-gray-400 font-bold">⏳ Not Ready</span>
-                                                    )}
-                                                </div>
-                                            </div>
-
-                                            {/* Other Player */}
-                                            {(() => {
-                                                const otherPlayer = room?.players.find(p => p.id !== currentPlayer?.id);
-                                                if (!otherPlayer) return null;
-                                                
-                                                return (
-                                                    <div className={`border-2 rounded-lg p-4 text-center transition-all duration-200 ${
-                                                        otherPlayerNextRoundReady 
-                                                            ? 'bg-green-900/30 border-green-500' 
-                                                            : 'bg-gray-900/30 border-gray-500'
-                                                    }`}>
-                                                        <h3 className="text-xl font-bold mb-2 text-white">
-                                                            {otherPlayer.name}
-                                                        </h3>
-                                                        
-                                                        <div className="text-lg font-semibold mb-2 text-yellow-400">
-                                                            {getPlayerDisplayRole(otherPlayer) === 'attacker' ? '🔥' : '🛡️'} {getPlayerDisplayRole(otherPlayer) === 'attacker' ? 'ATTACKER' : 'DEFENDER'}
-                                                        </div>
-                                                        
-                                                        {/* Player Scores */}
-                                                        <div className="bg-black/20 rounded-lg p-3 mb-3">
-                                                            <div className="text-sm text-gray-400 mb-1">Round Wins</div>
-                                                            <div className="text-2xl font-bold text-white mb-1">
-                                                                {getPlayerRoundWins(otherPlayer.id)}
-                                                            </div>
-                                                            <div className="text-xs text-gray-400">
-                                                                Total Points: {formatScore(getPlayerScore(otherPlayer.id))}
-                                                            </div>
-                                                        </div>
-                                                        
-                                                        <div className="flex items-center justify-center mb-2">
-                                                            {otherPlayerNextRoundReady ? (
-                                                                <span className="text-green-400 font-bold">✅ Ready</span>
-                                                            ) : (
-                                                                <span className="text-gray-400 font-bold">⏳ Not Ready</span>
-                                                            )}
-                                                        </div>
-                                                    </div>
-                                                );
-                                            })()}
-                                        </div>
-
-                                        {/* Auto-start timer - only show if ready check is active */}
-                                        {showNextRoundReadyCheck && (
-                                            <div className="bg-yellow-900/20 border border-yellow-500/30 rounded-lg p-4 mb-6">
-                                                <div className="text-center">
-                                                    <div className="text-yellow-400 font-bold mb-2">⏰ Auto-Start Timer</div>
-                                                    <div className={`text-2xl font-bold ${nextRoundAutoStartTime <= 10 ? 'text-red-400 animate-pulse' : 'text-yellow-400'}`}>
-                                                        {formatTime(nextRoundAutoStartTime)}
-                                                    </div>
-                                                    <div className="text-sm text-gray-400 mt-2">
-                                                        Round will start automatically when both players are ready or when time expires
-                                                    </div>
-                                                </div>
-                                            </div>
-                                        )}
-
-                                        {/* Ready Status Message */}
-                                        <div className="text-center mb-6">
-                                            {isNextRoundReady && otherPlayerNextRoundReady ? (
-                                                <div className="text-green-400 font-bold text-lg mb-2">
-                                                    🚀 Both players ready! Starting round...
-                                                </div>
-                                            ) : isNextRoundReady ? (
-                                                <div className="text-yellow-400 font-bold mb-2">
-                                                    ✅ You're ready! Waiting for opponent...
-                                                </div>
-                                            ) : otherPlayerNextRoundReady ? (
-                                                <div className="text-yellow-400 font-bold mb-2">
-                                                    ⏳ Opponent is ready! Waiting for you...
-                                                </div>
-                                            ) : showNextRoundReadyCheck ? (
-                                                <div className="text-gray-400 mb-2">
-                                                    Read the analysis and ready up for the next round!
-                                                </div>
-                                            ) : (
-                                                <div className="text-gray-400 mb-2">
-                                                    Preparing next round...
-                                                </div>
-                                            )}
-                                        </div>
-
-                                        {/* Ready Button */}
-                                        <div className="text-center">
-                                            {showNextRoundReadyCheck ? (
-                                                <button
-                                                    onClick={() => handleNextRoundReady(!isNextRoundReady)}
-                                                    disabled={isNextRoundReady && otherPlayerNextRoundReady}
-                                                    className={`px-8 py-4 font-bold rounded-lg transition-all duration-200 transform hover:scale-105 shadow-lg ${
-                                                        isNextRoundReady 
-                                                            ? 'bg-gradient-to-r from-green-600 to-green-700 hover:from-green-700 hover:to-green-800 text-white'
-                                                            : 'bg-gradient-to-r from-yellow-500 to-orange-600 hover:from-yellow-600 hover:to-orange-700 text-white'
-                                                    } ${isNextRoundReady && otherPlayerNextRoundReady ? 'opacity-50 cursor-not-allowed' : ''}`}
-                                                >
-                                                    {isNextRoundReady ? '✅ Ready for Next Round' : '⚔️ Ready for Next Round'}
-                                                </button>
-                                            ) : (
-                                                <div className="animate-spin w-8 h-8 border-4 border-yellow-400 border-t-transparent rounded-full mx-auto"></div>
-                                            )}
-                                        </div>
-                                    </>
-                                );
-                            } else {
-                                return (
-                                    <div className="text-center">
-                                        <p className="text-gray-400 mb-4">
-                                            {attackerWins >= 2 || defenderWins >= 2 
-                                                ? 'Game will end after this analysis!' 
-                                                : 'Final round complete!'
-                                            }
-                                        </p>
-                                    </div>
-                                );
-                            }
-                        })()}
-                    </div>
-                </div>
-            )}
-
-            {/* Side Choice Modal for Round 3 Draw */}
-            {gameState.gamePhase === 'side-choice' && gameState.sideChoice && (
-                <div className="fixed inset-0 bg-black/80 backdrop-blur-sm flex items-center justify-center z-50 p-4">
-                    <div className="bg-gradient-to-br from-gray-800 to-gray-900 rounded-2xl shadow-2xl p-8 max-w-2xl w-full border border-gray-600">
-                        <div className="text-center mb-6">
-                            <h1 className="text-4xl font-bold mb-2">
-                                ⚖️ Round 3 - Side Choice
-                            </h1>
-                            <h2 className="text-2xl font-bold mb-4 text-yellow-400">
-                                It's a Draw! Choose Your Side
-                            </h2>
-                        </div>
-
-                        <div className="bg-gray-700/50 rounded-xl p-6 mb-6">
-                            <h3 className="text-lg font-bold text-yellow-400 mb-3">🏆 Performance Leader Gets to Choose</h3>
-                            <p className="text-gray-200 mb-4">
-                                Based on individual argument scores, <span className="text-green-400 font-bold">{gameState.sideChoice.chooserPlayerName}</span> performed better and gets to choose their side for the final round!
-                            </p>
-                            
-                            <div className="bg-gray-800/50 rounded-lg p-4 mb-4">
-                                <h4 className="text-sm font-bold text-gray-400 mb-2">Current Match Score</h4>
-                                <div className="flex justify-center items-center gap-6 mb-2">
-                                    <span className="text-red-400 font-bold text-xl">Attacker: {getAttackerRoundWins()}</span>
-                                    <span className="text-gray-400">-</span>
-                                    <span className="text-blue-400 font-bold text-xl">Defender: {getDefenderRoundWins()}</span>
-                                </div>
-                                <div className="flex justify-center items-center gap-6 text-sm text-gray-400">
-                                    <span>Individual Total: {formatScore(getAttackerScore())}</span>
-                                    <span>-</span>
-                                    <span>Individual Total: {formatScore(getDefenderScore())}</span>
-                                </div>
-                            </div>
-                        </div>
-
-                        {gameState.sideChoice.chooserPlayerId === currentPlayer?.id ? (
-                            <div className="space-y-4">
-                                <h3 className="text-xl font-bold text-center text-white mb-4">Choose Your Side:</h3>
-                                <div className="grid grid-cols-2 gap-4">
-                                    <button
-                                        onClick={() => handleSideChoice('attacker')}
-                                        className="bg-red-900/30 border-2 border-red-500 rounded-lg p-6 text-center transition-all duration-200 hover:bg-red-900/50 hover:scale-105 transform"
-                                    >
-                                        <h4 className="text-2xl font-bold text-red-400 mb-2">🔥 ATTACKER</h4>
-                                        <p className="text-gray-300 text-sm">Lead the charge and make the case</p>
-                                        <p className="text-gray-400 text-xs mt-2">You go first each turn</p>
-                                    </button>
-                                    <button
-                                        onClick={() => handleSideChoice('defender')}
-                                        className="bg-blue-900/30 border-2 border-blue-500 rounded-lg p-6 text-center transition-all duration-200 hover:bg-blue-900/50 hover:scale-105 transform"
-                                    >
-                                        <h4 className="text-2xl font-bold text-blue-400 mb-2">🛡️ DEFENDER</h4>
-                                        <p className="text-gray-300 text-sm">Counter and defend the position</p>
-                                        <p className="text-gray-400 text-xs mt-2">You respond to attacks</p>
-                                    </button>
-                                </div>
-                            </div>
-                        ) : (
-                            <div className="text-center">
-                                <h3 className="text-xl font-bold text-white mb-4">Waiting for Side Choice...</h3>
-                                <p className="text-gray-400 mb-4">
-                                    <span className="text-green-400 font-bold">{gameState.sideChoice.chooserPlayerName}</span> is choosing their side for the final round.
-                                </p>
-                                <div className="flex justify-center">
-                                    <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-yellow-400"></div>
-                                </div>
-                            </div>
-                        )}
-                    </div>
-                </div>
-            )}
+            {/* Game Complete Modal */}
+            <GameCompleteModal
+                gameState={gameState}
+                room={room}
+                showFullBattleLog={showFullBattleLog}
+                setShowFullBattleLog={setShowFullBattleLog}
+                router={router}
+                formatScore={formatScore}
+                getAttackerScore={getAttackerScore}
+                getDefenderScore={getDefenderScore}
+                showModal={showGameCompleteModal}
+            />
 
             {/* Main Game Interface */}
-            {!showCaseModal && gameState.gamePhase !== 'round-complete' && gameState.gamePhase !== 'side-choice' && (
+            {!showCaseModal && gameState.gamePhase !== 'round-complete' && gameState.gamePhase !== 'side-choice' && gameState.gamePhase !== 'finished' && !gameHasEnded && !showGameCompleteModal && (
                 <div className="min-h-screen px-8 py-8">
 
                     {/* Players Section - Top positioning */}
@@ -1490,7 +1302,7 @@ export default function GameBattle() {
                                             <h3 className={`text-2xl font-bold ${rightPlayerIsAttacker ? 'text-red-400' : 'text-blue-400'} mb-1`}>
                                                 {isCurrentPlayerOnRight && (
                                                     <span className="mx-2 text-yellow-400 text-lg font-semibold">(YOU)</span>
-                                                )}{rightPlayerLabel}
+                                                )} {rightPlayerLabel}
                                             </h3>
                                             <p className="text-gray-300 font-medium text-lg">{rightPlayer?.name}</p>
                                             <div className="text-sm text-gray-400 mt-1">
@@ -1541,6 +1353,7 @@ export default function GameBattle() {
                                                 : 'border border-gray-600 focus:border-yellow-500'
                                         }`}
                                         maxLength={250}
+                                        disabled={gameHasEnded}
                                     />
                                     <div className="flex items-center justify-between mt-6">
                                         <span className="text-base text-gray-400">
@@ -1548,7 +1361,7 @@ export default function GameBattle() {
                                         </span>
                                         <button
                                             onClick={handleSubmitArgument}
-                                            disabled={!currentArgument.trim()}
+                                            disabled={!currentArgument.trim() || gameHasEnded}
                                             className="px-8 py-3 bg-gradient-to-r from-yellow-500 to-orange-600 text-white font-bold rounded-lg hover:from-yellow-600 hover:to-orange-700 transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed text-lg"
                                         >
                                             🚀 Submit Argument
@@ -1639,312 +1452,6 @@ export default function GameBattle() {
                             )}
                         </div>
                     </div>
-                    {/* Game End */}
-                    {gameState.gamePhase === 'finished' && (
-                        <div className="fixed inset-0 bg-black/80 backdrop-blur-sm flex items-center justify-center z-50 p-4">
-                            <div className="bg-gradient-to-br from-gray-900 to-gray-800 rounded-2xl shadow-2xl p-12 border border-gray-600 max-w-6xl w-full max-h-[90vh] overflow-y-auto">
-                            {/* Header */}
-                            <div className="text-center mb-8">
-                                <div className="text-8xl mb-4">⚖️</div>
-                                <h1 className="text-6xl font-bold bg-gradient-to-r from-yellow-400 to-orange-500 bg-clip-text text-transparent mb-4">
-                                    BATTLE COMPLETE!
-                                </h1>
-                                <div className="text-4xl font-bold mb-6">
-                                    {gameState.winner === 'tie' ? (
-                                        <span className="text-gray-300">🤝 It's a Tie!</span>
-                                    ) : gameState.winner === 'attacker' ? (
-                                        <span className="text-yellow-400">🏆 {room?.players.find(p => p.originalRole === 'attacker')?.name} WINS!</span>
-                                    ) : (
-                                        <span className="text-yellow-400">🏆 {room?.players.find(p => p.originalRole === 'defender')?.name} WINS!</span>
-                                    )}
-                                </div>
-                                <p className="text-xl text-gray-300 max-w-2xl mx-auto">
-                                    {gameState.winner === 'tie' 
-                                        ? 'Both sides presented equally compelling arguments in this intense legal battle!'
-                                        : gameState.winner === 'attacker'
-                                            ? `${room?.players.find(p => p.originalRole === 'attacker')?.name} presented the most convincing case and emerges victorious!`
-                                            : `${room?.players.find(p => p.originalRole === 'defender')?.name} presented the most convincing case and emerges victorious!`
-                                    }
-                                </p>
-                            </div>
-
-                            {/* Main Score Display */}
-                            <div className="bg-gray-800/50 rounded-xl p-8 mb-8">
-                                <h2 className="text-3xl font-bold text-center text-yellow-400 mb-8">📊 FINAL BATTLE SCORE</h2>
-                                
-                                {/* Player Scores with Avatars */}
-                                <div className="flex justify-center items-center gap-20 mb-8">
-                                    {/* Player 1 - Original Attacker */}
-                                    <div className="flex flex-col items-center">
-                                        {/* Avatar */}
-                                        <div className="w-24 h-24 bg-gray-700 rounded-full flex items-center justify-center text-4xl border-4 border-gray-500 mb-6">
-                                            {room?.players.find(p => p.originalRole === 'attacker')?.avatar || '⚖️'}
-                                        </div>
-                                        {/* Player Name */}
-                                        <div className="text-xl font-semibold text-gray-200 mb-4">{room?.players.find(p => p.originalRole === 'attacker')?.name}</div>
-                                    </div>
-
-                                    {/* Score and VS section */}
-                                    <div className="flex items-center gap-8">
-                                        {/* Player 1 Score */}
-                                        <div className="text-6xl font-bold text-white">{gameState.scores.attacker}</div>
-                                        {/* VS */}
-                                        <div className="text-5xl text-gray-400 font-bold">VS</div>
-                                        {/* Player 2 Score */}
-                                        <div className="text-6xl font-bold text-white">{gameState.scores.defender}</div>
-                                    </div>
-
-                                    {/* Player 2 - Original Defender */}
-                                    <div className="flex flex-col items-center">
-                                        {/* Avatar */}
-                                        <div className="w-24 h-24 bg-gray-700 rounded-full flex items-center justify-center text-4xl border-4 border-gray-500 mb-6">
-                                            {room?.players.find(p => p.originalRole === 'defender')?.avatar || '⚖️'}
-                                        </div>
-                                        {/* Player Name */}
-                                        <div className="text-xl font-semibold text-gray-200 mb-4">{room?.players.find(p => p.originalRole === 'defender')?.name}</div>
-                                    </div>
-                                </div>
-
-                                {/* Individual Performance Score */}
-                                <div className="border-t border-gray-600 pt-6">
-                                    <h3 className="text-xl font-bold text-center text-gray-300 mb-4">Individual Performance</h3>
-                                    <div className="flex justify-center items-center gap-12">
-                                        <div className="text-center">
-                                            <div className="text-3xl font-bold text-gray-300 mb-1">{formatScore(getAttackerScore())}</div>
-                                            <div className="text-sm text-gray-400">{room?.players.find(p => p.originalRole === 'attacker')?.name}</div>
-                                        </div>
-                                        <div className="text-2xl text-gray-500">-</div>
-                                        <div className="text-center">
-                                            <div className="text-3xl font-bold text-gray-300 mb-1">{formatScore(getDefenderScore())}</div>
-                                            <div className="text-sm text-gray-400">{room?.players.find(p => p.originalRole === 'defender')?.name}</div>
-                                        </div>
-                                    </div>
-                                </div>
-                            </div>
-
-                            {/* Battle Summary */}
-                            <div className="bg-gray-800/30 rounded-xl p-6 mb-8">
-                                <h3 className="text-xl font-bold text-yellow-400 mb-4 text-center">⚔️ Battle Summary</h3>
-                                <div className="grid grid-cols-3 gap-6 text-center">
-                                    <div>
-                                        <div className="text-2xl font-bold text-white mb-1">{gameState.roundHistory.length}</div>
-                                        <div className="text-sm text-gray-400">Rounds Fought</div>
-                                    </div>
-                                    <div>
-                                        <div className="text-2xl font-bold text-white mb-1">
-                                            {gameState.roundHistory.reduce((total, round) => total + round.arguments.length, 0)}
-                                        </div>
-                                        <div className="text-sm text-gray-400">Total Arguments</div>
-                                    </div>
-                                    <div>
-                                        <div className="text-2xl font-bold text-white mb-1">
-                                            {gameState.roundHistory.reduce((total, round) => total + Math.floor(round.arguments.length / 2), 0)}
-                                        </div>
-                                        <div className="text-sm text-gray-400">Total Exchanges</div>
-                                    </div>
-                                </div>
-                            </div>
-
-                            {/* Action Buttons */}
-                            <div className="flex flex-col sm:flex-row gap-4 justify-center items-center">
-                                <button
-                                    onClick={() => setShowFullBattleLog(true)}
-                                    className="px-8 py-4 bg-gradient-to-r from-purple-600 to-purple-700 hover:from-purple-700 hover:to-purple-800 text-white font-bold rounded-xl transition-all duration-200 transform hover:scale-105 shadow-lg text-lg"
-                                >
-                                    📜 View Full Battle Log
-                                </button>
-                                <button
-                                    onClick={() => router.push('/')}
-                                    className="px-8 py-4 bg-gradient-to-r from-gray-600 to-gray-700 hover:from-gray-700 hover:to-gray-800 text-white font-bold rounded-xl transition-all duration-200 transform hover:scale-105 shadow-lg text-lg"
-                                >
-                                    🏠 Return to Menu
-                                </button>
-                            </div>
-                            </div>
-                        </div>
-                    )}
-
-                    {/* Full Battle Log Modal */}
-                    {showFullBattleLog && (
-                        <div className="fixed inset-0 bg-black/80 backdrop-blur-sm flex items-center justify-center z-50 p-4">
-                            <div className="bg-gradient-to-br from-gray-800 to-gray-900 rounded-2xl shadow-2xl max-w-6xl w-full max-h-[90vh] border border-gray-600 overflow-hidden">
-                                {/* Header */}
-                                <div className="p-6 border-b border-gray-600 bg-gray-800/50">
-                                    <div className="flex items-center justify-between">
-                                        <h1 className="text-3xl font-bold text-yellow-400">📜 Complete Battle Log</h1>
-                                        <button
-                                            onClick={() => setShowFullBattleLog(false)}
-                                            className="w-10 h-10 bg-gray-700 hover:bg-gray-600 rounded-full flex items-center justify-center text-gray-300 hover:text-white transition-all duration-200"
-                                        >
-                                            ✕
-                                        </button>
-                                    </div>
-                                    <p className="text-gray-300 mt-2">Review every argument from the legal battle</p>
-                                </div>
-
-                                {/* Case Summary */}
-                                
-
-                                {/* Arguments Log */}
-                                <div className="p-6 overflow-y-auto" style={{ maxHeight: 'calc(90vh - 300px)' }}>
-                                    {gameState.roundHistory.length === 0 && gameState.allRoundArguments.length === 0 ? (
-                                        <p className="text-gray-500 text-center py-12">No arguments recorded.</p>
-                                    ) : (
-                                        <div className="space-y-8">
-                                            {/* Display completed rounds from history */}
-                                            {gameState.roundHistory.map((round, roundIndex) => (
-                                                <div key={`round-${round.round}`} className="space-y-6">
-                                                    {/* Round Header */}
-                                                    <div className="bg-yellow-900/20 border border-yellow-600/30 rounded-lg p-4">
-                                                        <div className="flex items-center justify-between">
-                                                            <h3 className="text-2xl font-bold text-yellow-400">
-                                                                ⚔️ Round {round.round}
-                                                                {round.round === 2 && <span className="text-lg ml-2">(Roles Switched)</span>}
-                                                            </h3>
-                                                            <div className="text-right">
-                                                                <div className={`text-lg font-bold ${round.winner === 'attacker' ? 'text-red-400' : 'text-blue-400'}`}>
-                                                                    🏆 {round.winner === 'attacker' ? 'Attacker' : 'Defender'} Won
-                                                                </div>
-                                                                <div className="text-sm text-gray-400">
-                                                                    Score: {round.attackerScore} - {round.defenderScore}
-                                                                </div>
-                                                            </div>
-                                                        </div>
-                                                    </div>
-                                                    
-                                                    {/* Round Arguments */}
-                                                    <div className="space-y-4 ml-4">
-                                                        {round.arguments.map((argument, argIndex) => {
-                                                            const exchangeNumber = Math.floor(argIndex / 2) + 1;
-                                                            const isFirstInExchange = argIndex % 2 === 0;
-                                                            const argumentScore = round.argumentScores?.find(score => score.argumentId === argument.id)?.score;
-                                                            
-                                                            return (
-                                                                <div key={argument.id}>
-                                                                    {/* Exchange Header */}
-                                                                    {isFirstInExchange && (
-                                                                        <div className="text-center text-sm text-gray-500 mb-3 font-semibold">
-                                                                            Exchange #{exchangeNumber}
-                                                                        </div>
-                                                                    )}
-                                                                    
-                                                                    {/* Argument */}
-                                                                    <div className={`p-4 rounded-lg border-l-4 ${argument.type === 'attack'
-                                                                            ? 'bg-red-900/20 border-red-500'
-                                                                            : 'bg-blue-900/20 border-blue-500'
-                                                                        }`}>
-                                                                        <div className="flex items-center justify-between mb-3">
-                                                                            <div className="flex items-center gap-3">
-                                                                                <span className="text-xl">
-                                                                                    {argument.type === 'attack' ? '🔥' : '🛡️'}
-                                                                                </span>
-                                                                                <span className={`font-semibold ${argument.type === 'attack' ? 'text-red-400' : 'text-blue-400'}`}>
-                                                                                    {argument.playerName}
-                                                                                </span>
-                                                                            </div>
-                                                                            <div className="flex items-center gap-4">
-                                                                                {argumentScore !== undefined && (
-                                                                                    <div className="bg-gray-700/50 rounded-lg px-3 py-1">
-                                                                                        <span className="text-yellow-400 font-bold">⭐ {formatScore(argumentScore)}</span>
-                                                                                    </div>
-                                                                                )}
-                                                                                <span className="text-xs text-gray-500">
-                                                                                    Arg #{argIndex + 1}
-                                                                                </span>
-                                                                            </div>
-                                                                        </div>
-                                                                        <p className="text-gray-200 leading-relaxed">{argument.content}</p>
-                                                                    </div>
-                                                                </div>
-                                                            );
-                                                        })}
-                                                    </div>
-
-                                                    {/* Round Analysis */}
-                                                    <div className="bg-gray-700/30 rounded-lg p-4 ml-4">
-                                                        <h4 className="text-yellow-400 font-bold mb-2">🤖 AI Round Analysis:</h4>
-                                                        <p className="text-gray-200 text-sm">{round.analysis}</p>
-                                                    </div>
-                                                </div>
-                                            ))}
-
-                                            {/* Current Round in Progress */}
-                                            {gameState.gamePhase === 'arguing' && gameState.arguments.length > 0 && (
-                                                <div className="space-y-6">
-                                                    <div className="bg-blue-900/20 border border-blue-600/30 rounded-lg p-4">
-                                                        <h3 className="text-2xl font-bold text-blue-400">
-                                                            ⚡ Round {gameState.currentRound} (In Progress)
-                                                            {gameState.currentRound === 2 && <span className="text-lg ml-2">(Roles Switched)</span>}
-                                                        </h3>
-                                                        <p className="text-gray-400 mt-1">Arguments so far: {gameState.arguments.length}/6</p>
-                                                    </div>
-                                                    
-                                                    <div className="space-y-4 ml-4">
-                                                        {gameState.arguments.map((argument, argIndex) => {
-                                                            const exchangeNumber = Math.floor(argIndex / 2) + 1;
-                                                            const isFirstInExchange = argIndex % 2 === 0;
-                                                            
-                                                            return (
-                                                                <div key={argument.id}>
-                                                                    {/* Exchange Header */}
-                                                                    {isFirstInExchange && (
-                                                                        <div className="text-center text-sm text-gray-500 mb-3 font-semibold">
-                                                                            Exchange #{exchangeNumber}
-                                                                        </div>
-                                                                    )}
-                                                                    
-                                                                    {/* Argument */}
-                                                                    <div className={`p-4 rounded-lg border-l-4 ${argument.type === 'attack'
-                                                                            ? 'bg-red-900/20 border-red-500'
-                                                                            : 'bg-blue-900/20 border-blue-500'
-                                                                        }`}>
-                                                                        <div className="flex items-center justify-between mb-3">
-                                                                            <div className="flex items-center gap-3">
-                                                                                <span className="text-xl">
-                                                                                    {argument.type === 'attack' ? '🔥' : '🛡️'}
-                                                                                </span>
-                                                                                <span className={`font-semibold ${argument.type === 'attack' ? 'text-red-400' : 'text-blue-400'}`}>
-                                                                                    {argument.playerName}
-                                                                                </span>
-                                                                            </div>
-                                                                            <span className="text-xs text-gray-500">
-                                                                                Arg #{argIndex + 1}
-                                                                            </span>
-                                                                        </div>
-                                                                        <p className="text-gray-200 leading-relaxed">{argument.content}</p>
-                                                                    </div>
-                                                                </div>
-                                                            );
-                                                        })}
-                                                    </div>
-                                                </div>
-                                            )}
-                                        </div>
-                                    )}
-                                </div>
-
-                                {/* Footer */}
-                                <div className="p-6 border-t border-gray-600 bg-gray-800/50">
-                                    <div className="flex justify-between items-center">
-                                        <div className="text-sm text-gray-400">
-                                            {gameState.roundHistory.length > 0 && (
-                                                <>
-                                                    Completed Rounds: {gameState.roundHistory.length} | 
-                                                    Total Arguments: {gameState.roundHistory.reduce((total, round) => total + round.arguments.length, 0) + gameState.arguments.length}
-                                                </>
-                                            )}
-                                        </div>
-                                        <button
-                                            onClick={() => setShowFullBattleLog(false)}
-                                            className="px-6 py-2 bg-gray-600 hover:bg-gray-700 text-white font-semibold rounded-lg transition-colors duration-200"
-                                        >
-                                            Close
-                                        </button>
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-                    )}
                 </div>
             )}
         </div>

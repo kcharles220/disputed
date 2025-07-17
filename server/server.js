@@ -24,8 +24,24 @@ const roomTimers = new Map();
 // Store auto-start timers for each room (separate from room data to avoid circular references)
 const autoStartTimers = new Map();
 
+// Store case reading timers for each room
+const caseReadingTimers = new Map();
+
+// Store next round timers for each room
+const nextRoundTimers = new Map();
+
+// Store current timer values for synchronization
+const timerValues = new Map(); // { roomId: { argumentTime: 10, caseReadingTime: 120, nextRoundTime: 60, phase: 1 } }
+
 // Start argument timer for a room
 function startArgumentTimer(roomId, currentTurn) {
+  // Check if game has ended before starting timer
+  const room = gameRooms.get(roomId);
+  if (!room || isGameEnded(room)) {
+    console.log(`Preventing argument timer start for room ${roomId} - game has ended`);
+    return;
+  }
+  
   // Clear any existing timer for this room
   if (roomTimers.has(roomId)) {
     clearInterval(roomTimers.get(roomId));
@@ -34,8 +50,31 @@ function startArgumentTimer(roomId, currentTurn) {
   let timeLeft = 10; // 10 seconds per turn (first phase)
   let phase = 1; // Phase 1: normal timer, Phase 2: interrupt grace period
   
+  // Initialize timer values
+  if (!timerValues.has(roomId)) {
+    timerValues.set(roomId, {});
+  }
+  const roomTimerData = timerValues.get(roomId);
+  roomTimerData.argumentTime = timeLeft;
+  roomTimerData.phase = phase;
+  
   const timer = setInterval(() => {
+    // Check if game has ended - stop timer if so
+    const room = gameRooms.get(roomId);
+    if (!room || isGameEnded(room)) {
+      console.log(`Stopping argument timer for room ${roomId} - game has ended`);
+      clearInterval(timer);
+      roomTimers.delete(roomId);
+      if (timerValues.has(roomId)) {
+        delete timerValues.get(roomId).argumentTime;
+        delete timerValues.get(roomId).phase;
+      }
+      return;
+    }
+    
     timeLeft -= 1;
+    roomTimerData.argumentTime = timeLeft;
+    roomTimerData.phase = phase;
     
     // Broadcast timer update to all players in the room
     io.to(roomId).emit('timer-update', {
@@ -51,6 +90,8 @@ function startArgumentTimer(roomId, currentTurn) {
       // Start phase 2 - interrupt grace period
       phase = 2;
       timeLeft = 10; // Another 10 seconds for interrupt phase
+      roomTimerData.argumentTime = timeLeft;
+      roomTimerData.phase = phase;
       
       // Notify players that interrupt is now available
       io.to(roomId).emit('interrupt-available', {
@@ -69,6 +110,10 @@ function startArgumentTimer(roomId, currentTurn) {
       
       clearInterval(timer);
       roomTimers.delete(roomId);
+      if (timerValues.has(roomId)) {
+        delete timerValues.get(roomId).argumentTime;
+        delete timerValues.get(roomId).phase;
+      }
     }
   }, 1000);
   
@@ -88,6 +133,239 @@ function stopArgumentTimer(roomId) {
     clearInterval(roomTimers.get(roomId));
     roomTimers.delete(roomId);
   }
+  if (timerValues.has(roomId)) {
+    const roomTimerData = timerValues.get(roomId);
+    delete roomTimerData.argumentTime;
+    delete roomTimerData.phase;
+  }
+}
+
+// Start case reading timer for a room
+function startCaseReadingTimer(roomId) {
+  // Check if game has ended before starting timer
+  const room = gameRooms.get(roomId);
+  if (!room || isGameEnded(room)) {
+    console.log(`Preventing case reading timer start for room ${roomId} - game has ended`);
+    return;
+  }
+  
+  // Clear any existing timer for this room
+  if (caseReadingTimers.has(roomId)) {
+    clearInterval(caseReadingTimers.get(roomId));
+  }
+  
+  let timeLeft = 120; // 2 minutes to read case
+  
+  // Initialize timer values
+  if (!timerValues.has(roomId)) {
+    timerValues.set(roomId, {});
+  }
+  const roomTimerData = timerValues.get(roomId);
+  roomTimerData.caseReadingTime = timeLeft;
+  
+  const timer = setInterval(() => {
+    // Check if game has ended - stop timer if so
+    const room = gameRooms.get(roomId);
+    if (!room || isGameEnded(room)) {
+      console.log(`Stopping case reading timer for room ${roomId} - game has ended`);
+      clearInterval(timer);
+      caseReadingTimers.delete(roomId);
+      if (timerValues.has(roomId)) {
+        delete timerValues.get(roomId).caseReadingTime;
+      }
+      return;
+    }
+    
+    timeLeft -= 1;
+    roomTimerData.caseReadingTime = timeLeft;
+    
+    // Broadcast timer update to all players in the room
+    io.to(roomId).emit('case-reading-timer-update', {
+      timeLeft
+    });
+    
+    if (timeLeft <= 0) {
+      console.log(`Case reading timer expired for room ${roomId}, checking if game ended before auto-starting`);
+      clearInterval(timer);
+      caseReadingTimers.delete(roomId);
+      if (timerValues.has(roomId)) {
+        delete timerValues.get(roomId).caseReadingTime;
+      }
+      
+      // Auto-start the game only if it hasn't ended
+      const currentRoom = gameRooms.get(roomId);
+      if (currentRoom && currentRoom.gameState === 'case-reading' && !isGameEnded(currentRoom)) {
+        currentRoom.gameState = 'arguing';
+        currentRoom.currentTurn = 'attacker';
+        
+        io.to(roomId).emit('game-started', {
+          gameState: currentRoom.gameState,
+          currentTurn: currentRoom.currentTurn
+        });
+        
+        // Start argument timer
+        setTimeout(() => {
+          // Double-check game hasn't ended while we were waiting
+          const latestRoom = gameRooms.get(roomId);
+          if (latestRoom && !isGameEnded(latestRoom)) {
+            startArgumentTimer(roomId, 'attacker');
+          } else {
+            console.log(`Preventing argument timer start for room ${roomId} - game ended during case reading timeout`);
+          }
+        }, 2000);
+      } else {
+        console.log(`Preventing game auto-start for room ${roomId} - game has ended or invalid state`);
+      }
+    }
+  }, 1000);
+  
+  caseReadingTimers.set(roomId, timer);
+  
+  // Send initial timer state
+  io.to(roomId).emit('case-reading-timer-update', {
+    timeLeft
+  });
+}
+
+// Stop case reading timer for a room
+function stopCaseReadingTimer(roomId) {
+  if (caseReadingTimers.has(roomId)) {
+    clearInterval(caseReadingTimers.get(roomId));
+    caseReadingTimers.delete(roomId);
+  }
+  if (timerValues.has(roomId)) {
+    delete timerValues.get(roomId).caseReadingTime;
+  }
+}
+
+// Start next round timer for a room
+function startNextRoundTimer(roomId) {
+  // Clear any existing timer for this room
+  if (nextRoundTimers.has(roomId)) {
+    clearInterval(nextRoundTimers.get(roomId));
+  }
+  
+  let timeLeft = 60; // 60 seconds to get ready for next round
+  
+  // Initialize timer values
+  if (!timerValues.has(roomId)) {
+    timerValues.set(roomId, {});
+  }
+  const roomTimerData = timerValues.get(roomId);
+  roomTimerData.nextRoundTime = timeLeft;
+  
+  const timer = setInterval(() => {
+    timeLeft -= 1;
+    roomTimerData.nextRoundTime = timeLeft;
+    
+    // Check if game has ended - stop timer if so
+    const room = gameRooms.get(roomId);
+    if (!room || isGameEnded(room)) {
+      console.log(`Stopping next round timer for room ${roomId} - game has ended`);
+      clearInterval(timer);
+      nextRoundTimers.delete(roomId);
+      if (timerValues.has(roomId)) {
+        delete timerValues.get(roomId).nextRoundTime;
+      }
+      return;
+    }
+    
+    // Broadcast timer update to all players in the room
+    io.to(roomId).emit('next-round-timer-update', {
+      timeLeft
+    });
+    
+    if (timeLeft <= 0) {
+      console.log(`Next round timer expired for room ${roomId}, checking if game ended before auto-starting`);
+      clearInterval(timer);
+      nextRoundTimers.delete(roomId);
+      if (timerValues.has(roomId)) {
+        delete timerValues.get(roomId).nextRoundTime;
+      }
+      
+      // Double-check game hasn't ended before auto-starting
+      const currentRoom = gameRooms.get(roomId);
+      if (currentRoom && !isGameEnded(currentRoom)) {
+        console.log(`Auto-starting next round for room ${roomId}`);
+        startNextRound(roomId);
+      } else {
+        console.log(`Preventing auto-start for room ${roomId} - game has ended`);
+        cleanupRoomTimers(roomId);
+      }
+    }
+  }, 1000);
+  
+  nextRoundTimers.set(roomId, timer);
+  
+  // Send initial timer state
+  io.to(roomId).emit('next-round-timer-update', {
+    timeLeft
+  });
+}
+
+// Stop next round timer for a room
+function stopNextRoundTimer(roomId) {
+  if (nextRoundTimers.has(roomId)) {
+    clearInterval(nextRoundTimers.get(roomId));
+    nextRoundTimers.delete(roomId);
+  }
+  if (timerValues.has(roomId)) {
+    delete timerValues.get(roomId).nextRoundTime;
+  }
+}
+
+// Check if a game has ended (utility function)
+function isGameEnded(room) {
+  if (!room) return true;
+  
+  // Check if game is explicitly marked as ended
+  if (room.gameEnded === true) return true;
+  
+  const playerWins = Object.values(room.playerScores || {});
+  const maxPlayerWins = Math.max(...(playerWins.length > 0 ? playerWins : [0]));
+  
+  return maxPlayerWins >= 2 || room.currentRound > room.maxRounds;
+}
+
+// Clean up all timers and resources for a room when game ends
+function cleanupRoomTimers(roomId) {
+  console.log(`[CLEANUP] Starting cleanup for room ${roomId}`);
+  
+  // Stop argument timer
+  if (roomTimers.has(roomId)) {
+    clearInterval(roomTimers.get(roomId));
+    roomTimers.delete(roomId);
+    console.log(`[CLEANUP] Cleared argument timer for room ${roomId}`);
+  }
+  
+  // Stop case reading timer
+  if (caseReadingTimers.has(roomId)) {
+    clearInterval(caseReadingTimers.get(roomId));
+    caseReadingTimers.delete(roomId);
+    console.log(`[CLEANUP] Cleared case reading timer for room ${roomId}`);
+  }
+  
+  // Stop next round timer
+  if (nextRoundTimers.has(roomId)) {
+    clearInterval(nextRoundTimers.get(roomId));
+    nextRoundTimers.delete(roomId);
+    console.log(`[CLEANUP] Cleared next round timer for room ${roomId}`);
+  }
+  
+  // Clear auto-start timer
+  if (autoStartTimers.has(roomId)) {
+    clearTimeout(autoStartTimers.get(roomId));
+    autoStartTimers.delete(roomId);
+    console.log(`[CLEANUP] Cleared auto-start timer for room ${roomId}`);
+  }
+  
+  // Clear all timer values
+  if (timerValues.has(roomId)) {
+    timerValues.delete(roomId);
+    console.log(`[CLEANUP] Cleared timer values for room ${roomId}`);
+  }
+  
+  console.log(`[CLEANUP] All timers cleaned up for room ${roomId}`);
 }
 
 // Start the next round (called when both players are ready or timeout)
@@ -95,11 +373,21 @@ function startNextRound(roomId) {
   const room = gameRooms.get(roomId);
   if (!room) return;
   
+  // Check if game has already ended - prevent starting new rounds
+  if (isGameEnded(room)) {
+    console.log(`Preventing startNextRound for room ${roomId} - game has already ended`);
+    cleanupRoomTimers(roomId);
+    return;
+  }
+  
   // Clear auto-start timer if it exists
   if (autoStartTimers.has(roomId)) {
     clearTimeout(autoStartTimers.get(roomId));
     autoStartTimers.delete(roomId);
   }
+  
+  // Clear next round timer if it exists
+  stopNextRoundTimer(roomId);
   
   // Clear readiness tracking
   delete room.nextRoundReady;
@@ -115,7 +403,13 @@ function startNextRound(roomId) {
   
   // Start timer for the new round
   setTimeout(() => {
-    startArgumentTimer(roomId, 'attacker');
+    // Double-check game hasn't ended while we were waiting
+    const currentRoom = gameRooms.get(roomId);
+    if (currentRoom && !isGameEnded(currentRoom)) {
+      startArgumentTimer(roomId, 'attacker');
+    } else {
+      console.log(`Preventing argument timer start for room ${roomId} - game ended during timeout`);
+    }
   }, 2000);
 }
 
@@ -323,6 +617,10 @@ io.on('connection', (socket) => {
             displayRole: p.displayRole 
           })));
           
+          // Transition to case-reading phase and start case reading timer
+          room.gameState = 'case-reading';
+          startCaseReadingTimer(roomId);
+          
           io.to(roomId).emit('game-starting', room);
         } else {
           console.log('Emitting room-updated event');
@@ -364,6 +662,10 @@ io.on('connection', (socket) => {
         // Check if both players are ready for case reading
         if (room.players.length === 2 && room.players.every(p => p.caseReadingReady)) {
           console.log('Both players ready for case reading! Starting game');
+          
+          // Stop case reading timer since players are ready
+          stopCaseReadingTimer(roomId);
+          
           room.gameState = 'arguing';
           room.currentTurn = 'attacker'; // Start with attacker
           
@@ -555,6 +857,13 @@ io.on('connection', (socket) => {
             console.log(`SERVER: Game ends in tie`);
           }
           
+          // Immediately clean up all timers when game ends
+          console.log(`SERVER: Game ended - cleaning up room ${roomId}`);
+          cleanupRoomTimers(roomId);
+          
+          // Mark the room as ended to prevent any further game actions
+          room.gameEnded = true;
+          
           setTimeout(() => {
             io.to(roomId).emit('game-end', { 
               winner: gameWinner,
@@ -564,7 +873,8 @@ io.on('connection', (socket) => {
             });
           }, 3000);
         } else {
-          // Start next round with role switching logic - DELAY role switching
+          // Start next round with role switching logic
+          const currentCompletedRound = room.currentRound; // Store current round before incrementing
           room.currentRound += 1;
           
           // Initialize next round readiness tracking
@@ -573,22 +883,31 @@ io.on('connection', (socket) => {
             room.nextRoundReady[player.id] = false;
           });
           
-          // Start 1-minute auto-start timer
+          // Start next round timer (60 seconds)
+          startNextRoundTimer(roomId);
+          
+          // Start 1-minute auto-start timer (fallback)
           const autoStartTimer = setTimeout(() => {
             const currentRoom = gameRooms.get(roomId);
             if (currentRoom && currentRoom.nextRoundReady) {
-              console.log(`Auto-starting round ${currentRoom.currentRound} after 1 minute timeout`);
-              startNextRound(roomId);
+              // Check if game has ended using the utility function
+              if (!isGameEnded(currentRoom)) {
+                console.log(`Auto-starting round ${currentRoom.currentRound} after 1 minute timeout`);
+                startNextRound(roomId);
+              } else {
+                console.log(`Preventing auto-start for room ${roomId} - game has already ended`);
+                cleanupRoomTimers(roomId);
+              }
             }
           }, 60000); // 1 minute
           
           // Store timer separately to avoid circular references in Socket.IO
           autoStartTimers.set(roomId, autoStartTimer);
           
-          // Determine if roles should switch or if side choice is needed
-          if (room.currentRound === 2) {
-            // Round 2: Switch roles for actual gameplay - IMMEDIATE
-            console.log('Round 2: Switching roles for new round');
+          // Determine if roles should switch based on the completed round
+          if (currentCompletedRound === 1) {
+            // Round 1 just completed: Switch roles for Round 2
+            console.log('Round 1 completed: Switching roles for Round 2');
             
             // Switch roles immediately after round complete
             room.players.forEach(player => {
@@ -602,7 +921,7 @@ io.on('connection', (socket) => {
               console.log(`Player ${player.name}: originalRole=${player.originalRole}, displayRole=${player.displayRole}, role=${player.role}`);
             });
             
-            // Send updated player data to clients immediately
+            // Send updated player data to clients immediately with role switch message
             io.to(roomId).emit('players-updated', {
               round: room.currentRound,
               scores: room.scores,
@@ -610,12 +929,15 @@ io.on('connection', (socket) => {
               message: 'Roles have been switched for Round 2!'
             });
             
-          } else if (room.currentRound === 3) {
-            // Round 3: Check if it's a tie using player-based scores
+          } else if (currentCompletedRound === 2) {
+            // Round 2 just completed: Preparing for Round 3
+            console.log('Round 2 completed: Preparing for Round 3');
+            
+            // Check if it's a tie using player-based scores
             const playerScores = Object.values(room.playerScores || {});
             const isTie = playerScores.length === 2 && playerScores.every(score => score === 1);
             
-            console.log(`SERVER: Round 3 logic. Player scores:`, room.playerScores, `Is tie: ${isTie}`);
+            console.log(`SERVER: Round 2 completed, checking for tie. Player scores:`, room.playerScores, `Is tie: ${isTie}`);
             
             if (isTie) {
               // It's a draw, let the better performer choose side
@@ -643,6 +965,14 @@ io.on('connection', (socket) => {
                   playerName: chooserPlayer.name
                 };
                 
+                // Send players-updated event with NO role switch message for Round 2 completion
+                io.to(roomId).emit('players-updated', {
+                  round: room.currentRound,
+                  scores: room.scores,
+                  players: room.players,
+                  message: '' // No message for Round 2 completion
+                });
+                
                 setTimeout(() => {
                   io.to(roomId).emit('side-choice-needed', {
                     round: room.currentRound,
@@ -654,32 +984,28 @@ io.on('connection', (socket) => {
                 }, 3000);
               }
             } else {
-              // Round 3: Not a draw, continue with switched roles from Round 2 - DELAYED
-              setTimeout(() => {
-                room.players.forEach(player => {
-                  // Ensure originalRole is preserved
-                  if (!player.originalRole) {
-                    player.originalRole = player.role;
-                  }
-                  // Keep the role and display role from Round 2 (switched from original)
-                  if (!player.displayRole) {
-                    player.displayRole = player.originalRole === 'attacker' ? 'defender' : 'attacker';
-                    player.role = player.originalRole === 'attacker' ? 'defender' : 'attacker';
-                  }
-                  console.log(`Round 3 (no draw) - Player ${player.name}: originalRole=${player.originalRole}, displayRole=${player.displayRole}, role=${player.role}`);
-                });
-                
-                // Notify players to get ready for final round
-                io.to(roomId).emit('next-round-ready-check', {
-                  round: room.currentRound,
-                  scores: room.scores,
-                  players: room.players,
-                  message: 'Final round! Keep your current roles.',
-                  autoStartIn: 60 // seconds
-                });
-                
-              }, 3000); // 3 second delay to allow round complete modal to be processed
+              // Round 2 completed, not a tie - proceed to Round 3 with current roles
+              console.log('Round 3: Not a tie, proceeding with current roles');
+              
+              // Send updated player data to clients with NO role switch message for Round 2 completion
+              io.to(roomId).emit('players-updated', {
+                round: room.currentRound,
+                scores: room.scores,
+                players: room.players,
+                message: '' // No message for Round 2 completion
+              });
             }
+          } else {
+            // Other rounds (shouldn't happen in 3-round game, but just in case)
+            console.log(`Round ${currentCompletedRound} completed: No special handling needed`);
+            
+            // Send updated player data to clients (no message)
+            io.to(roomId).emit('players-updated', {
+              round: room.currentRound,
+              scores: room.scores,
+              players: room.players,
+              message: '' // No message for other rounds
+            });
           }
         }
       } else {
@@ -723,9 +1049,13 @@ io.on('connection', (socket) => {
         // Clear the waiting state
         delete room.waitingForSideChoice;
         
+        // Clear readiness tracking for the new round
+        delete room.nextRoundReady;
+        
         // Start the round
         room.currentTurn = 'attacker';
         
+        // Emit side choice complete first
         io.to(roomId).emit('side-choice-complete', {
           round: room.currentRound,
           scores: room.scores,
@@ -734,52 +1064,81 @@ io.on('connection', (socket) => {
           chosenSide: chosenSide
         });
         
-        // Start timer for the new round after a brief delay
+        // Then emit next round started to properly transition clients to arguing phase
         setTimeout(() => {
-          startArgumentTimer(roomId, 'attacker');
-        }, 2000);
+          io.to(roomId).emit('next-round-started', {
+            round: room.currentRound,
+            scores: room.scores,
+            players: room.players
+          });
+          
+          // Start timer for the new round
+          setTimeout(() => {
+            startArgumentTimer(roomId, 'attacker');
+          }, 2000);
+        }, 1000);
       }
     }
   });
 
-  // Handle next round readiness
+  // Handle next round readiness - simplified approach
   socket.on('next-round-ready', (data) => {
-    const { roomId, ready } = data;
-    console.log('Next round readiness received for room:', roomId, 'ready:', ready, 'from socket:', socket.id);
+    const { roomId } = data;
+    console.log('Next round ready received for room:', roomId, 'from socket:', socket.id);
     
     const room = gameRooms.get(roomId);
-    if (room && room.nextRoundReady) {
-      const player = room.players.find(p => p.id === socket.id);
-      if (player) {
-        room.nextRoundReady[socket.id] = ready;
-        
-        console.log(`Player ${player.name} readiness for round ${room.currentRound}: ${ready}`);
-        
-        // Notify all players of readiness update
-        io.to(roomId).emit('next-round-ready-update', {
-          playerId: socket.id,
-          playerName: player.name,
-          ready: ready,
-          readyPlayers: Object.values(room.nextRoundReady).filter(r => r).length,
-          totalPlayers: room.players.length
-        });
-        
-        // Check if both players are ready
-        const allReady = Object.values(room.nextRoundReady).every(r => r);
-        if (allReady) {
-          console.log(`Both players ready for round ${room.currentRound}! Starting round.`);
-          
-          // Clear the auto-start timer since we're starting manually
-          if (autoStartTimers.has(roomId)) {
-            clearTimeout(autoStartTimers.get(roomId));
-            autoStartTimers.delete(roomId);
-          }
-          
-          setTimeout(() => {
-            startNextRound(roomId);
-          }, 1000); // Brief delay to show "both ready" state
-        }
+    if (!room || !room.nextRoundReady) {
+      console.log('Room or nextRoundReady not found');
+      return;
+    }
+    
+    const player = room.players.find(p => p.id === socket.id);
+    if (!player) {
+      console.log('Player not found in room');
+      return;
+    }
+    
+    // Mark this player as ready
+    room.nextRoundReady[socket.id] = true;
+    console.log(`Player ${player.name} is now ready for round ${room.currentRound}`);
+    
+    // Broadcast updated readiness to all players
+    const readyCount = Object.values(room.nextRoundReady).filter(ready => ready).length;
+    const totalPlayers = room.players.length;
+    
+    io.to(roomId).emit('next-round-ready-update', {
+      playerId: socket.id,
+      playerName: player.name,
+      readyCount: readyCount,
+      totalPlayers: totalPlayers,
+      allReady: readyCount === totalPlayers
+    });
+    
+    // Check if both players are ready
+    if (readyCount === totalPlayers) {
+      console.log(`Both players ready for round ${room.currentRound}!`);
+      
+      // Check if we're waiting for side choice - if so, don't start the round yet
+      if (room.waitingForSideChoice) {
+        console.log('Both players ready, but waiting for side choice. Not starting round yet.');
+        return;
       }
+      
+      console.log('Starting round...');
+      
+      // Clear any auto-start timers since players are ready
+      if (autoStartTimers.has(roomId)) {
+        clearTimeout(autoStartTimers.get(roomId));
+        autoStartTimers.delete(roomId);
+      }
+      
+      // Clear next round timer since players are ready
+      stopNextRoundTimer(roomId);
+      
+      // Start the next round after a brief delay
+      setTimeout(() => {
+        startNextRound(roomId);
+      }, 1000);
     }
   });
 
@@ -854,6 +1213,48 @@ io.on('connection', (socket) => {
     }
   });
 
+  // Handle timer synchronization requests (when tab becomes visible)
+  socket.on('request-timer-sync', (data) => {
+    const { roomId } = data;
+    const room = gameRooms.get(roomId);
+    
+    if (!room) return;
+    
+    // Check if game has ended - don't sync timers for ended games
+    if (isGameEnded(room)) {
+      console.log(`Timer sync requested for room ${roomId} but game has ended - ignoring`);
+      return;
+    }
+    
+    console.log(`Timer sync requested for room ${roomId}`);
+    
+    const roomTimerData = timerValues.get(roomId) || {};
+    
+    // Send current timer states based on game phase and stored values
+    if (room.gameState === 'case-reading' && caseReadingTimers.has(roomId)) {
+      const timeLeft = roomTimerData.caseReadingTime || 120;
+      socket.emit('case-reading-timer-update', { timeLeft });
+      console.log(`Synced case reading timer: ${timeLeft}s`);
+    }
+    
+    if (roomTimers.has(roomId)) {
+      const timeLeft = roomTimerData.argumentTime || 10;
+      const phase = roomTimerData.phase || 1;
+      socket.emit('timer-update', { 
+        timeLeft, 
+        currentTurn: room.currentTurn, 
+        phase 
+      });
+      console.log(`Synced argument timer: ${timeLeft}s, phase: ${phase}`);
+    }
+    
+    if (nextRoundTimers.has(roomId)) {
+      const timeLeft = roomTimerData.nextRoundTime || 60;
+      socket.emit('next-round-timer-update', { timeLeft });
+      console.log(`Synced next round timer: ${timeLeft}s`);
+    }
+  });
+
   // Handle disconnect
   socket.on('disconnect', () => {
     console.log('User disconnected:', socket.id);
@@ -868,11 +1269,18 @@ io.on('connection', (socket) => {
           // Delete empty room and clean up all timers
           gameRooms.delete(roomId);
           stopArgumentTimer(roomId);
+          stopCaseReadingTimer(roomId);
+          stopNextRoundTimer(roomId);
           
           // Clean up auto-start timer
           if (autoStartTimers.has(roomId)) {
             clearTimeout(autoStartTimers.get(roomId));
             autoStartTimers.delete(roomId);
+          }
+          
+          // Clean up timer values
+          if (timerValues.has(roomId)) {
+            timerValues.delete(roomId);
           }
           
           console.log(`Room ${roomId} deleted - empty`);

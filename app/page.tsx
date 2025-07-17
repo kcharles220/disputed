@@ -44,6 +44,7 @@ export default function Home() {
         const response = await fetch('/api/user/current');
         if (response.ok) {
           const userData = await response.json();
+          console.log('Fetched user data:', userData); // Debug log
           setCurrentUser(userData);
           setHasLoadedUser(true);
         }
@@ -76,7 +77,14 @@ export default function Home() {
       setHasLoadedUser(false);
       setIsLoadingUser(false);
     }
-  }, [session?.user?.id, hasLoadedUser]);
+  }, [session?.user?.id]);
+
+  // Update selectedAvatar when currentUser data loads
+  useEffect(() => {
+    if (currentUser?.avatar && !avatarFromUrl) {
+      setSelectedAvatar(currentUser.avatar);
+    }
+  }, [currentUser?.avatar, avatarFromUrl]);
 
   const handleCreateGame = async () => {
     setIsCreatingGame(true);
@@ -90,7 +98,7 @@ export default function Home() {
       
       const playerData: PlayerData = {
         name: finalName,
-        avatar: selectedAvatar,
+        avatar: currentUser?.avatar || selectedAvatar,
         // Include fresh user data if available, otherwise use session data
         ...(session && {
           userId: session.user?.id,
@@ -127,9 +135,10 @@ export default function Home() {
 
   const handleJoinGame = () => {
     const finalName = session?.user?.username || session?.user?.name || playerName.trim() || placeholderName;
+    const finalAvatar = currentUser?.avatar || selectedAvatar;
     const params = new URLSearchParams({
       name: finalName,
-      avatar: selectedAvatar
+      avatar: finalAvatar
     });
     
     // Add fresh user data if available, otherwise use session data
@@ -184,40 +193,132 @@ export default function Home() {
             Loading...
           </div>
         ) : session ? (
-          <div className="flex flex-col gap-3">
-            {/* Profile Button */}
-            <button
-              onClick={() => router.push('/profile')}
-              className="flex items-center gap-5 text-white/90 text-lg bg-white/10 backdrop-blur-sm px-8 py-6 rounded-xl border border-white/20 hover:bg-white/20 transition-all duration-200 cursor-pointer min-w-[280px]"
-            >
-              <div className="w-16 h-16 bg-gradient-to-br from-purple-400 to-blue-400 rounded-full flex items-center justify-center text-3xl">
-                {(currentUser?.image || session.user?.image) ? (
-                  <img src={currentUser?.image || session.user.image} alt="Avatar" className="w-16 h-16 rounded-full" />
-                ) : (
-                  <span>⚖️</span>
-                )}
-              </div>
-              <div className="text-left flex-1">
-                <div className="font-bold text-xl">{currentUser?.username || session.user?.username || session.user?.name}</div>
-                <div className="text-base text-white/70">
-                  Rating: <span className="text-yellow-300 font-bold text-xl">
-                    {isLoadingUser ? (
-                      <LoadingSkeleton className="h-6 w-16 inline-block" />
-                    ) : (
-                      currentUser?.rating || session.user?.rating || 1000
-                    )}
-                  </span>
+          <div className="flex flex-col gap-4">
+            {/* Main Profile Card */}
+            <div className="relative bg-gradient-to-br from-white/20 to-white/10 backdrop-blur-xl rounded-2xl border border-white/30 p-6 shadow-2xl min-w-[360px] overflow-hidden">
+              {/* Decorative Background */}
+              <div className="absolute inset-0 bg-gradient-to-br from-purple-500/10 via-transparent to-blue-500/10"></div>
+              <div className="absolute -top-10 -right-10 w-32 h-32 bg-white/5 rounded-full blur-xl"></div>
+              <div className="absolute -bottom-6 -left-6 w-24 h-24 bg-purple-500/10 rounded-full blur-lg"></div>
+              
+              {/* Content */}
+              <div className="relative z-10">
+                {/* Header with Avatar and Basic Info */}
+                <div className="flex items-center gap-4 mb-6">
+                  <div className="relative">
+                    <button
+                      onClick={() => router.push('/profile')}
+                      className="group w-20 h-20 bg-gradient-to-br from-yellow-400 via-purple-500 to-blue-500 rounded-full p-0.5 hover:scale-105 transition-all duration-200 cursor-pointer"
+                      title="Click to edit profile"
+                    >
+                      <div className="w-full h-full bg-gradient-to-br from-purple-400 to-blue-400 rounded-full flex items-center justify-center text-2xl group-hover:bg-gradient-to-br group-hover:from-purple-300 group-hover:to-blue-300 transition-all duration-200">
+                        {isLoadingUser ? (
+                          <div className="w-8 h-8 border-2 border-white/30 border-t-white rounded-full animate-spin"></div>
+                        ) : (
+                          <span>{(currentUser as any)?.avatar || (session.user as any)?.avatar || '⚖️'}</span>
+                        )}
+                      </div>
+                    </button>
+                    {/* Edit Icon Overlay */}
+                    <div className="absolute -bottom-1 -right-1 w-6 h-6 bg-blue-500 rounded-full border-2 border-white flex items-center justify-center group-hover:bg-blue-600 transition-colors duration-200">
+                      <svg className="w-3 h-3 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
+                      </svg>
+                    </div>
+                  </div>
+                  
+                  <div className="flex-1">
+                    <div className="font-bold text-xl text-white mb-1">
+                      {currentUser?.username || session.user?.username || session.user?.name}
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <div className="flex items-center gap-1">
+                        <div className="w-3 h-3 bg-yellow-400 rounded-full"></div>
+                        <span className="text-yellow-300 font-bold text-lg">
+                          {isLoadingUser ? (
+                            <LoadingSkeleton className="h-5 w-16 inline-block bg-white/20" />
+                          ) : (
+                            currentUser?.rating || session.user?.rating || 1000
+                          )}
+                        </span>
+                      </div>
+                      <span className="text-white/60 text-sm">rating</span>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Quick Stats Row */}
+                <div className="grid grid-cols-3 gap-3 mb-6">
+                  <div className="bg-white/10 rounded-xl p-3 text-center backdrop-blur-sm border border-white/20">
+                    <div className="text-white font-bold text-lg">
+                      {isLoadingUser ? (
+                        <LoadingSkeleton className="h-5 w-8 mx-auto bg-white/20" />
+                      ) : (
+                        currentUser?.gamesPlayed || session.user?.gamesPlayed || 0
+                      )}
+                    </div>
+                    <div className="text-white/70 text-xs uppercase tracking-wide">Games</div>
+                  </div>
+                  <div className="bg-white/10 rounded-xl p-3 text-center backdrop-blur-sm border border-white/20">
+                    <div className="text-green-400 font-bold text-lg">
+                      {isLoadingUser ? (
+                        <LoadingSkeleton className="h-5 w-8 mx-auto bg-white/20" />
+                      ) : (
+                        `${Math.round(currentUser?.winPercentage || session.user?.winPercentage || 0)}%`
+                      )}
+                    </div>
+                    <div className="text-white/70 text-xs uppercase tracking-wide">Win Rate</div>
+                  </div>
+                  <div className="bg-white/10 rounded-xl p-3 text-center backdrop-blur-sm border border-white/20">
+                    <div className="text-orange-400 font-bold text-lg flex items-center justify-center gap-1">
+                      {isLoadingUser ? (
+                        <LoadingSkeleton className="h-5 w-8 bg-white/20" />
+                      ) : (
+                        <>
+                          🔥 {currentUser?.currentWinStreak || session.user?.currentWinStreak || 0}
+                        </>
+                      )}
+                    </div>
+                    <div className="text-white/70 text-xs uppercase tracking-wide">Streak</div>
+                  </div>
+                </div>
+
+                {/* Action Buttons */}
+                <div className="space-y-3">
+                  <div className="grid grid-cols-2 gap-3">
+                    <button
+                      onClick={() => router.push('/profile')}
+                      className="group relative px-4 py-3 bg-gradient-to-r from-blue-600 to-blue-700 text-white font-semibold rounded-xl hover:from-blue-700 hover:to-blue-800 transition-all duration-300 cursor-pointer shadow-lg hover:shadow-xl transform hover:scale-[1.02] overflow-hidden"
+                    >
+                      <div className="absolute inset-0 bg-gradient-to-r from-white/0 via-white/20 to-white/0 transform -skew-x-12 -translate-x-full group-hover:translate-x-full transition-transform duration-700"></div>
+                      <div className="relative flex items-center justify-center">
+                        <span className="text-sm font-medium">View Stats</span>
+                      </div>
+                    </button>
+                    
+                    <button
+                      onClick={() => router.push('/leaderboard')}
+                      className="group relative px-4 py-3 bg-gradient-to-r from-purple-600 to-purple-700 text-white font-semibold rounded-xl hover:from-purple-700 hover:to-purple-800 transition-all duration-300 cursor-pointer shadow-lg hover:shadow-xl transform hover:scale-[1.02] overflow-hidden"
+                    >
+                      <div className="absolute inset-0 bg-gradient-to-r from-white/0 via-white/20 to-white/0 transform -skew-x-12 -translate-x-full group-hover:translate-x-full transition-transform duration-700"></div>
+                      <div className="relative flex items-center justify-center">
+                        <span className="text-sm font-medium">Leaderboard</span>
+                      </div>
+                    </button>
+                  </div>
+                  
+                  <button
+                    onClick={() => signOut({ callbackUrl: '/' })}
+                    className="group w-full px-4 py-3 bg-gradient-to-r from-red-600/80 to-red-700/80 text-white font-semibold rounded-xl hover:from-red-700 hover:to-red-800 transition-all duration-300 cursor-pointer shadow-lg hover:shadow-xl transform hover:scale-[1.02] backdrop-blur-sm border border-red-500/30 overflow-hidden"
+                  >
+                    <div className="absolute inset-0 bg-gradient-to-r from-white/0 via-white/20 to-white/0 transform -skew-x-12 -translate-x-full group-hover:translate-x-full transition-transform duration-700"></div>
+                    <div className="relative flex items-center justify-center">
+                      <span className="text-sm font-medium">Sign Out</span>
+                    </div>
+                  </button>
                 </div>
               </div>
-            </button>
-            
-            {/* Sign Out Button */}
-            <button
-              onClick={() => signOut({ callbackUrl: '/' })}
-              className="px-5 py-2.5 bg-red-600/80 backdrop-blur-sm text-white border border-red-500/30 rounded-lg font-medium hover:bg-red-600 transition-all duration-200 cursor-pointer"
-            >
-              Sign Out
-            </button>
+            </div>
           </div>
         ) : (
           <div className="flex gap-4">
@@ -259,11 +360,22 @@ export default function Home() {
             {/* Avatar Selection Circle */}
             <div className="relative flex-shrink-0">
               <button
-                onClick={() => setShowAvatarPicker(!showAvatarPicker)}
-                className="w-20 h-20 bg-gradient-to-br from-red-100 to-indigo-100 rounded-full flex items-center justify-center text-3xl hover:scale-110 transition-all duration-200 shadow-lg cursor-pointer border-3 border-white/40"
+                onClick={() => !session && setShowAvatarPicker(!showAvatarPicker)}
+                disabled={!!session}
+                className={`w-20 h-20 bg-gradient-to-br from-red-100 to-indigo-100 rounded-full flex items-center justify-center text-3xl transition-all duration-200 shadow-lg border-3 border-white/40 ${
+                  session 
+                    ? 'cursor-not-allowed opacity-70' 
+                    : 'hover:scale-110 cursor-pointer'
+                }`}
               >
                 {selectedAvatar}
               </button>
+              
+              {session && (
+                <p className="absolute -bottom-8 left-1/2 transform -translate-x-1/2 text-xs text-gray-500 whitespace-nowrap">
+                  Avatar from profile
+                </p>
+              )}
               
               {/* Avatar Picker Dropdown - Properly positioned */}
               {showAvatarPicker && (

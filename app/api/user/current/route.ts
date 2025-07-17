@@ -62,7 +62,7 @@ export async function GET(req: NextRequest) {
       id: user._id,
       username: user.username,
       email: user.email,
-      image: user.image || user.avatar,
+      avatar: user.avatar || user.image,
       rating: user.rating || 1000,
       gamesPlayed: user.gamesPlayed || 0,
       gamesWon: user.gamesWon || 0,

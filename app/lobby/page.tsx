@@ -199,62 +199,32 @@ export default function GameLobby() {
   const otherPlayer = room.players.find(p => p.id !== currentPlayer?.id);
 
   return (
-    <div className="min-h-screen relative overflow-hidden">
-      {/* Blue left half */}
-      <div
-        className="absolute inset-0 bg-gradient-to-br from-blue-400 via-blue-600 to-blue-900"
-        style={{
-          clipPath: 'polygon(0 0, 37.5% 0, 32.5% 100%, 0 100%)'
-        }}
-      />
-      
-      {/* Red right half */}
-      <div
-        className="absolute inset-0 bg-gradient-to-br from-red-400 via-red-500 to-red-900"
-        style={{
-          clipPath: 'polygon(67.5% 0, 100% 0, 100% 100%, 62.5% 100%)'
-        }}
-      />
-      
-      {/* Gray center section */}
-      <div
-        className="absolute inset-0 bg-gradient-to-b from-gray-200 via-gray-300 to-gray-400"
-        style={{
-          clipPath: 'polygon(37.5% 0, 67.5% 0, 62.5% 100%, 32.5% 100%)'
-        }}
-      />
-      
-      {/* Darker gray sides of center section */}
-      <div
-        className="absolute inset-0 bg-gradient-to-b from-gray-400 to-gray-600"
-        style={{
-          clipPath: 'polygon(37.5% 0, 39% 0, 34% 100%, 32.5% 100%)'
-        }}
-      />
-      <div
-        className="absolute inset-0 bg-gradient-to-b from-gray-400 to-gray-600"
-        style={{
-          clipPath: 'polygon(66% 0, 67.5% 0, 62.5% 100%, 61% 100%)'
-        }}
-      />
+    <div className="min-h-screen bg-gradient-to-br from-slate-900 via-indigo-900 to-purple-900 relative overflow-hidden">
+      {/* Subtle intellectual background effects */}
+      <div className="absolute inset-0">
+        <div className="absolute top-1/4 left-1/4 w-80 h-80 bg-indigo-500/20 rounded-full blur-3xl animate-pulse"></div>
+        <div className="absolute bottom-1/4 right-1/4 w-80 h-80 bg-purple-500/15 rounded-full blur-3xl animate-pulse delay-1000"></div>
+        <div className="absolute top-3/4 left-3/4 w-72 h-72 bg-blue-500/15 rounded-full blur-3xl animate-pulse delay-2000"></div>
+        <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 w-96 h-96 bg-violet-500/10 rounded-full blur-3xl animate-pulse delay-1500"></div>
+      </div>
 
       {/* Content overlay */}
       <div className="relative z-10 min-h-screen flex flex-col items-center justify-center p-8">
         
         {/* Room title and status */}
         <div className="text-center mb-12">
-          <h1 className="text-4xl font-bold text-gray-800 mb-2 drop-shadow-lg">
-            {room.players.length < 2 ? 'Waiting for Opponent' : 'Game Lobby'}
+          <h1 className="text-5xl font-bold text-transparent bg-gradient-to-r from-blue-300 via-purple-300 to-indigo-300 bg-clip-text mb-2 drop-shadow-lg">
+            {room.players.length < 2 ? '⚖️ Awaiting Opponent ⚖️' : '🏛️ Debate Chamber 🏛️'}
           </h1>
           {room.players.length < 2 ? (
             <div className="flex items-center justify-center gap-2">
-              <div className="w-3 h-3 bg-gray-700 rounded-full animate-ping drop-shadow-md"></div>
-              <div className="w-3 h-3 bg-gray-700 rounded-full animate-ping delay-150 drop-shadow-md"></div>
-              <div className="w-3 h-3 bg-gray-700 rounded-full animate-ping delay-300 drop-shadow-md"></div>
+              <div className="w-3 h-3 bg-blue-400/70 rounded-full animate-pulse drop-shadow-md"></div>
+              <div className="w-3 h-3 bg-purple-400/70 rounded-full animate-pulse delay-500 drop-shadow-md"></div>
+              <div className="w-3 h-3 bg-indigo-400/70 rounded-full animate-pulse delay-1000 drop-shadow-md"></div>
             </div>
           ) : (
-            <div className="text-lg text-gray-600">
-              Ready to battle? Click ready when you're prepared!
+            <div className="text-lg text-blue-200 font-medium">
+              💭 Prepare your arguments
             </div>
           )}
         </div>
@@ -264,22 +234,26 @@ export default function GameLobby() {
           
           {/* Current Player */}
           <div className="text-center">
-            <div className="w-24 h-24 bg-gradient-to-br from-blue-100 to-indigo-200 rounded-full flex items-center justify-center text-4xl shadow-2xl border-4 border-white mb-4 mx-auto">
-              {currentPlayer?.avatar || '⚖️'}
+            <div className="relative">
+              <div className="w-28 h-28 bg-gradient-to-br from-blue-500/30 to-indigo-600/30 backdrop-blur-sm rounded-full flex items-center justify-center text-5xl shadow-2xl border-2 border-blue-300/40 mb-4 mx-auto">
+                {currentPlayer?.avatar || '⚖️'}
+              </div>
             </div>
-            <h3 className="text-xl font-bold text-gray-800 drop-shadow-sm">{currentPlayer?.name || 'You'}</h3>
+            <h3 className="text-xl font-bold text-blue-100 drop-shadow-sm">{currentPlayer?.name || 'You'}</h3>
             <div className="mt-2">
-              <span className={`px-3 py-1 rounded-full text-sm font-medium ${
-                isReady ? 'bg-green-500 text-white' : 'bg-yellow-500 text-white'
+              <div className={`w-40 mx-auto px-4 py-2 rounded-full text-sm font-medium backdrop-blur-sm border shadow-lg transition-colors duration-200 ${
+                isReady ? 'bg-green-500/70 text-white border-green-300/50' : 'bg-blue-500/70 text-white border-blue-300/50'
               }`}>
-                {isReady ? 'Ready' : 'Not Ready'}
-              </span>
+                <div className="text-center">
+                  {isReady ? '✓ Ready to Debate' : '📝 Preparing...'}
+                </div>
+              </div>
             </div>
           </div>
 
           {/* VS text */}
-          <div className="text-center mb-16">
-            <div className="text-6xl font-black text-gray-800 drop-shadow-lg opacity-90">
+          <div className="text-center mb-16 relative">
+            <div className="text-6xl font-bold text-transparent bg-gradient-to-r from-blue-400 via-purple-400 to-indigo-400 bg-clip-text drop-shadow-lg">
               VS
             </div>
           </div>
@@ -288,29 +262,35 @@ export default function GameLobby() {
           <div className="text-center">
             {otherPlayer ? (
               <>
-                <div className="w-24 h-24 bg-gradient-to-br from-red-100 to-pink-200 rounded-full flex items-center justify-center text-4xl shadow-2xl border-4 border-white mb-4 mx-auto">
-                  {otherPlayer.avatar}
+                <div className="relative">
+                  <div className="w-28 h-28 bg-gradient-to-br from-purple-500/30 to-violet-600/30 backdrop-blur-sm rounded-full flex items-center justify-center text-5xl shadow-2xl border-2 border-purple-300/40 mb-4 mx-auto">
+                    {otherPlayer.avatar}
+                  </div>
                 </div>
-                <h3 className="text-xl font-bold text-gray-800 drop-shadow-sm">{otherPlayer.name}</h3>
+                <h3 className="text-xl font-bold text-purple-100 drop-shadow-sm">{otherPlayer.name}</h3>
                 <div className="mt-2">
-                  <span className={`px-3 py-1 rounded-full text-sm font-medium ${
-                    otherPlayer.ready ? 'bg-green-500 text-white' : 'bg-yellow-500 text-white'
+                  <div className={`w-40 mx-auto px-4 py-2 rounded-full text-sm font-medium backdrop-blur-sm border shadow-lg transition-colors duration-200 ${
+                    otherPlayer.ready ? 'bg-green-500/70 text-white border-green-300/50' : 'bg-purple-500/70 text-white border-purple-300/50'
                   }`}>
-                    {otherPlayer.ready ? 'Ready' : 'Not Ready'}
-                  </span>
+                    <div className="text-center">
+                      {otherPlayer.ready ? '✓ Ready to Debate' : '📝 Preparing...'}
+                    </div>
+                  </div>
                 </div>
               </>
             ) : (
               <>
-                <div className="w-24 h-24 bg-gradient-to-br from-gray-500 to-gray-600 rounded-full flex items-center justify-center shadow-2xl border-4 border-white mb-4 mx-auto">
-                  <div className="flex gap-1">
-                    <div className="w-2 h-2 bg-white rounded-full animate-bounce"></div>
-                    <div className="w-2 h-2 bg-white rounded-full animate-bounce delay-100"></div>
-                    <div className="w-2 h-2 bg-white rounded-full animate-bounce delay-200"></div>
+                <div className="relative">
+                  <div className="w-28 h-28 bg-gradient-to-br from-gray-500/30 to-gray-700/30 backdrop-blur-sm rounded-full flex items-center justify-center shadow-2xl border-2 border-gray-400/40 mb-4 mx-auto">
+                    <div className="flex gap-2">
+                      <div className="w-2 h-2 bg-blue-300 rounded-full animate-pulse"></div>
+                      <div className="w-2 h-2 bg-purple-300 rounded-full animate-pulse delay-300"></div>
+                      <div className="w-2 h-2 bg-indigo-300 rounded-full animate-pulse delay-600"></div>
+                    </div>
                   </div>
                 </div>
-                <h3 className="text-xl font-bold text-gray-800 drop-shadow-sm">Waiting...</h3>
-                <p className="text-gray-600 text-sm">Share room code below</p>
+                <h3 className="text-xl font-bold text-gray-200 drop-shadow-sm">Seeking Debater...</h3>
+                <p className="text-blue-200 text-sm font-medium">Share the chamber code</p>
               </>
             )}
           </div>
@@ -319,11 +299,11 @@ export default function GameLobby() {
 
         {/* Game info and controls */}
         <div className="mt-16 text-center">
-          <div className="bg-white/95 backdrop-blur-sm rounded-xl p-6 shadow-2xl border border-white/50">
+          <div className="bg-black/30 backdrop-blur-xl rounded-2xl p-8 shadow-2xl border border-blue-300/20">
           
-            <p className="text-gray-600 mb-4">Share this room code with your opponent:</p>
+            <p className="text-blue-200 mb-4 font-medium">�️ Debate Chamber Code:</p>
             <div className="flex items-center justify-center gap-3 mb-6">
-              <div className="bg-gray-100 rounded-lg px-4 py-2 font-mono text-lg font-bold text-gray-800">
+              <div className="bg-indigo-900/60 backdrop-blur-sm rounded-lg px-6 py-3 font-mono text-xl font-bold text-blue-200 border border-indigo-400/30 shadow-lg">
                 {room.id}
               </div>
               <div className="relative">
@@ -345,12 +325,12 @@ export default function GameLobby() {
                       setTimeout(() => setLinkCopied(false), 2000);
                     });
                   }}
-                  className="p-2 bg-gray-200 hover:bg-gray-300 text-gray-700 rounded-lg transition-all duration-200 cursor-pointer shadow-md group border border-gray-300"
-                  title="Copy shareable link"
+                  className="p-3 bg-blue-600/70 hover:bg-blue-500/70 text-white backdrop-blur-sm rounded-lg transition-all duration-200 cursor-pointer shadow-lg group border border-blue-400/40 transform hover:scale-105"
+                  title="Copy debate chamber link"
                 >
                   <svg 
-                    width="20" 
-                    height="20" 
+                    width="24" 
+                    height="24" 
                     viewBox="0 0 24 24" 
                     fill="none" 
                     stroke="currentColor" 
@@ -365,8 +345,8 @@ export default function GameLobby() {
                 </button>
                 {linkCopied && (
                   <div className="absolute top-full mt-2 left-1/2 transform -translate-x-1/2 z-10">
-                    <div className="bg-green-600 text-white text-xs px-3 py-1.5 rounded-lg shadow-lg whitespace-nowrap relative animate-pulse">
-                      ✓ Copied link!
+                    <div className="bg-green-600/90 backdrop-blur-sm text-white text-xs px-3 py-1.5 rounded-lg shadow-lg whitespace-nowrap relative animate-pulse border border-green-400/30">
+                      ✓ Copied chamber link!
                       {/* Pointer arrow */}
                       <div className="absolute bottom-full left-1/2 transform -translate-x-1/2 w-0 h-0 border-l-4 border-r-4 border-b-4 border-transparent border-b-green-600"></div>
                     </div>
@@ -379,32 +359,36 @@ export default function GameLobby() {
             <div className="flex gap-4 justify-center">
               <button 
                 onClick={handleLeaveRoom}
-                className="px-6 py-3 bg-red-600 text-white rounded-lg font-medium hover:bg-red-700 transition-all duration-200 cursor-pointer shadow-lg"
+                className="px-8 py-4 bg-red-600/70 backdrop-blur-sm text-white rounded-lg font-medium hover:bg-red-500/70 transition-all duration-200 cursor-pointer shadow-lg border border-red-400/40 transform hover:scale-105"
               >
-                Leave Room
+                🚪 Leave Chamber
               </button>
-              <button 
-                onClick={handleToggleReady}
-                className={`px-6 py-3 rounded-lg font-medium transition-all duration-200 cursor-pointer shadow-lg ${
-                  isReady 
-                    ? 'bg-yellow-600 text-white hover:bg-yellow-700' 
-                    : 'bg-green-600 text-white hover:bg-green-700'
-                }`}
-              >
-                {isReady ? 'Not Ready' : 'Ready Up!'}
-              </button>
+              <div className="w-48">
+                <button 
+                  onClick={handleToggleReady}
+                  className={`w-full px-8 py-4 rounded-lg font-medium transition-all duration-200 cursor-pointer shadow-lg backdrop-blur-sm border transform hover:scale-105 ${
+                    isReady 
+                      ? 'bg-blue-600/70 text-white hover:bg-blue-500/70 border-blue-400/40' 
+                      : 'bg-green-600/70 text-white hover:bg-green-500/70 border-green-400/40'
+                  }`}
+                >
+                  <div className="text-center">
+                    {isReady ? '📝 Revise Arguments' : '✓ Ready to Debate'}
+                  </div>
+                </button>
+              </div>
               
               
             </div>
             
             {room.players.length === 2 && room.players.every(p => p.ready) && !showCoinFlip && (
-              <div className="mt-4 p-4 bg-green-100 border border-green-300 rounded-lg">
-                <p className="text-green-800 font-medium mb-3">🎉 Both players are ready!</p>
+              <div className="mt-6 p-6 bg-purple-600/20 backdrop-blur-sm border border-purple-400/30 rounded-lg">
+                <p className="text-purple-200 font-medium mb-4 text-lg">🎭 Both debaters are ready!</p>
                 <button
                   onClick={startCoinFlip}
-                  className="px-6 py-3 bg-gradient-to-r from-yellow-500 to-orange-500 text-white rounded-lg font-bold hover:from-yellow-600 hover:to-orange-600 transition-all duration-200 cursor-pointer shadow-lg transform hover:scale-105"
+                  className="px-8 py-4 bg-gradient-to-r from-indigo-600/70 to-purple-600/70 backdrop-blur-sm text-white rounded-lg font-medium hover:from-indigo-500/70 hover:to-purple-500/70 transition-all duration-200 cursor-pointer shadow-lg transform hover:scale-105 border border-indigo-400/30 text-lg"
                 >
-                  🪙 Flip Coin to Start!
+                  🎯 Begin Philosophical Duel
                 </button>
               </div>
             )}

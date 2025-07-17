@@ -6,6 +6,7 @@ declare module 'next-auth' {
     user: {
       id: string
       username: string
+      avatar: string
       gamesPlayed: number
       gamesWon: number
       gamesLost: number
@@ -36,6 +37,7 @@ declare module 'next-auth' {
 
   interface User extends DefaultUser {
     username?: string
+    avatar?: string
     gamesPlayed?: number
     gamesWon?: number
     gamesLost?: number
@@ -67,6 +69,7 @@ declare module 'next-auth' {
 declare module 'next-auth/jwt' {
   interface JWT extends DefaultJWT {
     username?: string
+    avatar?: string
     gamesPlayed?: number
     gamesWon?: number
     gamesLost?: number
