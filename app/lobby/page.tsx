@@ -126,7 +126,7 @@ export default function GameLobby() {
     }, 2000);
   };
 
-  const startCoinFlipWithRole = (role: 'attacker' | 'defender', roomIdParam?: string) => {
+  const startCoinFlipWithRole = (role: 'prosecutor' | 'defender', roomIdParam?: string) => {
     console.log('Starting coin flip with role:', role, 'Current room:', room);
     
     // Use passed room ID or fall back to current room state
@@ -144,7 +144,7 @@ export default function GameLobby() {
     
     // Simulate coin flip after 2 seconds
     setTimeout(() => {
-      const result = role === 'attacker' ? 'red' : 'blue';
+      const result = role === 'prosecutor' ? 'red' : 'blue';
       setCoinResult(result);
       setFlipAnimation(false);
       
@@ -301,7 +301,7 @@ export default function GameLobby() {
         <div className="mt-16 text-center">
           <div className="bg-black/30 backdrop-blur-xl rounded-2xl p-8 shadow-2xl border border-blue-300/20">
           
-            <p className="text-blue-200 mb-4 font-medium">�️ Debate Chamber Code:</p>
+            <p className="text-blue-200 mb-4 font-medium">Debate Chamber Code:</p>
             <div className="flex items-center justify-center gap-3 mb-6">
               <div className="bg-indigo-900/60 backdrop-blur-sm rounded-lg px-6 py-3 font-mono text-xl font-bold text-blue-200 border border-indigo-400/30 shadow-lg">
                 {room.id}
@@ -399,55 +399,82 @@ export default function GameLobby() {
 
       {/* Coin Flip Overlay */}
       {showCoinFlip && (
-        <div className="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center z-50">
-          <div className="bg-white/95 backdrop-blur-xl rounded-2xl shadow-2xl p-12 max-w-md w-full border border-white/30 text-center">
-            <h2 className="text-3xl font-bold text-gray-800 mb-8">Deciding Roles...</h2>
+        <div className="fixed inset-0 bg-slate-900/80 backdrop-blur-lg flex items-center justify-center z-50">
+          {/* Background effects for the modal */}
+          <div className="absolute inset-0">
+            <div className="absolute top-1/3 left-1/3 w-96 h-96 bg-indigo-500/20 rounded-full blur-3xl animate-pulse"></div>
+            <div className="absolute bottom-1/3 right-1/3 w-96 h-96 bg-purple-500/15 rounded-full blur-3xl animate-pulse delay-1000"></div>
+          </div>
+          
+          <div className="relative bg-black/40 backdrop-blur-xl rounded-3xl shadow-2xl p-12 max-w-lg w-full border border-blue-300/30 text-center">
+            <h2 className="text-4xl font-bold text-transparent bg-gradient-to-r from-blue-300 via-purple-300 to-indigo-300 bg-clip-text mb-2 drop-shadow-lg">
+              ⚖️ Role Assignment ⚖️
+            </h2>
+            <p className="text-blue-200 mb-10 font-medium">The scales of justice determine your position</p>
             
             {/* Coin Animation */}
-            <div className="flex justify-center mb-8">
-              <div 
-                className={`w-32 h-32 rounded-full border-8 border-yellow-400 flex items-center justify-center text-4xl font-bold transition-all duration-500 ${
-                  flipAnimation ? 'animate-spin' : ''
-                } ${
-                  coinResult === 'red' ? 'bg-gradient-to-br from-red-400 to-red-600 text-white' :
-                  coinResult === 'blue' ? 'bg-gradient-to-br from-blue-400 to-blue-600 text-white' :
-                  'bg-gradient-to-br from-yellow-300 to-yellow-500 text-yellow-800'
-                }`}
-                style={{
-                  animationDuration: flipAnimation ? '0.1s' : '0.5s'
-                }}
-              >
-                {flipAnimation ? '🪙' : coinResult === 'red' ? '⚔️' : coinResult === 'blue' ? '🛡️' : '🪙'}
+            <div className="flex justify-center mb-10">
+              <div className="relative">
+                <div 
+                  className={`w-40 h-40 rounded-full flex items-center justify-center text-6xl font-bold transition-all duration-500 shadow-2xl ${
+                    flipAnimation ? 'animate-spin' : ''
+                  } ${
+                    coinResult === 'red' ? 'bg-gradient-to-br from-red-500/80 to-red-700/80 text-white border-4 border-red-300/50' :
+                    coinResult === 'blue' ? 'bg-gradient-to-br from-blue-500/80 to-blue-700/80 text-white border-4 border-blue-300/50' :
+                    'bg-gradient-to-br from-indigo-500/60 to-purple-600/60 text-blue-100 border-4 border-indigo-300/50'
+                  } backdrop-blur-sm`}
+                  style={{
+                    animationDuration: flipAnimation ? '0.1s' : '0.5s'
+                  }}
+                >
+                  {flipAnimation ? '⚖️' : coinResult === 'red' ? '⚔️' : coinResult === 'blue' ? '🛡️' : '⚖️'}
+                </div>
+                {/* Glow effect */}
+                <div className={`absolute inset-0 rounded-full blur-xl ${
+                  coinResult === 'red' ? 'bg-red-500/30' :
+                  coinResult === 'blue' ? 'bg-blue-500/30' :
+                  'bg-indigo-500/20'
+                } animate-pulse`}></div>
               </div>
             </div>
 
             {/* Status Text */}
-            <div className="text-lg text-gray-700">
+            <div className="text-lg">
               {flipAnimation ? (
-                <div className="flex items-center justify-center gap-2">
-                  <span>Flipping coin</span>
+                <div className="flex items-center justify-center gap-3">
+                  <span className="text-blue-200 font-medium">Consulting the scales</span>
                   <div className="flex gap-1">
-                    <div className="w-2 h-2 bg-gray-600 rounded-full animate-bounce"></div>
-                    <div className="w-2 h-2 bg-gray-600 rounded-full animate-bounce delay-100"></div>
-                    <div className="w-2 h-2 bg-gray-600 rounded-full animate-bounce delay-200"></div>
+                    <div className="w-3 h-3 bg-blue-400/70 rounded-full animate-pulse"></div>
+                    <div className="w-3 h-3 bg-purple-400/70 rounded-full animate-pulse delay-300"></div>
+                    <div className="w-3 h-3 bg-indigo-400/70 rounded-full animate-pulse delay-600"></div>
                   </div>
                 </div>
               ) : coinResult === 'red' ? (
-                <div className="space-y-2">
-                  <p className="text-xl font-bold text-red-600">🔥 You are the ATTACKER! 🔥</p>
-                  <p className="text-sm text-gray-600">You'll start the legal battle and present your case first</p>
+                <div className="space-y-4">
+                  <p className="text-2xl font-bold text-transparent bg-gradient-to-r from-red-300 to-red-500 bg-clip-text drop-shadow-lg">
+                    ⚔️ You are the PROSECUTOR ⚔️
+                  </p>
+                  <p className="text-blue-200 font-medium">You'll present the case and challenge your opponent</p>
+                  <div className="bg-red-500/20 backdrop-blur-sm border border-red-300/30 rounded-lg p-4 mt-4">
+                    <p className="text-red-200 text-sm">🎯 Your mission: Build a compelling argument and prove your case</p>
+                  </div>
                 </div>
               ) : coinResult === 'blue' ? (
-                <div className="space-y-2">
-                  <p className="text-xl font-bold text-blue-600">🛡️ You are the DEFENDER! 🛡️</p>
-                  <p className="text-sm text-gray-600">You'll respond to attacks and protect your position</p>
+                <div className="space-y-4">
+                  <p className="text-2xl font-bold text-transparent bg-gradient-to-r from-blue-300 to-blue-500 bg-clip-text drop-shadow-lg">
+                    🛡️ You are the DEFENDER 🛡️
+                  </p>
+                  <p className="text-blue-200 font-medium">You'll counter arguments and protect your position</p>
+                  <div className="bg-blue-500/20 backdrop-blur-sm border border-blue-300/30 rounded-lg p-4 mt-4">
+                    <p className="text-blue-200 text-sm">🎯 Your mission: Refute claims and establish reasonable doubt</p>
+                  </div>
                 </div>
               ) : null}
             </div>
 
             {coinResult && (
-              <div className="mt-6 text-sm text-gray-500">
-                Role assigned! You can now start the legal battle.
+              <div className="mt-8 p-4 bg-indigo-500/20 backdrop-blur-sm border border-indigo-300/30 rounded-lg">
+                <p className="text-indigo-200 font-medium">⚖️ Justice has spoken! Preparing the courtroom...</p>
               </div>
             )}
           </div>

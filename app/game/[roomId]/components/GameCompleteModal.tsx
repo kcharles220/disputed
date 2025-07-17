@@ -16,12 +16,12 @@ interface GameArgument {
 interface GameState {
     gamePhase: 'case-reading' | 'arguing' | 'round-complete' | 'finished' | 'side-choice';
     winner?: string;
-    scores: { attacker: number; defender: number };
+    scores: { prosecutor: number; defender: number };
     roundHistory: {
         round: number;
-        winner: 'attacker' | 'defender';
+        winner: 'prosecutor' | 'defender';
         analysis: string;
-        attackerScore: number;
+        prosecutorScore: number;
         defenderScore: number;
         arguments: GameArgument[];
         argumentScores?: { argumentId: string; score: number }[];
@@ -35,7 +35,7 @@ interface GameCompleteModalProps {
     setShowFullBattleLog: (show: boolean) => void;
     router: any;
     formatScore: (score: number) => string;
-    getAttackerScore: () => number;
+    getProsecutorScore: () => number;
     getDefenderScore: () => number;
     showModal: boolean;
 }
@@ -47,7 +47,7 @@ export default function GameCompleteModal({
     setShowFullBattleLog,
     router,
     formatScore,
-    getAttackerScore,
+    getProsecutorScore,
     getDefenderScore,
     showModal
 }: GameCompleteModalProps) {
@@ -57,165 +57,219 @@ export default function GameCompleteModal({
 
     return (
         <>
-            {/* Game End Modal */}
-            <div className="fixed inset-0 bg-black/80 backdrop-blur-sm flex items-center justify-center z-50 p-4">
-                <div className="bg-gradient-to-br from-gray-900 to-gray-800 rounded-2xl shadow-2xl p-12 border border-gray-600 max-w-6xl w-full max-h-[90vh] overflow-y-auto">
-                    {/* Header */}
-                    <div className="text-center mb-8">
-                        <div className="text-8xl mb-4">⚖️</div>
-                        <h1 className="text-6xl font-bold bg-gradient-to-r from-yellow-400 to-orange-500 bg-clip-text text-transparent mb-4">
-                            BATTLE COMPLETE!
+            {/* Game Complete Full Screen */}
+            <div className="fixed inset-0 z-50 bg-gradient-to-br from-slate-900 via-purple-900/50 to-slate-900 overflow-y-auto">
+                {/* Subtle background effects */}
+                <div className="absolute inset-0">
+                    <div className="absolute top-10 left-10 w-96 h-96 bg-yellow-500/5 rounded-full blur-3xl"></div>
+                    <div className="absolute top-1/3 right-20 w-80 h-80 bg-purple-500/8 rounded-full blur-3xl"></div>
+                    <div className="absolute bottom-20 left-1/3 w-72 h-72 bg-indigo-500/6 rounded-full blur-3xl"></div>
+                    <div className="absolute top-2/3 right-1/4 w-64 h-64 bg-blue-500/7 rounded-full blur-3xl"></div>
+                </div>
+                
+                <div className="relative z-10 min-h-screen p-8 flex flex-col">
+                <div className="relative z-10 min-h-screen p-8 flex flex-col">
+                    {/* Header Section - Top of screen */}
+                    <div className="text-center mb-12">
+                        <h1 className="text-8xl font-black bg-gradient-to-r from-yellow-200 via-yellow-400 to-orange-500 bg-clip-text text-transparent mb-6 drop-shadow-2xl">
+                            JUSTICE SERVED!
                         </h1>
-                        <div className="text-4xl font-bold mb-6">
-                            {gameState.winner === 'attacker' ? (
-                                <span className="text-yellow-400">🏆 {room?.players.find(p => p.originalRole === 'attacker')?.name} WINS!</span>
+                        <div className="text-5xl font-bold mb-8">
+                            {gameState.winner === 'prosecutor' ? (
+                                <span className="text-yellow-300 drop-shadow-lg">
+                                    👑 {room?.players.find(p => p.originalRole === 'prosecutor')?.name} TRIUMPHS!
+                                </span>
                             ) : (
-                                <span className="text-yellow-400">🏆 {room?.players.find(p => p.originalRole === 'defender')?.name} WINS!</span>
+                                <span className="text-yellow-300 drop-shadow-lg">
+                                    👑 {room?.players.find(p => p.originalRole === 'defender')?.name} TRIUMPHS!
+                                </span>
                             )}
                         </div>
-                        <p className="text-xl text-gray-300 max-w-2xl mx-auto">
-                            {gameState.winner === 'attacker'
-                                ? `${room?.players.find(p => p.originalRole === 'attacker')?.name} presented the most convincing case and emerges victorious!`
-                                : `${room?.players.find(p => p.originalRole === 'defender')?.name} presented the most convincing case and emerges victorious!`
+                        <p className="text-2xl text-white/90 max-w-3xl mx-auto leading-relaxed">
+                            {gameState.winner === 'prosecutor'
+                                ? `${room?.players.find(p => p.originalRole === 'prosecutor')?.name} has presented an unshakeable case and claims victory in this legal battle!`
+                                : `${room?.players.find(p => p.originalRole === 'defender')?.name} has successfully defended their position and emerges as the champion!`
                             }
                         </p>
                     </div>
 
-                    {/* Main Score Display */}
-                    <div className="bg-gray-800/50 rounded-xl p-8 mb-8">
-                        <h2 className="text-3xl font-bold text-center text-yellow-400 mb-8">📊 FINAL BATTLE SCORE</h2>
+                    {/* Main Content Area - Top to Bottom Layout */}
+                    <div className="flex-1 flex flex-col gap-12 max-w-6xl mx-auto w-full">
                         
-                        {/* Player Scores with Avatars */}
-                        <div className="flex justify-center items-center gap-20 mb-8">
-                            {/* Player 1 - Original Attacker */}
-                            <div className="flex flex-col items-center">
-                                {/* Avatar */}
-                                <div className="w-24 h-24 bg-gray-700 rounded-full flex items-center justify-center text-4xl border-4 border-gray-500 mb-6">
-                                    {room?.players.find(p => p.originalRole === 'attacker')?.avatar || '⚖️'}
-                                </div>
-                                {/* Player Name */}
-                                <div className="text-xl font-semibold text-gray-200 mb-4">{room?.players.find(p => p.originalRole === 'attacker')?.name}</div>
-                            </div>
+                        {/* Top Section - Score Display */}
+                        <div className="w-full">
+                            <div className="relative overflow-hidden rounded-3xl">
+                                {/* Glass morphism background with enhanced effects */}
+                                <div className="absolute inset-0 bg-gradient-to-br from-white/20 via-white/10 to-white/15 backdrop-blur-xl border-2 border-white/30 shadow-2xl"></div>
+                                
+                                {/* Content */}
+                                <div className="relative z-10 p-10">
+                                    <h2 className="text-4xl font-bold text-center text-yellow-300 mb-12 drop-shadow-lg">🏆 FINAL VERDICT</h2>
+                                    
+                                    {/* Enhanced Player Score Display */}
+                                    <div className="flex flex-col items-center gap-16">
+                                        {/* Score Battle */}
+                                        <div className="flex items-center justify-center gap-12">
+                                            {/* Player 1 - Original Prosecutor */}
+                                            <div className="flex flex-col items-center transform hover:scale-105 transition-transform duration-300">
+                                                {/* Enhanced Avatar */}
+                                                <div className="relative">
+                                                    <div className="w-32 h-32 bg-gradient-to-br from-red-400 via-red-500 to-orange-600 rounded-full flex items-center justify-center text-5xl border-4 border-red-300/50 shadow-2xl mb-6">
+                                                        {room?.players.find(p => p.originalRole === 'prosecutor')?.avatar || '⚔️'}
+                                                    </div>
+                                                    {gameState.winner === 'prosecutor' && (
+                                                        <div className="absolute -top-4 -right-4 text-6xl">👑</div>
+                                                    )}
+                                                </div>
+                                                {/* Player Name */}
+                                                <div className="text-2xl font-bold text-white mb-6 text-center">
+                                                    {room?.players.find(p => p.originalRole === 'prosecutor')?.name}
+                                                </div>
+                                                {/* Score */}
+                                                <div className="text-7xl font-black bg-gradient-to-b from-red-200 to-red-600 bg-clip-text text-transparent drop-shadow-2xl">
+                                                    {gameState.scores.prosecutor}
+                                                </div>
+                                            </div>
 
-                            {/* Score and VS section */}
-                            <div className="flex items-center gap-8">
-                                {/* Player 1 Score */}
-                                <div className="text-6xl font-bold text-white">{gameState.scores.attacker}</div>
-                                {/* VS */}
-                                <div className="text-5xl text-gray-400 font-bold">VS</div>
-                                {/* Player 2 Score */}
-                                <div className="text-6xl font-bold text-white">{gameState.scores.defender}</div>
-                            </div>
+                                            {/* VS Section with enhanced styling */}
+                                            <div className="flex flex-col items-center">
+                                                <div className="text-6xl text-white/70 font-black drop-shadow-2xl mb-4">VS</div>
+                                            </div>
 
-                            {/* Player 2 - Original Defender */}
-                            <div className="flex flex-col items-center">
-                                {/* Avatar */}
-                                <div className="w-24 h-24 bg-gray-700 rounded-full flex items-center justify-center text-4xl border-4 border-gray-500 mb-6">
-                                    {room?.players.find(p => p.originalRole === 'defender')?.avatar || '⚖️'}
+                                            {/* Player 2 - Original Defender */}
+                                            <div className="flex flex-col items-center transform hover:scale-105 transition-transform duration-300">
+                                                {/* Enhanced Avatar */}
+                                                <div className="relative">
+                                                    <div className="w-32 h-32 bg-gradient-to-br from-blue-400 via-blue-500 to-indigo-600 rounded-full flex items-center justify-center text-5xl border-4 border-blue-300/50 shadow-2xl mb-6">
+                                                        {room?.players.find(p => p.originalRole === 'defender')?.avatar || '🛡️'}
+                                                    </div>
+                                                    {gameState.winner === 'defender' && (
+                                                        <div className="absolute -top-4 -right-4 text-6xl">👑</div>
+                                                    )}
+                                                </div>
+                                                {/* Player Name */}
+                                                <div className="text-2xl font-bold text-white mb-6 text-center">
+                                                    {room?.players.find(p => p.originalRole === 'defender')?.name}
+                                                </div>
+                                                {/* Score */}
+                                                <div className="text-7xl font-black bg-gradient-to-b from-blue-200 to-blue-600 bg-clip-text text-transparent drop-shadow-2xl">
+                                                    {gameState.scores.defender}
+                                                </div>
+                                            </div>
+                                        </div>
+
+                                        {/* Individual Performance Score with enhanced styling */}
+                                        <div className="w-full border-t-2 border-white/30 pt-8">
+                                            <h3 className="text-2xl font-bold text-center text-white mb-6 drop-shadow-lg">📊 Individual Performance</h3>
+                                            <div className="flex justify-center items-center gap-16">
+                                                <div className="text-center transform hover:scale-110 transition-transform duration-300">
+                                                    <div className="text-4xl font-bold text-white mb-2 drop-shadow-lg">{formatScore(getProsecutorScore())}</div>
+                                                    <div className="text-lg text-white/70">{room?.players.find(p => p.originalRole === 'prosecutor')?.name}</div>
+                                                </div>
+                                                <div className="text-3xl text-white/50">—</div>
+                                                <div className="text-center transform hover:scale-110 transition-transform duration-300">
+                                                    <div className="text-4xl font-bold text-white mb-2 drop-shadow-lg">{formatScore(getDefenderScore())}</div>
+                                                    <div className="text-lg text-white/70">{room?.players.find(p => p.originalRole === 'defender')?.name}</div>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
                                 </div>
-                                {/* Player Name */}
-                                <div className="text-xl font-semibold text-gray-200 mb-4">{room?.players.find(p => p.originalRole === 'defender')?.name}</div>
                             </div>
                         </div>
 
-                        {/* Individual Performance Score */}
-                        <div className="border-t border-gray-600 pt-6">
-                            <h3 className="text-xl font-bold text-center text-gray-300 mb-4">Individual Performance</h3>
-                            <div className="flex justify-center items-center gap-12">
-                                <div className="text-center">
-                                    <div className="text-3xl font-bold text-gray-300 mb-1">{formatScore(getAttackerScore())}</div>
-                                    <div className="text-sm text-gray-400">{room?.players.find(p => p.originalRole === 'attacker')?.name}</div>
-                                </div>
-                                <div className="text-2xl text-gray-500">-</div>
-                                <div className="text-center">
-                                    <div className="text-3xl font-bold text-gray-300 mb-1">{formatScore(getDefenderScore())}</div>
-                                    <div className="text-sm text-gray-400">{room?.players.find(p => p.originalRole === 'defender')?.name}</div>
-                                </div>
-                            </div>
-                        </div>
+                       
                     </div>
 
-                    {/* Battle Summary */}
-                    <div className="bg-gray-800/30 rounded-xl p-6 mb-8">
-                        <h3 className="text-xl font-bold text-yellow-400 mb-4 text-center">⚔️ Battle Summary</h3>
-                        <div className="grid grid-cols-3 gap-6 text-center">
-                            <div>
-                                <div className="text-2xl font-bold text-white mb-1">{gameState.roundHistory.length}</div>
-                                <div className="text-sm text-gray-400">Rounds Fought</div>
-                            </div>
-                            <div>
-                                <div className="text-2xl font-bold text-white mb-1">
-                                    {gameState.roundHistory.reduce((total, round) => total + round.arguments.length, 0)}
-                                </div>
-                                <div className="text-sm text-gray-400">Total Arguments</div>
-                            </div>
-                            <div>
-                                <div className="text-2xl font-bold text-white mb-1">
-                                    {gameState.roundHistory.reduce((total, round) => total + Math.floor(round.arguments.length / 2), 0)}
-                                </div>
-                                <div className="text-sm text-gray-400">Total Exchanges</div>
-                            </div>
-                        </div>
-                    </div>
-
-                    {/* Action Buttons */}
-                    <div className="flex flex-col sm:flex-row gap-4 justify-center items-center">
+                    {/* Bottom Action Section */}
+                    <div className="mt-12 flex flex-col sm:flex-row gap-6 justify-center items-center">
                         <button
                             onClick={() => setShowFullBattleLog(true)}
-                            className="px-8 py-4 bg-gradient-to-r from-purple-600 to-purple-700 hover:from-purple-700 hover:to-purple-800 text-white font-bold rounded-xl transition-all duration-200 transform hover:scale-105 shadow-lg text-lg"
+                            className="group relative overflow-hidden px-12 py-6 font-bold rounded-2xl transition-all duration-300 transform hover:scale-110 shadow-2xl text-xl border-2 border-purple-400/50 hover:border-purple-300"
                         >
-                            📜 View Full Battle Log
+                            {/* Enhanced glass morphism background */}
+                            <div className="absolute inset-0 bg-gradient-to-r from-purple-600/80 via-purple-500/80 to-purple-700/80 backdrop-blur-xl group-hover:from-purple-500/90 group-hover:to-purple-600/90 transition-all duration-300"></div>
+                            
+                            {/* Content */}
+                            <span className="relative z-10 text-white flex items-center gap-3">
+                                📜 <span>View Complete Log</span>
+                            </span>
                         </button>
                         <button
                             onClick={() => router.push('/')}
-                            className="px-8 py-4 bg-gradient-to-r from-gray-600 to-gray-700 hover:from-gray-700 hover:to-gray-800 text-white font-bold rounded-xl transition-all duration-200 transform hover:scale-105 shadow-lg text-lg"
+                            className="group relative overflow-hidden px-12 py-6 font-bold rounded-2xl transition-all duration-300 transform hover:scale-110 shadow-2xl text-xl border-2 border-gray-400/50 hover:border-gray-300"
                         >
-                            🏠 Return to Menu
+                            {/* Enhanced glass morphism background */}
+                            <div className="absolute inset-0 bg-gradient-to-r from-gray-600/80 via-gray-500/80 to-gray-700/80 backdrop-blur-xl group-hover:from-gray-500/90 group-hover:to-gray-600/90 transition-all duration-300"></div>
+                            
+                            {/* Content */}
+                            <span className="relative z-10 text-white flex items-center gap-3">
+                                🏠 <span>Return to Main Menu</span>
+                            </span>
                         </button>
                     </div>
                 </div>
             </div>
 
-            {/* Full Battle Log Modal */}
+                </div>
+
+            {/* Full Log Modal - Enhanced as overlay */}
             {showFullBattleLog && (
-                <div className="fixed inset-0 bg-black/80 backdrop-blur-sm flex items-center justify-center z-50 p-4">
-                    <div className="bg-gradient-to-br from-gray-800 to-gray-900 rounded-2xl shadow-2xl max-w-6xl w-full max-h-[90vh] border border-gray-600 overflow-hidden">
+                <div className="fixed inset-0 bg-slate-900/90 backdrop-blur-lg flex items-center justify-center z-[60] p-4">
+                    {/* Background effects */}
+                    <div className="absolute inset-0">
+                        <div className="absolute top-1/4 left-1/4 w-80 h-80 bg-indigo-500/20 rounded-full blur-3xl animate-pulse"></div>
+                        <div className="absolute bottom-1/4 right-1/4 w-80 h-80 bg-purple-500/15 rounded-full blur-3xl animate-pulse delay-1000"></div>
+                    </div>
+                    
+                    <div className="relative bg-gradient-to-br from-white/20 via-white/10 to-white/5 backdrop-blur-xl rounded-3xl shadow-2xl max-w-6xl w-full max-h-[90vh] border border-white/30 overflow-hidden">
                         {/* Header */}
-                        <div className="p-6 border-b border-gray-600 bg-gray-800/50">
-                            <div className="flex items-center justify-between">
-                                <h1 className="text-3xl font-bold text-yellow-400">📜 Complete Battle Log</h1>
+                        <div className="relative overflow-hidden p-6 border-b border-white/20">
+                            {/* Glass morphism background */}
+                            <div className="absolute inset-0 bg-gradient-to-br from-white/15 via-white/8 to-white/10 backdrop-blur-sm"></div>
+                            
+                            {/* Content */}
+                            <div className="relative z-10 flex items-center justify-between">
+                                <h1 className="text-3xl font-bold text-yellow-300">📜 Complete Log</h1>
                                 <button
                                     onClick={() => setShowFullBattleLog(false)}
-                                    className="w-10 h-10 bg-gray-700 hover:bg-gray-600 rounded-full flex items-center justify-center text-gray-300 hover:text-white transition-all duration-200"
+                                    className="w-10 h-10 bg-gradient-to-br from-gray-600/80 to-gray-700/80 hover:from-gray-500/80 hover:to-gray-600/80 rounded-full flex items-center justify-center text-white/80 hover:text-white transition-all duration-200 backdrop-blur-sm border border-white/20 shadow-lg"
                                 >
                                     ✕
                                 </button>
                             </div>
-                            <p className="text-gray-300 mt-2">Review every argument from the legal battle</p>
+                            <p className="text-white/80 mt-2 relative z-10">Review every argument from the legal battle</p>
                         </div>
 
                         {/* Arguments Log */}
                         <div className="p-6 overflow-y-auto" style={{ maxHeight: 'calc(90vh - 300px)' }}>
                             {gameState.roundHistory.length === 0 ? (
-                                <p className="text-gray-500 text-center py-12">No arguments recorded.</p>
+                                <div className="text-center py-12">
+                                    <div className="text-6xl mb-4 opacity-40">⚖️</div>
+                                    <p className="text-white/60">No arguments recorded.</p>
+                                </div>
                             ) : (
                                 <div className="space-y-8">
                                     {/* Display completed rounds from history */}
                                     {gameState.roundHistory.map((round, roundIndex) => (
-                                        <div key={`round-${round.round}`} className="space-y-6">
+                                        <div key={`round-history-${roundIndex}`} className="space-y-6">
                                             {/* Round Header */}
-                                            <div className="bg-yellow-900/20 border border-yellow-600/30 rounded-lg p-4">
-                                                <div className="flex items-center justify-between">
-                                                    <h3 className="text-2xl font-bold text-yellow-400">
+                                            <div className="relative overflow-hidden rounded-xl p-4">
+                                                {/* Glass morphism background */}
+                                                <div className="absolute inset-0 bg-gradient-to-br from-yellow-500/20 via-yellow-400/10 to-orange-500/15 backdrop-blur-sm border border-yellow-400/30 shadow-lg"></div>
+                                                
+                                                {/* Content */}
+                                                <div className="relative z-10 flex items-center justify-between">
+                                                    <h3 className="text-2xl font-bold text-yellow-300">
                                                         ⚔️ Round {round.round}
                                                         {round.round === 2 && <span className="text-lg ml-2">(Roles Switched)</span>}
                                                     </h3>
                                                     <div className="text-right">
-                                                        <div className={`text-lg font-bold ${round.winner === 'attacker' ? 'text-red-400' : 'text-blue-400'}`}>
-                                                            🏆 {round.winner === 'attacker' ? 'Attacker' : 'Defender'} Won
+                                                        <div className={`text-lg font-bold ${round.winner === 'prosecutor' ? 'text-red-300' : 'text-blue-300'}`}>
+                                                            🏆 {round.winner === 'prosecutor' ? 'Prosecutor' : 'Defender'} Won
                                                         </div>
-                                                        <div className="text-sm text-gray-400">
-                                                            Score: {round.attackerScore} - {round.defenderScore}
+                                                        <div className="text-sm text-white/60">
+                                                            Score: {round.prosecutorScore} - {round.defenderScore}
                                                         </div>
                                                     </div>
                                                 </div>
@@ -232,37 +286,46 @@ export default function GameCompleteModal({
                                                         <div key={argument.id}>
                                                             {/* Exchange Header */}
                                                             {isFirstInExchange && (
-                                                                <div className="text-center text-sm text-gray-500 mb-3 font-semibold">
+                                                                <div className="text-center text-sm text-white/50 mb-3 font-semibold">
                                                                     Exchange #{exchangeNumber}
                                                                 </div>
                                                             )}
                                                             
                                                             {/* Argument */}
-                                                            <div className={`p-4 rounded-lg border-l-4 ${argument.type === 'attack'
-                                                                    ? 'bg-red-900/20 border-red-500'
-                                                                    : 'bg-blue-900/20 border-blue-500'
-                                                                }`}>
-                                                                <div className="flex items-center justify-between mb-3">
-                                                                    <div className="flex items-center gap-3">
-                                                                        <span className="text-xl">
-                                                                            {argument.type === 'attack' ? '🔥' : '🛡️'}
-                                                                        </span>
-                                                                        <span className={`font-semibold ${argument.type === 'attack' ? 'text-red-400' : 'text-blue-400'}`}>
-                                                                            {argument.playerName}
-                                                                        </span>
+                                                            <div className="relative overflow-hidden rounded-xl">
+                                                                {/* Glass morphism background */}
+                                                                <div className={`absolute inset-0 ${argument.type === 'attack'
+                                                                        ? 'bg-gradient-to-br from-red-500/20 via-red-400/10 to-orange-500/20'
+                                                                        : 'bg-gradient-to-br from-blue-500/20 via-blue-400/10 to-indigo-500/20'
+                                                                    } backdrop-blur-sm border-l-4 ${argument.type === 'attack'
+                                                                        ? 'border-red-400'
+                                                                        : 'border-blue-400'
+                                                                    } shadow-lg`}></div>
+                                                                
+                                                                {/* Content */}
+                                                                <div className="relative z-10 p-4">
+                                                                    <div className="flex items-center justify-between mb-3">
+                                                                        <div className="flex items-center gap-3">
+                                                                            <span className="text-xl">
+                                                                                {argument.type === 'attack' ? '🔥' : '🛡️'}
+                                                                            </span>
+                                                                            <span className={`font-semibold ${argument.type === 'attack' ? 'text-red-300' : 'text-blue-300'}`}>
+                                                                                {argument.playerName}
+                                                                            </span>
+                                                                        </div>
+                                                                        <div className="flex items-center gap-4">
+                                                                            {argumentScore !== undefined && (
+                                                                                <div className="bg-gradient-to-br from-gray-700/80 to-gray-800/80 backdrop-blur-sm rounded-lg px-3 py-1 border border-white/10">
+                                                                                    <span className="text-yellow-300 font-bold">⭐ {formatScore(argumentScore)}</span>
+                                                                                </div>
+                                                                            )}
+                                                                            <span className="text-xs text-white/50">
+                                                                                Arg #{argIndex + 1}
+                                                                            </span>
+                                                                        </div>
                                                                     </div>
-                                                                    <div className="flex items-center gap-4">
-                                                                        {argumentScore !== undefined && (
-                                                                            <div className="bg-gray-700/50 rounded-lg px-3 py-1">
-                                                                                <span className="text-yellow-400 font-bold">⭐ {formatScore(argumentScore)}</span>
-                                                                            </div>
-                                                                        )}
-                                                                        <span className="text-xs text-gray-500">
-                                                                            Arg #{argIndex + 1}
-                                                                        </span>
-                                                                    </div>
+                                                                    <p className="text-white/90 leading-relaxed">{argument.content}</p>
                                                                 </div>
-                                                                <p className="text-gray-200 leading-relaxed">{argument.content}</p>
                                                             </div>
                                                         </div>
                                                     );
@@ -270,14 +333,35 @@ export default function GameCompleteModal({
                                             </div>
 
                                             {/* Round Analysis */}
-                                            <div className="bg-gray-700/30 rounded-lg p-4 ml-4">
-                                                <h4 className="text-yellow-400 font-bold mb-2">🤖 AI Round Analysis:</h4>
-                                                <p className="text-gray-200 text-sm">{round.analysis}</p>
+                                            <div className="relative overflow-hidden rounded-xl ml-4">
+                                                {/* Glass morphism background */}
+                                                <div className="absolute inset-0 bg-gradient-to-br from-gray-700/30 via-gray-600/20 to-gray-800/30 backdrop-blur-sm border border-gray-400/20 shadow-lg"></div>
+                                                
+                                                {/* Content */}
+                                                <div className="relative z-10 p-4">
+                                                    <h4 className="text-yellow-300 font-bold mb-2">🤖 AI Round Analysis:</h4>
+                                                    <p className="text-white/90 text-sm leading-relaxed">{round.analysis}</p>
+                                                </div>
                                             </div>
                                         </div>
                                     ))}
                                 </div>
                             )}
+                        </div>
+
+                        {/* Close Button */}
+                        <div className="relative overflow-hidden p-6 border-t border-white/20">
+                            {/* Glass morphism background */}
+                            <div className="absolute inset-0 bg-gradient-to-br from-white/10 via-white/5 to-white/8 backdrop-blur-sm"></div>
+                            
+                            <div className="relative z-10 flex justify-center">
+                                <button
+                                    onClick={() => setShowFullBattleLog(false)}
+                                    className="px-8 py-3 bg-gradient-to-br from-purple-600/80 to-purple-700/80 hover:from-purple-500/80 hover:to-purple-600/80 rounded-xl font-bold text-white transition-all duration-200 backdrop-blur-sm border border-purple-400/30 shadow-lg transform hover:scale-105"
+                                >
+                                    Close Log
+                                </button>
+                            </div>
                         </div>
                     </div>
                 </div>

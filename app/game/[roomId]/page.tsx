@@ -20,38 +20,57 @@ interface GameArgument {
     score?: number;
 }
 
+interface PlayerData {
+    id: string;
+    name: string;
+    avatar: string;
+    current_role: 'prosecutor' | 'defender';
+    original_role: 'prosecutor' | 'defender';
+    rounds_won: number;
+    total_score: number;
+    average_score: number;
+    rounds_played: number;
+    round1_score: number;
+    round1_role: 'prosecutor' | 'defender' | null;
+    round2_score: number;
+    round2_role: 'prosecutor' | 'defender' | null;
+    round3_score: number;
+    round3_role: 'prosecutor' | 'defender' | null;
+}
+
 interface GameState {
     case: {
         id: number;
         title: string;
         description: string;
         context: string;
-        attackerSide: string;
+        prosecutorSide: string;
         defenderSide: string;
     } | null;
     arguments: GameArgument[];
     allRoundArguments: GameArgument[]; // Store all arguments from all rounds
-    currentTurn: 'attacker' | 'defender';
+    currentTurn: 'prosecutor' | 'defender';
     currentRound: number;
     maxRounds: number;
-    scores: { attacker: number; defender: number }; // Role-based round wins for display
+    scores: { prosecutor: number; defender: number }; // Role-based round wins for display
     playerScores: { [playerId: string]: number }; // Player-based round wins for tracking
     individualScores: { [playerId: string]: number }; // Track scores by player ID
+    playerData?: { [playerId: string]: PlayerData }; // NEW: Comprehensive player data from server
     gamePhase: 'case-reading' | 'arguing' | 'round-complete' | 'finished' | 'side-choice';
     winner?: string;
     roundResult?: {
         round: number;
-        winner: 'attacker' | 'defender';
+        winner: 'prosecutor' | 'defender';
         analysis: string;
-        attackerScore: number;
+        prosecutorScore: number;
         defenderScore: number;
         argumentScores?: { argumentId: string; score: number }[]; // Individual argument scores
     };
     roundHistory: {
         round: number;
-        winner: 'attacker' | 'defender';
+        winner: 'prosecutor' | 'defender';
         analysis: string;
-        attackerScore: number;
+        prosecutorScore: number;
         defenderScore: number;
         arguments: GameArgument[];
         argumentScores?: { argumentId: string; score: number }[];
@@ -70,11 +89,11 @@ export default function GameBattle() {
     console.log('Game page params:', params);
     console.log('Raw params:', JSON.stringify(params));
     console.log('Window location:', typeof window !== 'undefined' ? window.location.href : 'server');
-    
+
     let roomId = params.roomId as string;
     console.log('Extracted roomId from params:', roomId);
     console.log('Type of roomId:', typeof roomId);
-    
+
     // Fallback to localStorage if roomId is undefined
     if ((!roomId || roomId === 'undefined') && typeof window !== 'undefined') {
         const storedRoomId = localStorage.getItem('currentRoomId');
@@ -91,10 +110,10 @@ export default function GameBattle() {
         case: null,
         arguments: [],
         allRoundArguments: [],
-        currentTurn: 'attacker',
+        currentTurn: 'prosecutor',
         currentRound: 1,
         maxRounds: 3,
-        scores: { attacker: 0, defender: 0 },
+        scores: { prosecutor: 0, defender: 0 },
         playerScores: {}, // Initialize as empty object
         individualScores: {}, // Initialize as empty object
         gamePhase: 'case-reading',
@@ -110,7 +129,7 @@ export default function GameBattle() {
     const [otherPlayerReady, setOtherPlayerReady] = useState(false);
     const [caseReadingTimeLeft, setCaseReadingTimeLeft] = useState(120); // 2 minutes to read case
     const [canInterrupt, setCanInterrupt] = useState(false);
-    
+
     // Next round readiness states - simplified
     const [isNextRoundReady, setIsNextRoundReady] = useState(false);
     const [otherPlayerNextRoundReady, setOtherPlayerNextRoundReady] = useState(false);
@@ -136,7 +155,7 @@ export default function GameBattle() {
         const handleVisibilityChange = () => {
             const visible = !document.hidden;
             setIsPageVisible(visible);
-            
+
             if (visible && roomId) {
                 console.log('Tab became visible, requesting timer sync from server');
                 // Request fresh timer state from server when tab becomes visible
@@ -145,7 +164,7 @@ export default function GameBattle() {
         };
 
         document.addEventListener('visibilitychange', handleVisibilityChange);
-        
+
         return () => {
             document.removeEventListener('visibilitychange', handleVisibilityChange);
         };
@@ -162,7 +181,7 @@ export default function GameBattle() {
             // Calculate role data from round history
             const playerRoles: Array<{
                 round: number;
-                role: 'attacker' | 'defender';
+                role: 'prosecutor' | 'defender';
                 roundWon: boolean;
                 roundScore: number;
             }> = [];
@@ -170,19 +189,19 @@ export default function GameBattle() {
             // Build role data from round history
             gameState.roundHistory.forEach(round => {
                 // Use display role if available, otherwise use role for round 1
-                let playerRole: 'attacker' | 'defender';
-                
+                let playerRole: 'prosecutor' | 'defender';
+
                 if (round.round === 1) {
                     // Round 1: always use original role
-                    playerRole = currentPlayer.role as 'attacker' | 'defender';
+                    playerRole = currentPlayer.role as 'prosecutor' | 'defender';
                 } else {
                     // Rounds 2+: use display role if available, otherwise calculate
-                    playerRole = currentPlayer.displayRole || 
-                        (currentPlayer.role === 'attacker' ? 'defender' : 'attacker');
+                    playerRole = currentPlayer.displayRole ||
+                        (currentPlayer.role === 'prosecutor' ? 'defender' : 'prosecutor');
                 }
 
                 const roundWon = round.winner === playerRole;
-                const roundScore = playerRole === 'attacker' ? round.attackerScore : round.defenderScore;
+                const roundScore = playerRole === 'prosecutor' ? round.prosecutorScore : round.defenderScore;
 
                 playerRoles.push({
                     round: round.round,
@@ -196,11 +215,11 @@ export default function GameBattle() {
             const roundsWon = getPlayerRoundWins(currentPlayer.id);
             const roundsPlayed = gameState.roundHistory.length;
             const otherPlayerRoundWins = otherPlayer ? getPlayerRoundWins(otherPlayer.id) : 0;
-            
+
             // Determine game winner based on player's actual round wins
             const gameWon = roundsWon > otherPlayerRoundWins;
             const totalIndividualScore = gameState.individualScores[currentPlayer.id] || 0;
-            
+
             // Extract individual argument scores from round history
             const argumentScores: number[] = [];
             gameState.roundHistory.forEach(round => {
@@ -209,7 +228,7 @@ export default function GameBattle() {
                     const playerArguments = gameState.allRoundArguments.filter(
                         arg => arg.playerId === currentPlayer.id && arg.round === round.round
                     );
-                    
+
                     playerArguments.forEach(arg => {
                         const scoreData = round.argumentScores?.find(as => as.argumentId === arg.id);
                         if (scoreData) {
@@ -308,7 +327,7 @@ export default function GameBattle() {
                     const roomInfo = await socketService.getRoomInfo(roomId);
                     console.log('Room info received:', roomInfo);
                     setRoom(roomInfo);
-                    
+
                     // Set the case from server
                     if (roomInfo.case) {
                         setGameState(prev => ({
@@ -316,18 +335,18 @@ export default function GameBattle() {
                             case: roomInfo.case || null,
                             currentRound: roomInfo.currentRound || 1,
                             maxRounds: roomInfo.maxRounds || 3,
-                            scores: roomInfo.scores || { attacker: 0, defender: 0 }
+                            scores: roomInfo.scores || { prosecutor: 0, defender: 0 }
                         }));
                     }
-                    
+
                     const player = roomInfo.players.find(p => p.id === socketService.getSocket()?.id);
                     setCurrentPlayer(player || null);
                     console.log('Current player:', player);
 
                     // Check if current player should start first based on display role
-                    if (player && getPlayerDisplayRole(player) === 'attacker') {
+                    if (player && getPlayerDisplayRole(player) === 'prosecutor') {
                         setIsMyTurn(true);
-                        console.log('Player display role is attacker, setting isMyTurn to true');
+                        console.log('Player display role is prosecutor, setting isMyTurn to true');
                     }
                 } catch (roomError) {
                     console.error('Failed to get room info:', roomError);
@@ -339,71 +358,85 @@ export default function GameBattle() {
                 // Set up socket listeners for game events
                 socketService.onGameArgument((argument) => {
                     console.log('Received argument:', argument);
-                    
+                    console.log('Server says next turn is:', argument.nextTurn);
+
                     setGameState(prev => {
                         const newArguments = [...prev.arguments, argument];
                         const newAllRoundArguments = [...prev.allRoundArguments, { ...argument, round: prev.currentRound }];
-                        const newTurn = prev.currentTurn === 'attacker' ? 'defender' : 'attacker';
-                        
-                        console.log('Switching turn from', prev.currentTurn, 'to', newTurn);
-                        
+
+                        // Use the server's nextTurn information to keep clients in sync
+                        console.log('Updating turn from server:', prev.currentTurn, '->', argument.nextTurn);
+
                         return {
                             ...prev,
                             arguments: newArguments,
                             allRoundArguments: newAllRoundArguments,
-                            currentTurn: newTurn
+                            currentTurn: argument.nextTurn || prev.currentTurn // Use server's turn info
                         };
                     });
                 });
 
+                // Listen for explicit turn updates from server
+                socketService.getSocket()?.on('turn-update', (data) => {
+                    console.log('Turn update from server:', data);
+                    setGameState(prev => ({
+                        ...prev,
+                        currentTurn: data.currentTurn,
+                        currentRound: data.round
+                    }));
+                });
+
                 socketService.onRoundComplete((result) => {
+                    console.log('=== ROUND COMPLETE RECEIVED ===');
+                    console.log('Socket ID:', socketService.getSocket()?.id);
                     console.log('Round complete received from server:', result);
                     console.log('Server scores:', result.scores);
                     console.log('Server player scores:', result.playerScores);
-                    console.log('Server player performance:', result.playerPerformance);
-                    
+                    console.log('Server player data:', result.playerData);
+                    console.log('Current game phase before update:', gameState.gamePhase);
+                    console.log('=== END ROUND COMPLETE DEBUG ===');
+
                     setGameState(prev => {
+                        console.log('Updating game state for round complete');
+                        console.log('Previous phase:', prev.gamePhase);
+                        console.log('Setting phase to: round-complete');
+
                         // Create round history entry
                         const roundHistoryEntry = {
                             round: result.round,
                             winner: result.winner,
                             analysis: result.analysis,
-                            attackerScore: result.attackerScore,
+                            prosecutorScore: result.prosecutorScore,
                             defenderScore: result.defenderScore,
                             arguments: prev.arguments.map(arg => ({ ...arg, round: prev.currentRound })),
                             argumentScores: result.argumentScores || []
                         };
 
-                        // Use server scores directly instead of client-side calculations
-                        console.log('CLIENT: Using server scores directly');
+                        // Use server data directly instead of client-side calculations
+                        console.log('CLIENT: Using server data directly');
                         console.log('CLIENT: Role-based scores from server:', result.scores);
                         console.log('CLIENT: Player-based scores from server:', result.playerScores);
-                        
-                        // Update individual scores using server performance data
-                        const newIndividualScores = { ...prev.individualScores };
-                        if (result.playerPerformance) {
-                            Object.entries(result.playerPerformance).forEach(([playerId, performance]: [string, any]) => {
-                                newIndividualScores[playerId] = performance.totalScore;
-                                console.log(`CLIENT: Player ${playerId} total score from server: ${performance.totalScore}`);
-                            });
-                        }
+                        console.log('CLIENT: Comprehensive player data from server:', result.playerData);
 
-                        return {
+                        const newState = {
                             ...prev,
-                            gamePhase: 'round-complete',
+                            gamePhase: 'round-complete' as const,
                             scores: result.scores, // Use server role-based scores
                             playerScores: result.playerScores || {}, // Use server player-based scores
-                            individualScores: newIndividualScores, // Use server individual scores
+                            playerData: result.playerData || {}, // NEW: Use server comprehensive player data
                             roundResult: result,
                             roundHistory: [...prev.roundHistory, roundHistoryEntry]
                         };
+
+                        console.log('New game state phase:', newState.gamePhase);
+                        return newState;
                     });
 
                     // Check if game will continue to determine if we should show ready check
                     const playerWins = Object.values(result.playerScores || {}) as number[];
                     const maxPlayerWins = Math.max(...(playerWins.length > 0 ? playerWins : [0]));
                     const gameWillContinue = maxPlayerWins < 2 && result.round < 3; // Use maxRounds directly since gameState isn't updated yet
-                    
+
                     console.log('Round complete - checking if game continues:', {
                         round: result.round,
                         maxRounds: 3,
@@ -411,20 +444,19 @@ export default function GameBattle() {
                         maxPlayerWins,
                         gameWillContinue
                     });
-                    
+
                     // Check for 1-1 tie scenario going to round 3 (side choice needed)
                     const playerWinCounts = Object.values(result.playerScores || {}) as number[];
-                    const is1v1Tie = result.round === 2 && playerWinCounts.length === 2 && 
-                                     playerWinCounts.every(wins => wins === 1);
-                    
+                    const is1v1Tie = result.round === 2 && playerWinCounts.length === 2 &&
+                        playerWinCounts.every(wins => wins === 1);
+
                     if (gameWillContinue) {
                         // Enable ready check for all scenarios where game continues
                         // This includes 1-1 ties that will need side choice
                         setTimeout(() => {
                             setShowNextRoundReadyCheck(true);
                             setNextRoundAutoStartTime(60);
-                            setIsNextRoundReady(false);
-                            setOtherPlayerNextRoundReady(false);
+
                             if (is1v1Tie) {
                                 console.log('Ready check enabled for 1-1 tie scenario - side choice after both ready');
                             } else {
@@ -440,14 +472,14 @@ export default function GameBattle() {
                     console.log('Next round starting:', data);
                     console.log('Data players:', data.players);
                     console.log('DisplayRolesSwitched flag:', data.displayRolesSwitched);
-                    
+
                     // Handle role switching - update both currentPlayer and room carefully
                     if (data.players) {
                         console.log('Updating players for next round');
-                        
+
                         // Find the updated current player
                         const updatedCurrentPlayer = data.players.find((p: any) => p.id === socketService.getSocket()?.id);
-                        
+
                         if (updatedCurrentPlayer) {
                             console.log('Updated current player:', {
                                 name: updatedCurrentPlayer.name,
@@ -455,57 +487,57 @@ export default function GameBattle() {
                                 displayRole: updatedCurrentPlayer.displayRole,
                                 originalRole: updatedCurrentPlayer.originalRole
                             });
-                            
+
                             // Update current player state
                             setCurrentPlayer(updatedCurrentPlayer);
                         }
-                        
+
                         // Update room with new players data while preserving other room properties
                         setRoom(prev => {
                             if (!prev) return null;
-                            
-                            console.log('Updating room players from:', prev.players.map(p => ({ 
-                                name: p.name, 
-                                role: p.role, 
-                                displayRole: p.displayRole, 
-                                originalRole: p.originalRole 
+
+                            console.log('Updating room players from:', prev.players.map(p => ({
+                                name: p.name,
+                                role: p.role,
+                                displayRole: p.displayRole,
+                                originalRole: p.originalRole
                             })));
-                            console.log('Updating room players to:', data.players.map((p: any) => ({ 
-                                name: p.name, 
-                                role: p.role, 
-                                displayRole: p.displayRole, 
-                                originalRole: p.originalRole 
+                            console.log('Updating room players to:', data.players.map((p: any) => ({
+                                name: p.name,
+                                role: p.role,
+                                displayRole: p.displayRole,
+                                originalRole: p.originalRole
                             })));
-                            
+
                             return {
                                 ...prev,
                                 players: data.players
                             };
                         });
-                        
+
                         // Log role switching information
                         if (data.displayRolesSwitched) {
                             console.log('Display roles switched for round 2 - roles are now swapped visually');
                         }
                     }
-                    
+
                     setGameState(prev => ({
                         ...prev,
                         currentRound: data.round,
                         scores: data.scores,
-                        currentTurn: 'attacker',
+                        currentTurn: 'prosecutor',
                         gamePhase: 'arguing',
                         arguments: [],
                         roundResult: undefined
                     }));
-                    
+
                     // Reset ready states for new round
                     setIsNextRoundReady(false);
                     setOtherPlayerNextRoundReady(false);
                     setShowNextRoundReadyCheck(false);
                     setNextRoundAutoStartTime(60);
-                    
-                    // Reset turn to attacker for new round (will be updated based on current player's role)
+
+                    // Reset turn to prosecutor for new round (will be updated based on current player's role)
                     // Note: We'll let the turn checking useEffect handle this properly
                 });
 
@@ -513,7 +545,7 @@ export default function GameBattle() {
                 socketService.getSocket()?.on('side-choice-needed', (data) => {
                     console.log('Side choice needed:', data);
                     console.log('Current ready states - isNextRoundReady:', isNextRoundReady, 'otherPlayerNextRoundReady:', otherPlayerNextRoundReady);
-                    
+
                     // Store the side choice data but don't change game phase yet
                     // The modal will only appear when both players are ready
                     console.log('Storing side choice data, waiting for both players to be ready');
@@ -527,34 +559,34 @@ export default function GameBattle() {
                             playerPerformance: data.playerPerformance
                         }
                     }));
-                    
+
                     // Don't transition to side choice here - let the useEffect handle it when both are ready
                 });
 
                 // Listen for side choice completion
                 socketService.getSocket()?.on('side-choice-complete', (data) => {
                     console.log('Side choice complete:', data);
-                    
+
                     // Update player roles
                     const updatedPlayer = data.players.find((p: any) => p.id === socketService.getSocket()?.id);
                     if (updatedPlayer) {
                         setCurrentPlayer(updatedPlayer);
                         setRoom(prev => prev ? { ...prev, players: data.players } : null);
                     }
-                    
+
                     setGameState(prev => ({
                         ...prev,
                         currentRound: data.round,
                         scores: data.scores,
-                        currentTurn: 'attacker',
+                        currentTurn: 'prosecutor',
                         gamePhase: 'arguing',
                         arguments: [],
                         roundResult: undefined,
                         sideChoice: undefined
                     }));
-                    
+
                     // Reset turn based on new display role
-                    if (updatedPlayer && getPlayerDisplayRole(updatedPlayer) === 'attacker') {
+                    if (updatedPlayer && getPlayerDisplayRole(updatedPlayer) === 'prosecutor') {
                         setIsMyTurn(true);
                     } else {
                         setIsMyTurn(false);
@@ -565,7 +597,7 @@ export default function GameBattle() {
                 socketService.getSocket()?.on('players-updated', (data) => {
                     console.log('Players updated:', data);
                     setNextRoundMessage(data.message || '');
-                    
+
                     // Update room and players
                     if (data.players) {
                         const updatedPlayer = data.players.find((p: any) => p.id === socketService.getSocket()?.id);
@@ -574,7 +606,7 @@ export default function GameBattle() {
                             setRoom(prev => prev ? { ...prev, players: data.players } : null);
                         }
                     }
-                    
+
                     // Update game state for the new round but keep the round-complete phase
                     // This ensures the modal continues to show with the ready check
                     setGameState(prev => ({
@@ -583,48 +615,81 @@ export default function GameBattle() {
                         scores: data.scores,
                         gamePhase: 'round-complete' // Keep in round-complete so modal shows with ready check
                     }));
-                    
+
                     // Enable ready check if not already enabled
                     setTimeout(() => {
                         setShowNextRoundReadyCheck(true);
                         setNextRoundAutoStartTime(60);
-                        setIsNextRoundReady(false);
-                        setOtherPlayerNextRoundReady(false);
                         console.log('Ready check enabled after players-updated');
                     }, 1000);
                 });
 
-                // Listen for next round ready updates - simplified
-                socketService.getSocket()?.on('next-round-ready-update', (data) => {
-                    console.log('Next round ready update:', data);
-                    
-                    // Update other player's readiness if this update is not for current player
-                    if (data.playerId !== socketService.getSocket()?.id) {
-                        setOtherPlayerNextRoundReady(data.readyCount > 1);
+                // Listen for next round ready updates - server-driven ready state management
+                socketService.onNextRoundReadyUpdate((data) => {
+                    console.log('Next round ready update from server:', data);
+
+                    // Use the server's readyStates to set our local state accurately
+                    if (data.readyStates && currentPlayer) {
+                        const myReadyState = data.readyStates[currentPlayer.id] || false;
+                        const otherPlayer = room?.players.find(p => p.id !== currentPlayer.id);
+                        const otherPlayerReadyState = otherPlayer ? data.readyStates[otherPlayer.id] || false : false;
+
+                        setIsNextRoundReady(myReadyState);
+                        setOtherPlayerNextRoundReady(otherPlayerReadyState);
+
+                        console.log('Updated ready states from server:', {
+                            myId: currentPlayer.id,
+                            myReady: myReadyState,
+                            otherReady: otherPlayerReadyState,
+                            allReady: data.allReady
+                        });
                     }
-                    
-                    // If all players are ready, both will be ready soon
+
+                    // If all players are ready, round will start soon
                     if (data.allReady) {
                         console.log('All players are ready, round will start soon');
                     }
                 });
 
+                // Listen for ready state reset when a new round completes
+                socketService.onNextRoundReadyStateReset((data) => {
+                    console.log('Ready states reset by server:', data);
+
+                    // Reset both players' ready states as instructed by server
+                    setIsNextRoundReady(false);
+                    setOtherPlayerNextRoundReady(false);
+
+                    console.log('Ready states reset to false for both players');
+                });
+
+                // Listen for ready state cleared when round starts
+                socketService.onNextRoundReadyCleared((data) => {
+                    console.log('Ready states cleared by server:', data);
+
+                    // Ensure both players are marked as not ready when round starts
+                    setIsNextRoundReady(false);
+                    setOtherPlayerNextRoundReady(false);
+
+                    console.log('Ready states cleared - both players now not ready');
+                });
+
                 // Listen for next round started
                 socketService.getSocket()?.on('next-round-started', (data) => {
                     console.log('Next round started:', data);
-                    
+
                     // Reset all readiness states for the new round
                     setShowNextRoundReadyCheck(false);
                     setIsNextRoundReady(false);
                     setOtherPlayerNextRoundReady(false);
                     setNextRoundAutoStartTime(60);
                     setNextRoundMessage(''); // Clear any role switch message when new round starts
-                    
+                    console.log('Next round started - all ready states reset to false');
+
                     setGameState(prev => ({
                         ...prev,
                         currentRound: data.round,
                         scores: data.scores,
-                        currentTurn: 'attacker',
+                        currentTurn: 'prosecutor',
                         gamePhase: 'arguing',
                         arguments: [],
                         roundResult: undefined
@@ -633,16 +698,18 @@ export default function GameBattle() {
 
                 socketService.onGameEnd((result) => {
                     console.log('Game ended:', result);
-                    
+                    console.log('Final player data from server:', result.playerData);
+
                     // Stop all game activities but keep the modal visible
                     setGameHasEnded(true);
                     setShowNextRoundReadyCheck(false);
                     setIsNextRoundReady(false);
                     setOtherPlayerNextRoundReady(false);
-                    
+
                     setGameState(prev => ({
                         ...prev,
-                        winner: result.winner
+                        winner: result.winner,
+                        playerData: result.playerData || {} // NEW: Store final comprehensive player data
                         // Keep gamePhase as 'round-complete' so modal stays visible
                         // GameCompleteModal will only show when user clicks "View Final Results"
                     }));
@@ -667,7 +734,7 @@ export default function GameBattle() {
                 // Listen for server-side timer updates
                 socketService.getSocket()?.on('timer-update', (data) => {
                     if (gameHasEndedRef.current) return; // Ignore timer updates after game ends
-                    
+
                     console.log('Timer update:', data);
                     setTimeLeft(data.timeLeft);
                     setTimerPhase(data.phase || 1);
@@ -680,10 +747,10 @@ export default function GameBattle() {
                 // Listen for server-side case reading timer updates
                 socketService.getSocket()?.on('case-reading-timer-update', (data) => {
                     if (gameHasEndedRef.current) return;
-                    
+
                     console.log('Case reading timer update:', data);
                     setCaseReadingTimeLeft(data.timeLeft);
-                    
+
                     // Auto-start game when server timer reaches 0
                     if (data.timeLeft === 0 && showCaseModal && !gameHasEnded) {
                         console.log('Server case reading timer expired, starting game');
@@ -692,32 +759,32 @@ export default function GameBattle() {
                 });
 
                 // Listen for server-side next round timer updates
-                socketService.getSocket()?.on('next-round-timer-update', (data) => {
+                socketService.onNextRoundTimerUpdate((data) => {
                     if (gameHasEndedRef.current) return;
-                    
+
                     console.log('Next round timer update:', data);
                     setNextRoundAutoStartTime(data.timeLeft);
-                    
+
                     // Server will handle auto-start when timer reaches 0
                 });
 
                 // Listen for time up events (only Phase 2 - final auto-submission)
                 socketService.getSocket()?.on('time-up', (data) => {
                     if (gameHasEndedRef.current) return; // Ignore time-up events after game ends
-                    
+
                     console.log('Time up (Phase 2):', data);
-                    
+
                     // Only auto-submit if it's phase 2 and my turn
                     if (data.phase === 2 && currentPlayerRef.current?.role === data.currentTurn && currentPlayerRef.current) {
                         console.log('Phase 2 timer expired, auto-submitting current argument:', currentArgumentRef.current.trim());
-                        
+
                         const argument: GameArgument = {
                             id: Date.now().toString(),
                             playerId: currentPlayerRef.current.id,
                             playerName: currentPlayerRef.current.name,
                             content: currentArgumentRef.current.trim() || "[No argument provided]" + " [Time expired]",
                             timestamp: new Date(),
-                            type: currentPlayerRef.current.role === 'attacker' ? 'attack' : 'defense',
+                            type: currentPlayerRef.current.role === 'prosecutor' ? 'attack' : 'defense',
                             round: gameState.currentRound
                         };
 
@@ -730,7 +797,7 @@ export default function GameBattle() {
                 // Listen for interrupt availability (Phase 2 only)
                 socketService.getSocket()?.on('interrupt-available', (data) => {
                     if (gameHasEndedRef.current) return; // Ignore interrupt events after game ends
-                    
+
                     console.log('Interrupt now available (Phase 2):', data);
                     // Only allow interrupt in phase 2 and if it's not my turn
                     if (data.phase === 2) {
@@ -742,21 +809,21 @@ export default function GameBattle() {
                 // Listen for player interruptions
                 socketService.getSocket()?.on('player-interrupted', (data) => {
                     if (gameHasEndedRef.current) return; // Ignore interrupt events after game ends
-                    
+
                     console.log('Player interrupted:', data);
                     setCanInterrupt(false);
-                    
+
                     // If I was the one interrupted, submit my current argument
                     if (currentPlayerRef.current?.role === data.interruptedTurn && currentArgumentRef.current.trim() && currentPlayerRef.current) {
                         console.log('I was interrupted, submitting current argument:', currentArgumentRef.current.trim());
-                        
+
                         const argument: GameArgument = {
                             id: Date.now().toString(),
                             playerId: currentPlayerRef.current.id,
                             playerName: currentPlayerRef.current.name,
                             content: currentArgumentRef.current.trim() + " [Interrupted]",
                             timestamp: new Date(),
-                            type: currentPlayerRef.current.role === 'attacker' ? 'attack' : 'defense',
+                            type: currentPlayerRef.current.role === 'prosecutor' ? 'attack' : 'defense',
                             round: gameState.currentRound
                         };
 
@@ -764,7 +831,7 @@ export default function GameBattle() {
                         socketService.submitArgument(roomId, argument);
                         setCurrentArgument(''); // Clear the argument field
                     }
-                    
+
                     // Update the current turn if provided
                     if (data.nextTurn) {
                         setGameState(prev => ({
@@ -816,7 +883,7 @@ export default function GameBattle() {
                 myOriginalRole: currentPlayer.originalRole,
                 isMyTurnNow
             });
-            
+
             if (isMyTurnNow !== isMyTurn) {
                 setIsMyTurn(isMyTurnNow);
                 setCanInterrupt(false); // Reset interrupt state on turn change
@@ -833,28 +900,28 @@ export default function GameBattle() {
             otherPlayerNextRoundReady,
             bothReady: isNextRoundReady && otherPlayerNextRoundReady
         });
-        
+
         // If we have side choice data stored but are still in round-complete phase,
         // and both players are now ready, transition to side choice phase
-        if (gameState.gamePhase === 'round-complete' && 
-            gameState.sideChoice && 
-            isNextRoundReady && 
+        if (gameState.gamePhase === 'round-complete' &&
+            gameState.sideChoice &&
+            isNextRoundReady &&
             otherPlayerNextRoundReady) {
             console.log('🎯 TRANSITION TRIGGERED: Both players now ready for 1-1 tie, transitioning to side choice phase');
-            
+
             // Stop the auto-start timer when entering side choice phase
             setShowNextRoundReadyCheck(false);
             setNextRoundAutoStartTime(0);
-            
+
             // Clear ready states to prevent server auto-start during side choice
             setIsNextRoundReady(false);
             setOtherPlayerNextRoundReady(false);
-            
+
             setGameState(prev => ({
                 ...prev,
                 gamePhase: 'side-choice'
             }));
-            
+
             console.log('✅ Successfully transitioned to side choice phase');
         }
     }, [isNextRoundReady, otherPlayerNextRoundReady, gameState.gamePhase, gameState.sideChoice]);
@@ -887,7 +954,7 @@ export default function GameBattle() {
             playerName: currentPlayer.name,
             content: currentArgument.trim(),
             timestamp: new Date(),
-            type: getPlayerDisplayRole(currentPlayer) === 'attacker' ? 'attack' : 'defense',
+            type: getPlayerDisplayRole(currentPlayer) === 'prosecutor' ? 'attack' : 'defense',
             round: gameState.currentRound
         };
 
@@ -899,19 +966,19 @@ export default function GameBattle() {
         // Don't set isMyTurn to false here - let the socket event handle turn switching
     };
 
-    const handleSideChoice = (chosenSide: 'attacker' | 'defender') => {
+    const handleSideChoice = (chosenSide: 'prosecutor' | 'defender') => {
         console.log('Player chose side:', chosenSide);
         console.log('Current game state before side choice:', {
             gamePhase: gameState.gamePhase,
             currentRound: gameState.currentRound,
             hasSideChoice: !!gameState.sideChoice
         });
-        
+
         socketService.getSocket()?.emit('choose-side', {
             roomId: roomId,
             chosenSide: chosenSide
         });
-        
+
         console.log('Side choice sent to server');
     };
 
@@ -920,7 +987,7 @@ export default function GameBattle() {
         socketService.getSocket()?.emit('interrupt-player', {
             roomId: roomId
         });
-        
+
         setCanInterrupt(false);
         console.log('Interrupt signal sent to server');
     };
@@ -928,17 +995,17 @@ export default function GameBattle() {
     // Simplified next round ready handler
     const handleNextRoundReady = () => {
         if (gameHasEnded || isNextRoundReady) return;
-        
-        console.log('Player clicked ready for next round');
-        setIsNextRoundReady(true);
-        
+
+        console.log('Player clicked ready for next round - sending to server');
+
+
         // Send ready signal to server (no ready/unready toggle, just ready once)
         socketService.getSocket()?.emit('next-round-ready', {
             roomId
         });
     };
 
-    const handleProceedToGameComplete = (winner: 'attacker' | 'defender') => {
+    const handleProceedToGameComplete = (winner: 'prosecutor' | 'defender') => {
         console.log('Proceeding to game complete with winner:', winner);
         setGameHasEnded(true);
         setGameState(prev => ({
@@ -960,7 +1027,7 @@ export default function GameBattle() {
     const toggleReady = () => {
         const newReadyState = !isReady;
         setIsReady(newReadyState);
-        
+
         // Emit ready state to server
         socketService.getSocket()?.emit('playerReady', {
             roomId: roomId,
@@ -978,51 +1045,83 @@ export default function GameBattle() {
         return score % 1 === 0 ? score.toString() : score.toFixed(1);
     };
 
-    // Helper functions to get player scores
+    // Helper functions to get player data from server-provided comprehensive data
+    const getPlayerData = (playerId: string): PlayerData | null => {
+        const data = gameState.playerData?.[playerId] || null;
+        console.log('CLIENT: Player data for', playerId, ':', data);
+        return data;
+    };
+
     const getPlayerScore = (playerId: string) => {
-        const score = gameState.individualScores[playerId] || 0;
-        console.log('CLIENT: Individual score for player', playerId, ':', score, 'from scores:', gameState.individualScores);
+        const playerData = getPlayerData(playerId);
+        const score = playerData?.total_score || 0;
+        console.log('CLIENT: Total score for player', playerId, ':', score);
         return score;
     };
 
     const getPlayerRoundWins = (playerId: string) => {
-        const wins = gameState.playerScores[playerId] || 0;
-        console.log('CLIENT: Player', playerId, 'has', wins, 'round wins. All player scores:', gameState.playerScores);
+        const playerData = getPlayerData(playerId);
+        const wins = playerData?.rounds_won || 0;
+        console.log('CLIENT: Player', playerId, 'has', wins, 'round wins from server data');
         return wins;
     };
 
-    const getAttackerScore = () => {
-        const attackerPlayer = room?.players.find(p => (p.originalRole || p.role) === 'attacker');
-        const score = attackerPlayer ? getPlayerScore(attackerPlayer.id) : 0;
-        console.log('CLIENT: Attacker score:', score, 'for player:', attackerPlayer?.name);
+    const getPlayerRoundScore = (playerId: string, round: number) => {
+        const playerData = getPlayerData(playerId);
+        if (!playerData) return 0;
+
+        switch (round) {
+            case 1: return playerData.round1_score;
+            case 2: return playerData.round2_score;
+            case 3: return playerData.round3_score;
+            default: return 0;
+        }
+    };
+
+    const getPlayerRoundRole = (playerId: string, round: number) => {
+        const playerData = getPlayerData(playerId);
+        if (!playerData) return null;
+
+        switch (round) {
+            case 1: return playerData.round1_role;
+            case 2: return playerData.round2_role;
+            case 3: return playerData.round3_role;
+            default: return null;
+        }
+    };
+
+    const getProsecutorScore = () => {
+        const prosecutorPlayer = room?.players.find(p => (p.originalRole || p.role) === 'prosecutor');
+        const score = prosecutorPlayer ? getPlayerScore(prosecutorPlayer.id) : 0;
+        console.log('CLIENT: Prosecutor total score:', score, 'for player:', prosecutorPlayer?.name);
         return score;
     };
 
     const getDefenderScore = () => {
         const defenderPlayer = room?.players.find(p => (p.originalRole || p.role) === 'defender');
         const score = defenderPlayer ? getPlayerScore(defenderPlayer.id) : 0;
-        console.log('CLIENT: Defender score:', score, 'for player:', defenderPlayer?.name);
+        console.log('CLIENT: Defender total score:', score, 'for player:', defenderPlayer?.name);
         return score;
     };
 
-    const getAttackerRoundWins = () => {
-        const attackerPlayer = room?.players.find(p => (p.originalRole || p.role) === 'attacker');
-        const wins = attackerPlayer ? getPlayerRoundWins(attackerPlayer.id) : 0;
-        console.log('Attacker round wins:', wins, 'for player:', attackerPlayer?.name);
+    const getProsecutorRoundWins = () => {
+        const prosecutorPlayer = room?.players.find(p => (p.originalRole || p.role) === 'prosecutor');
+        const wins = prosecutorPlayer ? getPlayerRoundWins(prosecutorPlayer.id) : 0;
+        console.log('CLIENT: Prosecutor round wins:', wins, 'for player:', prosecutorPlayer?.name);
         return wins;
     };
 
     const getDefenderRoundWins = () => {
         const defenderPlayer = room?.players.find(p => (p.originalRole || p.role) === 'defender');
         const wins = defenderPlayer ? getPlayerRoundWins(defenderPlayer.id) : 0;
-        console.log('Defender round wins:', wins, 'for player:', defenderPlayer?.name);
+        console.log('CLIENT: Defender round wins:', wins, 'for player:', defenderPlayer?.name);
         return wins;
     };
 
     const otherPlayer = room?.players.find(p => p.id !== currentPlayer?.id);
 
     // Helper function to get the display role for a player (visual representation)
-    const getPlayerDisplayRole = (player: Player): 'attacker' | 'defender' => {
+    const getPlayerDisplayRole = (player: Player): 'prosecutor' | 'defender' => {
         // If displayRole is set, use it (for rounds 2+ with role switching)
         if (player.displayRole) {
             console.log(`Player ${player.name} has displayRole: ${player.displayRole}`);
@@ -1030,14 +1129,14 @@ export default function GameBattle() {
         }
         // Otherwise use the original role (round 1)
         console.log(`Player ${player.name} using original role: ${player.role}`);
-        return player.role as 'attacker' | 'defender';
+        return player.role as 'prosecutor' | 'defender';
     };
 
-    // Helper function to check if current player should be on the left side (original attacker position)
+    // Helper function to check if current player should be on the left side (original prosecutor position)
     const isPlayerOnLeftSide = (player: Player): boolean => {
         // Players stay on their original sides regardless of display role
         // Use originalRole if available, otherwise fallback to initial role
-        return (player.originalRole || player.role) === 'attacker';
+        return (player.originalRole || player.role) === 'prosecutor';
     };
 
     if (!room || !currentPlayer || !gameState.case) {
@@ -1049,411 +1148,551 @@ export default function GameBattle() {
     }
 
     return (
-        <div className="min-h-screen bg-gradient-to-br from-gray-900 via-gray-800 to-black text-white">
-            {/* Case Modal */}
-            <CaseReadingModal
-                showCaseModal={showCaseModal}
-                setShowCaseModal={setShowCaseModal}
-                gameState={gameState}
-                room={room}
-                currentPlayer={currentPlayer}
-                isReady={isReady}
-                otherPlayerReady={otherPlayerReady}
-                caseReadingTimeLeft={caseReadingTimeLeft}
-                toggleReady={toggleReady}
-                formatTime={formatTime}
-                getPlayerDisplayRole={getPlayerDisplayRole}
-                isPlayerOnLeftSide={isPlayerOnLeftSide}
-            />
+        <div className="min-h-screen bg-gradient-to-br from-slate-900 via-gray-900 to-slate-900 relative overflow-hidden">
+            {/* Dynamic background effects based on current prosecutor/defender positions */}
+            <div className="absolute inset-0">
+                {(() => {
+                    // Determine current roles and positions
+                    const leftPlayer = room.players.find(p => (p.originalRole || p.role) === 'prosecutor');
+                    const rightPlayer = room.players.find(p => (p.originalRole || p.role) === 'defender');
+                    const leftPlayerDisplayRole = leftPlayer ? getPlayerDisplayRole(leftPlayer) : 'prosecutor';
+                    const rightPlayerDisplayRole = rightPlayer ? getPlayerDisplayRole(rightPlayer) : 'defender';
 
-            {/* Round Complete Modal */}
-            <RoundCompleteModal
-                gameState={gameState}
-                room={room}
-                currentPlayer={currentPlayer}
-                isNextRoundReady={isNextRoundReady}
-                otherPlayerNextRoundReady={otherPlayerNextRoundReady}
-                nextRoundAutoStartTime={nextRoundAutoStartTime}
-                showNextRoundReadyCheck={showNextRoundReadyCheck}
-                nextRoundMessage={nextRoundMessage}
-                handleNextRoundReady={handleNextRoundReady}
-                handleProceedToGameComplete={handleProceedToGameComplete}
-                formatTime={formatTime}
-                formatScore={formatScore}
-                getPlayerRoundWins={getPlayerRoundWins}
-                getPlayerScore={getPlayerScore}
-                getAttackerRoundWins={getAttackerRoundWins}
-                getDefenderRoundWins={getDefenderRoundWins}
-                gameHasEnded={gameHasEnded}
-            />
+                    // Left side gets prosecutor color if left player is currently prosecutor, else defender color
+                    const leftSideIsProsecutor = leftPlayerDisplayRole === 'prosecutor';
+                    // Right side gets prosecutor color if right player is currently prosecutor, else defender color  
+                    const rightSideIsProsecutor = rightPlayerDisplayRole === 'prosecutor';
 
-            {/* Side Choice Modal */}
-            <SideChoiceModal
-                gameState={gameState}
-                currentPlayer={currentPlayer}
-                handleSideChoice={handleSideChoice}
-                getAttackerRoundWins={getAttackerRoundWins}
-                getDefenderRoundWins={getDefenderRoundWins}
-                getAttackerScore={getAttackerScore}
-                getDefenderScore={getDefenderScore}
-                formatScore={formatScore}
-            />
-
-            {/* Game Complete Modal */}
-            <GameCompleteModal
-                gameState={gameState}
-                room={room}
-                showFullBattleLog={showFullBattleLog}
-                setShowFullBattleLog={setShowFullBattleLog}
-                router={router}
-                formatScore={formatScore}
-                getAttackerScore={getAttackerScore}
-                getDefenderScore={getDefenderScore}
-                showModal={showGameCompleteModal}
-            />
-
-            {/* Main Game Interface */}
-            {!showCaseModal && gameState.gamePhase !== 'round-complete' && gameState.gamePhase !== 'side-choice' && gameState.gamePhase !== 'finished' && !gameHasEnded && !showGameCompleteModal && (
-                <div className="min-h-screen px-8 py-8">
-
-                    {/* Players Section - Top positioning */}
-                    <div className="flex w-full gap-8 mb-10 items-center">
-                        {(() => {
-                            // Left side - Player who was originally the attacker (stays on left regardless of current role)
-                            const leftPlayer = room.players.find(p => (p.originalRole || p.role) === 'attacker');
-                            const leftPlayerDisplayRole = leftPlayer ? getPlayerDisplayRole(leftPlayer) : 'attacker';
-                            const isCurrentPlayerOnLeft = leftPlayer?.id === currentPlayer?.id;
-                            const leftPlayerLabel = leftPlayerDisplayRole === 'attacker' ? 'ATTACKER' : 'DEFENDER';
-                            const leftPlayerIsAttacker = leftPlayerDisplayRole === 'attacker';
-                            
-                            console.log('LEFT PLAYER:', {
-                                name: leftPlayer?.name,
-                                id: leftPlayer?.id,
-                                originalRole: leftPlayer?.originalRole,
-                                role: leftPlayer?.role,
-                                displayRole: leftPlayer?.displayRole,
-                                leftPlayerDisplayRole,
-                                isCurrentPlayerOnLeft
-                            });
-                            
-                            return (
-                                <div className={`w-[35%] p-8 rounded-xl border-2 transition-colors duration-300 h-36 ${
-                                    isCurrentPlayerOnLeft
-                                        ? (leftPlayerIsAttacker ? 'bg-red-900/20 border-red-500' : 'bg-blue-900/20 border-blue-500')
-                                        : (leftPlayerIsAttacker ? 'bg-red-900/10 border-red-500/30' : 'bg-blue-900/10 border-blue-500/30')
-                                }`}>
-                                    <div className="flex items-center gap-6 h-full">
-                                        {/* Avatar */}
-                                        <div className={`w-16 h-16 ${leftPlayerIsAttacker ? 'bg-red-600' : 'bg-blue-600'} rounded-full flex items-center justify-center text-3xl flex-shrink-0 border-2 ${leftPlayerIsAttacker ? 'border-red-400' : 'border-blue-400'}`}>
-                                            {leftPlayer?.avatar || '⚖️'}
-                                        </div>
-                                        
-                                        {/* Text */}
-                                        <div className="flex-1">
-                                            <h3 className={`text-2xl font-bold ${leftPlayerIsAttacker ? 'text-red-400' : 'text-blue-400'} mb-1`}>
-                                                {leftPlayerLabel} {isCurrentPlayerOnLeft && (
-                                                    <span className="mx-2 text-yellow-400 text-lg font-semibold">(YOU)</span>
-                                                )}
-                                            </h3>
-                                            <p className="text-gray-300 font-medium text-lg">{leftPlayer?.name}</p>
-                                            <div className="text-sm text-gray-400 mt-1">
-                                                {leftPlayerDisplayRole === 'attacker' ? gameState.case?.attackerSide || 'Plaintiff' : gameState.case?.defenderSide || 'Defendant'}
-                                            </div>
-                                        </div>
-                                        
-                                        {/* Timer for current turn */}
-                                        {gameState.currentTurn === leftPlayerDisplayRole && gameState.gamePhase === 'arguing' && (
-                                            <div className={`text-2xl font-bold flex-shrink-0 ${
-                                                timerPhase === 1 
-                                                    ? (timeLeft <= 3 ? 'text-red-400 animate-pulse' : 'text-green-400')
-                                                    : 'text-orange-400 animate-pulse'
-                                            }`}>
-                                                {timerPhase === 1 ? '⏱️' : '⚡'} {timeLeft}s
-                                                {timerPhase === 2 && (
-                                                    <div className="text-xs text-orange-300 mt-1">INTERRUPT PHASE</div>
-                                                )}
-                                            </div>
-                                        )}
-                                        
-                                        {/* Dot indicator */}
-                                        {gameState.currentTurn === leftPlayerDisplayRole && gameState.gamePhase === 'arguing' && (
-                                            <div className={`w-5 h-5 ${leftPlayerIsAttacker ? 'bg-red-500' : 'bg-blue-500'} rounded-full animate-pulse flex-shrink-0`}></div>
-                                        )}
-                                    </div>
-                                </div>
-                            );
-                        })()}
-
-                        {/* Left Score - 10% width */}
-                        <div className="w-[5%] flex flex-col items-center justify-center">
-                            {(() => {
-                                const leftPlayer = room?.players.find(p => (p.originalRole || p.role) === 'attacker');
-                                const leftPlayerDisplayRole = leftPlayer ? getPlayerDisplayRole(leftPlayer) : 'attacker';
-                                const leftIsAttacker = leftPlayerDisplayRole === 'attacker';
-                                return (
+                    return (
+                        <>
+                            {/* Left side - Dynamic color based on current role */}
+                            <div className="absolute inset-y-0 left-0 w-1/2">
+                                {leftSideIsProsecutor ? (
+                                    // Red effects for prosecutor
                                     <>
-                                        <span className={`text-8xl font-bold ${leftIsAttacker ? 'text-red-400' : 'text-blue-400'}`}>
-                                            {leftIsAttacker ? getAttackerRoundWins() : getDefenderRoundWins()}
-                                        </span>
-                                        <span className={`text-sm mt-1 ${leftIsAttacker ? 'text-red-300' : 'text-blue-300'}`}>
-                                            ({formatScore(leftIsAttacker ? getAttackerScore() : getDefenderScore())})
-                                        </span>
+                                        <div className="absolute top-1/4 left-1/4 w-80 h-80 bg-red-500/15 rounded-full blur-3xl animate-pulse"></div>
+                                        <div className="absolute bottom-1/3 left-1/3 w-72 h-72 bg-orange-500/10 rounded-full blur-3xl animate-pulse delay-1000"></div>
+                                        <div className="absolute top-2/3 left-1/6 w-64 h-64 bg-red-600/12 rounded-full blur-3xl animate-pulse delay-2000"></div>
                                     </>
-                                );
-                            })()}
-                        </div>
-
-                        {/* Header - Center - 20% width */}
-                        <div className="w-[20%] text-center">
-                            <h1 className="text-4xl font-bold bg-gradient-to-r from-yellow-400 to-orange-500 bg-clip-text text-transparent mb-4">
-                                Dispute!
-                            </h1>
-                            <div className="flex flex-col items-center gap-2 text-base text-gray-400 mb-4">
-                                <span className="font-semibold">Round {gameState.currentRound}/{gameState.maxRounds}</span>
-                                {gameState.currentRound === 2 && (
-                                    <span className="text-yellow-400 text-sm font-bold animate-pulse">🔄 ROLES SWITCHED!</span>
+                                ) : (
+                                    // Blue effects for defender
+                                    <>
+                                        <div className="absolute top-1/4 left-1/4 w-80 h-80 bg-blue-500/15 rounded-full blur-3xl animate-pulse"></div>
+                                        <div className="absolute bottom-1/3 left-1/3 w-72 h-72 bg-indigo-500/10 rounded-full blur-3xl animate-pulse delay-1000"></div>
+                                        <div className="absolute top-2/3 left-1/6 w-64 h-64 bg-blue-600/12 rounded-full blur-3xl animate-pulse delay-2000"></div>
+                                    </>
                                 )}
-                                <span>Turn: {(() => {
-                                    if (gameState.currentTurn === 'attacker') {
-                                        const attackingPlayer = room?.players.find(p => getPlayerDisplayRole(p) === 'attacker');
-                                        return `🔥 ${attackingPlayer?.name || 'Attacker'}`;
-                                    } else {
-                                        const defendingPlayer = room?.players.find(p => getPlayerDisplayRole(p) === 'defender');
-                                        return `🛡️ ${defendingPlayer?.name || 'Defender'}`;
-                                    }
-                                })()}</span>
-                                <span>Arguments: {Math.floor(gameState.arguments.length / 2) + (gameState.arguments.length % 2)}/3 exchanges</span>
                             </div>
-                            <div className="space-y-2">
-                                <button
-                                    onClick={() => setShowCaseModal(true)}
-                                    className="px-4 py-2 bg-gray-700/50 hover:bg-gray-600/50 text-gray-300 hover:text-white rounded-lg transition-all duration-200 text-sm border border-gray-600"
-                                >
-                                    📋 Review Case
-                                </button>
-                            </div>
-                        </div>
 
-                        {/* Right Score - 10% width */}
-                        <div className="w-[5%] flex flex-col items-center justify-center">
-                            {(() => {
-                                const rightPlayer = room?.players.find(p => (p.originalRole || p.role) === 'defender');
-                                const rightPlayerDisplayRole = rightPlayer ? getPlayerDisplayRole(rightPlayer) : 'defender';
-                                const rightIsAttacker = rightPlayerDisplayRole === 'attacker';
-                                return (
+                            {/* Right side - Dynamic color based on current role */}
+                            <div className="absolute inset-y-0 right-0 w-1/2">
+                                {rightSideIsProsecutor ? (
+                                    // Red effects for prosecutor
                                     <>
-                                        <span className={`text-8xl font-bold ${rightIsAttacker ? 'text-red-400' : 'text-blue-400'}`}>
-                                            {rightIsAttacker ? getAttackerRoundWins() : getDefenderRoundWins()}
-                                        </span>
-                                        <span className={`text-sm mt-1 ${rightIsAttacker ? 'text-red-300' : 'text-blue-300'}`}>
-                                            ({formatScore(rightIsAttacker ? getAttackerScore() : getDefenderScore())})
-                                        </span>
+                                        <div className="absolute top-1/4 right-1/4 w-80 h-80 bg-red-500/15 rounded-full blur-3xl animate-pulse delay-500"></div>
+                                        <div className="absolute bottom-1/3 right-1/3 w-72 h-72 bg-orange-500/10 rounded-full blur-3xl animate-pulse delay-1500"></div>
+                                        <div className="absolute top-2/3 right-1/6 w-64 h-64 bg-red-600/12 rounded-full blur-3xl animate-pulse delay-2500"></div>
                                     </>
+                                ) : (
+                                    // Blue effects for defender
+                                    <>
+                                        <div className="absolute top-1/4 right-1/4 w-80 h-80 bg-blue-500/15 rounded-full blur-3xl animate-pulse delay-500"></div>
+                                        <div className="absolute bottom-1/3 right-1/3 w-72 h-72 bg-indigo-500/10 rounded-full blur-3xl animate-pulse delay-1500"></div>
+                                        <div className="absolute top-2/3 right-1/6 w-64 h-64 bg-blue-600/12 rounded-full blur-3xl animate-pulse delay-2500"></div>
+                                    </>
+                                )}
+                            </div>
+
+                            {/* Center neutral zone */}
+                            <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 w-96 h-96 bg-violet-500/8 rounded-full blur-3xl animate-pulse delay-1000"></div>
+
+                            {/* Subtle dividing line effect */}
+                            <div className="absolute inset-y-0 left-1/2 w-px bg-gradient-to-b from-transparent via-white/10 to-transparent"></div>
+                        </>
+                    );
+                })()}
+            </div>
+
+            {/* Content overlay */}
+            <div className="relative z-10 text-white">
+                {/* Case Modal */}
+                <CaseReadingModal
+                    showCaseModal={showCaseModal}
+                    setShowCaseModal={setShowCaseModal}
+                    gameState={gameState}
+                    room={room}
+                    currentPlayer={currentPlayer}
+                    isReady={isReady}
+                    otherPlayerReady={otherPlayerReady}
+                    caseReadingTimeLeft={caseReadingTimeLeft}
+                    toggleReady={toggleReady}
+                    formatTime={formatTime}
+                    getPlayerDisplayRole={getPlayerDisplayRole}
+                    isPlayerOnLeftSide={isPlayerOnLeftSide}
+                />
+
+                {/* Round Complete Modal */}
+                <RoundCompleteModal
+                    gameState={gameState}
+                    room={room}
+                    currentPlayer={currentPlayer}
+                    isNextRoundReady={isNextRoundReady}
+                    otherPlayerNextRoundReady={otherPlayerNextRoundReady}
+                    nextRoundAutoStartTime={nextRoundAutoStartTime}
+                    showNextRoundReadyCheck={showNextRoundReadyCheck}
+                    nextRoundMessage={nextRoundMessage}
+                    handleNextRoundReady={handleNextRoundReady}
+                    handleProceedToGameComplete={handleProceedToGameComplete}
+                    formatTime={formatTime}
+                    formatScore={formatScore}
+                    getPlayerRoundWins={getPlayerRoundWins}
+                    getPlayerScore={getPlayerScore}
+                    getProsecutorRoundWins={getProsecutorRoundWins}
+                    getDefenderRoundWins={getDefenderRoundWins}
+                    gameHasEnded={gameHasEnded}
+                />
+
+                {/* Side Choice Modal */}
+                <SideChoiceModal
+                    gameState={gameState}
+                    currentPlayer={currentPlayer}
+                    handleSideChoice={handleSideChoice}
+                    getProsecutorRoundWins={getProsecutorRoundWins}
+                    getDefenderRoundWins={getDefenderRoundWins}
+                    getProsecutorScore={getProsecutorScore}
+                    getDefenderScore={getDefenderScore}
+                    formatScore={formatScore}
+                />
+
+                {/* Game Complete Modal */}
+                <GameCompleteModal
+                    gameState={gameState}
+                    room={room}
+                    showFullBattleLog={showFullBattleLog}
+                    setShowFullBattleLog={setShowFullBattleLog}
+                    router={router}
+                    formatScore={formatScore}
+                    getProsecutorScore={getProsecutorScore}
+                    getDefenderScore={getDefenderScore}
+                    showModal={showGameCompleteModal}
+                />
+
+                {/* Main Game Interface */}
+                {!showCaseModal && gameState.gamePhase !== 'round-complete' && gameState.gamePhase !== 'side-choice' && gameState.gamePhase !== 'finished' && !gameHasEnded && !showGameCompleteModal && (
+                    <div className="min-h-screen px-8 py-8">
+
+                        {/* Players Section - Top positioning */}
+                        <div className="flex w-full gap-8 mb-10 items-center">
+                            {(() => {
+                                // Left side - Player who was originally the prosecutor (stays on left regardless of current role)
+                                const leftPlayer = room.players.find(p => (p.originalRole || p.role) === 'prosecutor');
+                                const leftPlayerDisplayRole = leftPlayer ? getPlayerDisplayRole(leftPlayer) : 'prosecutor';
+                                const isCurrentPlayerOnLeft = leftPlayer?.id === currentPlayer?.id;
+                                const leftPlayerLabel = leftPlayerDisplayRole === 'prosecutor' ? 'PROSECUTOR' : 'DEFENDER';
+                                const leftPlayerIsProsecutor = leftPlayerDisplayRole === 'prosecutor';
+
+                                console.log('LEFT PLAYER:', {
+                                    name: leftPlayer?.name,
+                                    id: leftPlayer?.id,
+                                    originalRole: leftPlayer?.originalRole,
+                                    role: leftPlayer?.role,
+                                    displayRole: leftPlayer?.displayRole,
+                                    leftPlayerDisplayRole,
+                                    isCurrentPlayerOnLeft
+                                });
+
+                                return (
+                                    <div className={`w-[35%] relative overflow-hidden transition-all duration-300 h-36 ${isCurrentPlayerOnLeft
+                                        ? 'transform scale-105'
+                                        : 'opacity-80'
+                                        }`}>
+                                        {/* Glass morphism background */}
+                                        <div className={`absolute inset-0 bg-gradient-to-br ${leftPlayerIsProsecutor
+                                            ? 'from-red-500/20 via-red-400/10 to-orange-500/20'
+                                            : 'from-blue-500/20 via-blue-400/10 to-indigo-500/20'
+                                            } backdrop-blur-xl rounded-2xl border ${isCurrentPlayerOnLeft
+                                                ? (leftPlayerIsProsecutor ? 'border-red-400/50 shadow-red-500/25' : 'border-blue-400/50 shadow-blue-500/25')
+                                                : (leftPlayerIsProsecutor ? 'border-red-500/30' : 'border-blue-500/30')
+                                            } shadow-2xl`}></div>
+
+                                        {/* Decorative elements */}
+                                        <div className="absolute -top-6 -right-6 w-24 h-24 bg-white/5 rounded-full blur-xl"></div>
+                                        <div className="absolute -bottom-4 -left-4 w-16 h-16 bg-purple-500/10 rounded-full blur-lg"></div>
+
+                                        {/* Content */}
+                                        <div className="relative z-10 p-6 flex items-center gap-6 h-full">
+                                            {/* Avatar */}
+                                            <div className={`w-16 h-16 bg-gradient-to-br ${leftPlayerIsProsecutor
+                                                ? 'from-red-500 to-orange-600'
+                                                : 'from-blue-500 to-indigo-600'
+                                                } rounded-full flex items-center justify-center text-3xl flex-shrink-0 border-2 ${leftPlayerIsProsecutor ? 'border-red-300/50' : 'border-blue-300/50'
+                                                } shadow-lg`}>
+                                                {leftPlayer?.avatar || '⚖️'}
+                                            </div>
+
+                                            {/* Text */}
+                                            <div className="flex-1">
+                                                <h3 className={`text-2xl font-bold ${leftPlayerIsProsecutor ? 'text-red-300' : 'text-blue-300'} mb-1`}>
+                                                    {leftPlayerLabel} {isCurrentPlayerOnLeft && (
+                                                        <span className="mx-2 text-yellow-300 text-lg font-semibold">(YOU)</span>
+                                                    )}
+                                                </h3>
+                                                <p className="text-white/90 font-medium text-lg">{leftPlayer?.name}</p>
+                                                <div className="text-sm text-white/60 mt-1">
+                                                    {leftPlayerDisplayRole === 'prosecutor' ? gameState.case?.prosecutorSide || 'Plaintiff' : gameState.case?.defenderSide || 'Defendant'}
+                                                </div>
+                                            </div>
+
+                                            {/* Timer for current turn */}
+                                            {gameState.currentTurn === leftPlayerDisplayRole && gameState.gamePhase === 'arguing' && (
+                                                <div className={`text-2xl font-bold flex-shrink-0 ${timerPhase === 1
+                                                    ? (timeLeft <= 3 ? 'text-red-300 animate-pulse' : 'text-green-300')
+                                                    : 'text-orange-300 animate-pulse'
+                                                    }`}>
+                                                    {timerPhase === 1 ? '⏱️' : '⚡'} {timeLeft}s
+                                                    {timerPhase === 2 && (
+                                                        <div className="text-xs text-orange-200 mt-1">INTERRUPT PHASE</div>
+                                                    )}
+                                                </div>
+                                            )}
+
+                                            {/* Dot indicator */}
+                                            {gameState.currentTurn === leftPlayerDisplayRole && gameState.gamePhase === 'arguing' && (
+                                                <div className={`w-5 h-5 ${leftPlayerIsProsecutor ? 'bg-red-400' : 'bg-blue-400'} rounded-full animate-pulse flex-shrink-0 shadow-lg`}></div>
+                                            )}
+                                        </div>
+                                    </div>
                                 );
                             })()}
-                        </div>
 
-                        {/* Right side - Original Defender Position */}
-                        {(() => {
-                            const rightPlayer = room?.players.find(p => (p.originalRole || p.role) === 'defender');
-                            const rightPlayerDisplayRole = rightPlayer ? getPlayerDisplayRole(rightPlayer) : 'defender';
-                            const isCurrentPlayerOnRight = rightPlayer?.id === currentPlayer?.id;
-                            const rightPlayerLabel = rightPlayerDisplayRole === 'attacker' ? 'ATTACKER' : 'DEFENDER';
-                            const rightPlayerIsAttacker = rightPlayerDisplayRole === 'attacker';
-                            
-                            console.log('RIGHT PLAYER:', {
-                                name: rightPlayer?.name,
-                                id: rightPlayer?.id,
-                                originalRole: rightPlayer?.originalRole,
-                                role: rightPlayer?.role,
-                                displayRole: rightPlayer?.displayRole,
-                                rightPlayerDisplayRole,
-                                isCurrentPlayerOnRight
-                            });
-                            
-                            return (
-                                <div className={`w-[35%] p-8 rounded-xl border-2 transition-colors duration-300 h-36 ${
-                                    isCurrentPlayerOnRight
-                                        ? (rightPlayerIsAttacker ? 'bg-red-900/20 border-red-500' : 'bg-blue-900/20 border-blue-500')
-                                        : (rightPlayerIsAttacker ? 'bg-red-900/10 border-red-500/30' : 'bg-blue-900/10 border-blue-500/30')
-                                }`}>
-                                    <div className="flex items-center gap-6 h-full">
-                                        {/* Dot indicator */}
-                                        {gameState.currentTurn === rightPlayerDisplayRole && gameState.gamePhase === 'arguing' && (
-                                            <div className={`w-5 h-5 ${rightPlayerIsAttacker ? 'bg-red-500' : 'bg-blue-500'} rounded-full animate-pulse flex-shrink-0`}></div>
-                                        )}
-                                        
-                                        {/* Timer */}
-                                        {gameState.currentTurn === rightPlayerDisplayRole && gameState.gamePhase === 'arguing' && (
-                                            <div className={`text-2xl font-bold flex-shrink-0 ${
-                                                timerPhase === 1 
-                                                    ? (timeLeft <= 3 ? 'text-red-400 animate-pulse' : 'text-green-400')
-                                                    : 'text-orange-400 animate-pulse'
-                                            }`}>
-                                                {timerPhase === 1 ? '⏱️' : '⚡'} {timeLeft}s
-                                                {timerPhase === 2 && (
-                                                    <div className="text-xs text-orange-300 mt-1">INTERRUPT PHASE</div>
-                                                )}
-                                            </div>
-                                        )}
-                                        
-                                        {/* Text */}
-                                        <div className="flex-1 text-right">
-                                            <h3 className={`text-2xl font-bold ${rightPlayerIsAttacker ? 'text-red-400' : 'text-blue-400'} mb-1`}>
-                                                {isCurrentPlayerOnRight && (
-                                                    <span className="mx-2 text-yellow-400 text-lg font-semibold">(YOU)</span>
-                                                )} {rightPlayerLabel}
-                                            </h3>
-                                            <p className="text-gray-300 font-medium text-lg">{rightPlayer?.name}</p>
-                                            <div className="text-sm text-gray-400 mt-1">
-                                                {rightPlayerDisplayRole === 'attacker' ? gameState.case?.attackerSide || 'Plaintiff' : gameState.case?.defenderSide || 'Defendant'}
-                                            </div>
-                                        </div>
-                                        
-                                        {/* Avatar */}
-                                        <div className={`w-16 h-16 ${rightPlayerIsAttacker ? 'bg-red-600' : 'bg-blue-600'} rounded-full flex items-center justify-center text-3xl flex-shrink-0 border-2 ${rightPlayerIsAttacker ? 'border-red-400' : 'border-blue-400'}`}>
-                                            {rightPlayer?.avatar || '⚖️'}
-                                        </div>
-                                    </div>
-                                </div>
-                            );
-                        })()}
-                    </div>
+                            {/* Left Score - 5% width */}
+                            <div className="w-[5%] flex flex-col items-center justify-center">
+                                {(() => {
+                                    const leftPlayer = room?.players.find(p => (p.originalRole || p.role) === 'prosecutor');
+                                    const leftPlayerDisplayRole = leftPlayer ? getPlayerDisplayRole(leftPlayer) : 'prosecutor';
+                                    const leftIsProsecutor = leftPlayerDisplayRole === 'prosecutor';
+                                    // Score always belongs to the leftPlayer (original prosecutor), regardless of current role
+                                    const leftPlayerScore = leftPlayer ? getPlayerScore(leftPlayer.id) : 0;
+                                    const leftPlayerRoundWins = leftPlayer ? getPlayerRoundWins(leftPlayer.id) : 0;
+                                    return (
+                                        <>
+                                            <span className={`text-8xl font-bold bg-gradient-to-b ${leftIsProsecutor ? 'from-red-300 to-red-500' : 'from-blue-300 to-blue-500'
+                                                } bg-clip-text text-transparent drop-shadow-lg`}>
+                                                {leftPlayerRoundWins}
+                                            </span>
+                                            <span className={`text-sm mt-1 ${leftIsProsecutor ? 'text-red-200' : 'text-blue-200'}`}>
+                                                ({formatScore(leftPlayerScore)})
+                                            </span>
+                                        </>
+                                    );
+                                })()}
+                            </div>
 
-                    {/* Input Section */}
-                    {gameState.gamePhase === 'arguing' && (
-                        <div className="bg-gray-800/50 rounded-xl p-8 mb-8">
-                            {isMyTurn ? (
-                                <div>
-                                    <div className="flex items-center justify-between mb-4">
-                                        <h3 className={`text-xl font-bold ${timerPhase === 2 ? 'text-red-400 animate-pulse' : 'text-yellow-400'}`}>
-                                            {timerPhase === 2 ? '⚡ HURRY! Opponent can interrupt!' : '🎯 Your Turn! Make your argument:'}
-                                        </h3>
-                                        <div className={`text-base ${timerPhase === 2 ? 'text-red-400' : 'text-gray-400'}`}>
-                                            Exchange {Math.floor(gameState.arguments.length / 2) + 1}/3
-                                            {timerPhase === 2 && <span className="ml-2 animate-pulse">⚡ INTERRUPT PHASE</span>}
-                                        </div>
+                            {/* Header - Center - 20% width */}
+                            <div className="w-[20%] text-center relative">
+
+
+                                {/* Content */}
+                                <div className="relative z-10 p-6">
+                                    <h1 className="text-4xl font-bold bg-gradient-to-r from-yellow-300 to-orange-400 bg-clip-text text-transparent mb-4 drop-shadow-lg">
+                                        Dispute!
+                                    </h1>
+                                    <div className="flex flex-col items-center gap-2 text-base text-white/80 mb-4">
+                                        <span className="font-semibold">Round {gameState.currentRound}/{gameState.maxRounds}</span>
+                                        {gameState.currentRound === 2 && (
+                                            <span className="text-yellow-300 text-sm font-bold animate-pulse">🔄 ROLES SWITCHED!</span>
+                                        )}
+                                        <span>Turn: {(() => {
+                                            if (gameState.currentTurn === 'prosecutor') {
+                                                const attackingPlayer = room?.players.find(p => getPlayerDisplayRole(p) === 'prosecutor');
+                                                return `🔥 ${attackingPlayer?.name || 'Prosecutor'}`;
+                                            } else {
+                                                const defendingPlayer = room?.players.find(p => getPlayerDisplayRole(p) === 'defender');
+                                                return `🛡️ ${defendingPlayer?.name || 'Defender'}`;
+                                            }
+                                        })()}</span>
+                                        <span>Arguments: {Math.floor(gameState.arguments.length / 2) + (gameState.arguments.length % 2)}/3 exchanges</span>
                                     </div>
-                                    <div className="mb-4 text-base text-gray-400">
-                                        {(() => {
-                                            const currentPlayerArgs = gameState.arguments.filter(arg => 
-                                                arg.type === (currentPlayer && getPlayerDisplayRole(currentPlayer) === 'attacker' ? 'attack' : 'defense')
-                                            ).length;
-                                            const remaining = 3 - currentPlayerArgs;
-                                            return `You have ${remaining} argument${remaining !== 1 ? 's' : ''} remaining this round.`;
-                                        })()}
-                                    </div>
-                                    <textarea
-                                        value={currentArgument}
-                                        onChange={(e) => setCurrentArgument(e.target.value)}
-                                        placeholder={`Write your ${currentPlayer && getPlayerDisplayRole(currentPlayer) === 'attacker' ? 'attack' : 'defense'} argument here...`}
-                                        className={`w-full h-40 bg-gray-700 rounded-lg p-6 text-white placeholder-gray-400 resize-none focus:outline-none text-lg transition-colors duration-300 ${
-                                            timerPhase === 2 
-                                                ? 'border-2 border-red-500 animate-pulse focus:border-red-400' 
-                                                : 'border border-gray-600 focus:border-yellow-500'
-                                        }`}
-                                        maxLength={250}
-                                        disabled={gameHasEnded}
-                                    />
-                                    <div className="flex items-center justify-between mt-6">
-                                        <span className="text-base text-gray-400">
-                                            {currentArgument.length}/250 characters
-                                        </span>
+                                    <div className="space-y-2">
                                         <button
-                                            onClick={handleSubmitArgument}
-                                            disabled={!currentArgument.trim() || gameHasEnded}
-                                            className="px-8 py-3 bg-gradient-to-r from-yellow-500 to-orange-600 text-white font-bold rounded-lg hover:from-yellow-600 hover:to-orange-700 transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed text-lg"
+                                            onClick={() => setShowCaseModal(true)}
+                                            className="px-6 py-3 bg-gradient-to-r from-gray-600/80 to-gray-700/80 hover:from-gray-500/80 hover:to-gray-600/80 text-white rounded-xl transition-all duration-200 text-sm border border-white/20 backdrop-blur-sm transform hover:scale-105 shadow-lg"
                                         >
-                                            🚀 Submit Argument
+                                            📋 Review Case
                                         </button>
                                     </div>
                                 </div>
-                            ) : (
-                                <div className="text-center py-12">
-                                    <div className="text-4xl mb-4">⏳</div>
-                                    <p className="text-gray-400 text-xl">
-                                        Waiting for {otherPlayer?.name} to make their argument...
-                                    </p>
-                                    <div className="text-base text-gray-500 mt-3">
-                                        Exchange {Math.floor(gameState.arguments.length / 2) + (gameState.arguments.length % 2)}/3 in progress
+                            </div>
+
+                            {/* Right Score - 5% width */}
+                            <div className="w-[5%] flex flex-col items-center justify-center">
+                                {(() => {
+                                    const rightPlayer = room?.players.find(p => (p.originalRole || p.role) === 'defender');
+                                    const rightPlayerDisplayRole = rightPlayer ? getPlayerDisplayRole(rightPlayer) : 'defender';
+                                    const rightIsProsecutor = rightPlayerDisplayRole === 'prosecutor';
+                                    // Score always belongs to the rightPlayer (original defender), regardless of current role
+                                    const rightPlayerScore = rightPlayer ? getPlayerScore(rightPlayer.id) : 0;
+                                    const rightPlayerRoundWins = rightPlayer ? getPlayerRoundWins(rightPlayer.id) : 0;
+                                    return (
+                                        <>
+                                            <span className={`text-8xl font-bold bg-gradient-to-b ${rightIsProsecutor ? 'from-red-300 to-red-500' : 'from-blue-300 to-blue-500'
+                                                } bg-clip-text text-transparent drop-shadow-lg`}>
+                                                {rightPlayerRoundWins}
+                                            </span>
+                                            <span className={`text-sm mt-1 ${rightIsProsecutor ? 'text-red-200' : 'text-blue-200'}`}>
+                                                ({formatScore(rightPlayerScore)})
+                                            </span>
+                                        </>
+                                    );
+                                })()}
+                            </div>
+
+                            {/* Right side - Original Defender Position */}
+                            {(() => {
+                                const rightPlayer = room?.players.find(p => (p.originalRole || p.role) === 'defender');
+                                const rightPlayerDisplayRole = rightPlayer ? getPlayerDisplayRole(rightPlayer) : 'defender';
+                                const isCurrentPlayerOnRight = rightPlayer?.id === currentPlayer?.id;
+                                const rightPlayerLabel = rightPlayerDisplayRole === 'prosecutor' ? 'PROSECUTOR' : 'DEFENDER';
+                                const rightPlayerIsProsecutor = rightPlayerDisplayRole === 'prosecutor';
+
+                                console.log('RIGHT PLAYER:', {
+                                    name: rightPlayer?.name,
+                                    id: rightPlayer?.id,
+                                    originalRole: rightPlayer?.originalRole,
+                                    role: rightPlayer?.role,
+                                    displayRole: rightPlayer?.displayRole,
+                                    rightPlayerDisplayRole,
+                                    isCurrentPlayerOnRight
+                                });
+
+                                return (
+                                    <div className={`w-[35%] relative overflow-hidden transition-all duration-300 h-36 ${isCurrentPlayerOnRight
+                                        ? 'transform scale-105'
+                                        : 'opacity-80'
+                                        }`}>
+                                        {/* Glass morphism background */}
+                                        <div className={`absolute inset-0 bg-gradient-to-br ${rightPlayerIsProsecutor
+                                            ? 'from-red-500/20 via-red-400/10 to-orange-500/20'
+                                            : 'from-blue-500/20 via-blue-400/10 to-indigo-500/20'
+                                            } backdrop-blur-xl rounded-2xl border ${isCurrentPlayerOnRight
+                                                ? (rightPlayerIsProsecutor ? 'border-red-400/50 shadow-red-500/25' : 'border-blue-400/50 shadow-blue-500/25')
+                                                : (rightPlayerIsProsecutor ? 'border-red-500/30' : 'border-blue-500/30')
+                                            } shadow-2xl`}></div>
+
+                                        {/* Decorative elements */}
+                                        <div className="absolute -top-6 -left-6 w-24 h-24 bg-white/5 rounded-full blur-xl"></div>
+                                        <div className="absolute -bottom-4 -right-4 w-16 h-16 bg-purple-500/10 rounded-full blur-lg"></div>
+
+                                        {/* Content */}
+                                        <div className="relative z-10 p-6 flex items-center gap-6 h-full">
+                                            {/* Dot indicator */}
+                                            {gameState.currentTurn === rightPlayerDisplayRole && gameState.gamePhase === 'arguing' && (
+                                                <div className={`w-5 h-5 ${rightPlayerIsProsecutor ? 'bg-red-400' : 'bg-blue-400'} rounded-full animate-pulse flex-shrink-0 shadow-lg`}></div>
+                                            )}
+
+                                            {/* Timer */}
+                                            {gameState.currentTurn === rightPlayerDisplayRole && gameState.gamePhase === 'arguing' && (
+                                                <div className={`text-2xl font-bold flex-shrink-0 ${timerPhase === 1
+                                                    ? (timeLeft <= 3 ? 'text-red-300 animate-pulse' : 'text-green-300')
+                                                    : 'text-orange-300 animate-pulse'
+                                                    }`}>
+                                                    {timerPhase === 1 ? '⏱️' : '⚡'} {timeLeft}s
+                                                    {timerPhase === 2 && (
+                                                        <div className="text-xs text-orange-200 mt-1">INTERRUPT PHASE</div>
+                                                    )}
+                                                </div>
+                                            )}
+
+                                            {/* Text */}
+                                            <div className="flex-1 text-right">
+                                                <h3 className={`text-2xl font-bold ${rightPlayerIsProsecutor ? 'text-red-300' : 'text-blue-300'} mb-1`}>
+                                                    {isCurrentPlayerOnRight && (
+                                                        <span className="mx-2 text-yellow-300 text-lg font-semibold">(YOU)</span>
+                                                    )} {rightPlayerLabel}
+                                                </h3>
+                                                <p className="text-white/90 font-medium text-lg">{rightPlayer?.name}</p>
+                                                <div className="text-sm text-white/60 mt-1">
+                                                    {rightPlayerDisplayRole === 'prosecutor' ? gameState.case?.prosecutorSide || 'Plaintiff' : gameState.case?.defenderSide || 'Defendant'}
+                                                </div>
+                                            </div>
+
+                                            {/* Avatar */}
+                                            <div className={`w-16 h-16 bg-gradient-to-br ${rightPlayerIsProsecutor
+                                                ? 'from-red-500 to-orange-600'
+                                                : 'from-blue-500 to-indigo-600'
+                                                } rounded-full flex items-center justify-center text-3xl flex-shrink-0 border-2 ${rightPlayerIsProsecutor ? 'border-red-300/50' : 'border-blue-300/50'
+                                                } shadow-lg`}>
+                                                {rightPlayer?.avatar || '⚖️'}
+                                            </div>
+                                        </div>
                                     </div>
-                                    {canInterrupt && timerPhase === 2 && (
-                                        <div className="mt-4">
-                                            <div className="text-sm text-orange-400 mb-2">⚡ INTERRUPT PHASE ACTIVE ⚡</div>
-                                            <button
-                                                onClick={handleInterrupt}
-                                                className="px-6 py-3 bg-gradient-to-r from-red-600 to-red-700 hover:from-red-700 hover:to-red-800 text-white font-bold rounded-lg transition-all duration-200 transform hover:scale-105 shadow-lg animate-pulse"
-                                            >
-                                                ⚡ Interrupt Now!
-                                            </button>
-                                            <div className="text-xs text-gray-400 mt-2">Time will expire automatically in {timeLeft}s</div>
+                                );
+                            })()}
+                        </div>
+
+                        {/* Input Section */}
+                        {gameState.gamePhase === 'arguing' && (
+                            <div className="relative mb-8 overflow-hidden">
+                                {/* Glass morphism background */}
+                                <div className="absolute inset-0 bg-gradient-to-br from-white/10 via-white/5 to-white/10 backdrop-blur-xl rounded-2xl border border-white/20 shadow-2xl"></div>
+                                <div className="absolute -top-8 -right-8 w-32 h-32 bg-white/5 rounded-full blur-2xl"></div>
+                                <div className="absolute -bottom-6 -left-6 w-24 h-24 bg-purple-500/10 rounded-full blur-lg"></div>
+
+                                {/* Content */}
+                                <div className="relative z-10 p-8">
+                                    {isMyTurn ? (
+                                        <div>
+                                            <div className="flex items-center justify-between mb-4">
+                                                <h3 className={`text-xl font-bold ${timerPhase === 2 ? 'text-red-300 animate-pulse' : 'text-yellow-300'}`}>
+                                                    {timerPhase === 2 ? '⚡ HURRY! Opponent can interrupt!' : '🎯 Your Turn! Make your argument:'}
+                                                </h3>
+                                                <div className={`text-base ${timerPhase === 2 ? 'text-red-300' : 'text-white/70'}`}>
+                                                    Exchange {Math.floor(gameState.arguments.length / 2) + 1}/3
+                                                    {timerPhase === 2 && <span className="ml-2 animate-pulse">⚡ INTERRUPT PHASE</span>}
+                                                </div>
+                                            </div>
+                                            <div className="mb-4 text-base text-white/70">
+                                                {(() => {
+                                                    const currentPlayerArgs = gameState.arguments.filter(arg =>
+                                                        arg.type === (currentPlayer && getPlayerDisplayRole(currentPlayer) === 'prosecutor' ? 'attack' : 'defense')
+                                                    ).length;
+                                                    const remaining = 3 - currentPlayerArgs;
+                                                    return `You have ${remaining} argument${remaining !== 1 ? 's' : ''} remaining this round.`;
+                                                })()}
+                                            </div>
+                                            <div className="relative">
+                                                <textarea
+                                                    value={currentArgument}
+                                                    onChange={(e) => setCurrentArgument(e.target.value)}
+                                                    placeholder={`Write your ${currentPlayer && getPlayerDisplayRole(currentPlayer) === 'prosecutor' ? 'attack' : 'defense'} argument here...`}
+                                                    className={`w-full h-40 bg-gradient-to-br from-gray-800/80 to-gray-900/80 backdrop-blur-sm rounded-xl p-6 text-white placeholder-white/50 resize-none focus:outline-none text-lg transition-all duration-300 border ${timerPhase === 2
+                                                        ? 'border-red-400/60 shadow-red-500/20 animate-pulse focus:border-red-300'
+                                                        : 'border-white/20 focus:border-yellow-400/60 shadow-yellow-500/10'
+                                                        } shadow-lg`}
+                                                    maxLength={250}
+                                                    disabled={gameHasEnded}
+                                                />
+                                            </div>
+                                            <div className="flex items-center justify-between mt-6">
+                                                <span className="text-base text-white/60">
+                                                    {currentArgument.length}/250 characters
+                                                </span>
+                                                <button
+                                                    onClick={handleSubmitArgument}
+                                                    disabled={!currentArgument.trim() || gameHasEnded}
+                                                    className="px-8 py-3 bg-gradient-to-r from-yellow-500 to-orange-600 hover:from-yellow-400 hover:to-orange-500 text-white font-bold rounded-xl transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed text-lg transform hover:scale-105 shadow-lg border border-yellow-400/30"
+                                                >
+                                                    🚀 Submit Argument
+                                                </button>
+                                            </div>
+                                        </div>
+                                    ) : (
+                                        <div className="text-center py-12">
+                                            <div className="text-4xl mb-4">⏳</div>
+                                            <p className="text-white/80 text-xl">
+                                                Waiting for {otherPlayer?.name} to make their argument...
+                                            </p>
+                                            <div className="text-base text-white/60 mt-3">
+                                                Exchange {Math.floor(gameState.arguments.length / 2) + (gameState.arguments.length % 2)}/3 in progress
+                                            </div>
+                                            {canInterrupt && timerPhase === 2 && (
+                                                <div className="mt-4">
+                                                    <div className="text-sm text-orange-300 mb-2">⚡ INTERRUPT PHASE ACTIVE ⚡</div>
+                                                    <button
+                                                        onClick={handleInterrupt}
+                                                        className="px-6 py-3 bg-gradient-to-r from-red-600 to-red-700 hover:from-red-500 hover:to-red-600 text-white font-bold rounded-xl transition-all duration-200 transform hover:scale-105 shadow-lg animate-pulse border border-red-400/30"
+                                                    >
+                                                        ⚡ Interrupt Now!
+                                                    </button>
+                                                    <div className="text-xs text-white/50 mt-2">Time will expire automatically in {timeLeft}s</div>
+                                                </div>
+                                            )}
                                         </div>
                                     )}
                                 </div>
-                            )}
-                        </div>
-                    )}
-{/* Arguments Timeline */}
-                    <div className="bg-gray-800/50 rounded-xl p-8">
-                        <div className="flex items-center justify-between mb-6">
-                            <h2 className="text-2xl font-bold text-gray-200">📜 Battle Log</h2>
-                            <div className="text-base text-gray-400">
-                                Round {gameState.currentRound} Progress: {Math.floor(gameState.arguments.length / 2) + (gameState.arguments.length % 2)}/3 exchanges
                             </div>
-                        </div>
-                        <div className="space-y-6 max-h-[600px] overflow-y-auto">
-                            {gameState.arguments.length === 0 ? (
-                                <p className="text-gray-500 text-center py-12 text-lg">
-                                    No arguments yet. {room?.players.find(p => p.role === 'attacker')?.name} will start the battle!<br/>
-                                    <span className="text-base">Each round requires 3 exchanges (6 total arguments) before AI analysis.</span>
-                                </p>
-                            ) : (
-                                gameState.arguments.map((argument, index) => {
-                                    const exchangeNumber = Math.floor(index / 2) + 1;
-                                    const isFirstInExchange = index % 2 === 0;
-                                    
-                                    return (
-                                        <div key={argument.id}>
-                                            {isFirstInExchange && exchangeNumber > 1 && (
-                                                <div className="border-t border-gray-600 my-6 pt-6">
-                                                    <div className="text-center text-sm text-gray-500 mb-4">
-                                                        Exchange #{exchangeNumber}
+                        )}
+
+                        {/* Arguments Timeline */}
+                        <div className="relative overflow-hidden">
+                            {/* Glass morphism background */}
+                            <div className="absolute inset-0 bg-gradient-to-br from-white/10 via-white/5 to-white/10 backdrop-blur-xl rounded-2xl border border-white/20 shadow-2xl"></div>
+                            <div className="absolute -top-8 -right-8 w-32 h-32 bg-white/5 rounded-full blur-2xl"></div>
+                            <div className="absolute -bottom-6 -left-6 w-24 h-24 bg-purple-500/10 rounded-full blur-lg"></div>
+
+                            {/* Content */}
+                            <div className="relative z-10 p-8">
+                                <div className="flex items-center justify-between mb-6">
+                                    <h2 className="text-2xl font-bold text-white">📜 Log</h2>
+                                    <div className="text-base text-white/70">
+                                        Round {gameState.currentRound} Progress: {Math.floor(gameState.arguments.length / 2) + (gameState.arguments.length % 2)}/3 exchanges
+                                    </div>
+                                </div>
+                                <div className="space-y-6 max-h-[600px] overflow-y-auto">
+                                    {gameState.arguments.length === 0 ? (
+                                        <div className="text-center py-12">
+                                            <div className="text-6xl mb-4 opacity-40">⚖️</div>
+                                            <p className="text-white/60 text-lg">
+                                                No arguments yet. {room?.players.find(p => p.role === 'prosecutor')?.name} will start the battle!<br />
+                                                <span className="text-base">Each round requires 3 exchanges (6 total arguments) before AI analysis.</span>
+                                            </p>
+                                        </div>
+                                    ) : (
+                                        gameState.arguments.map((argument, index) => {
+                                            const exchangeNumber = Math.floor(index / 2) + 1;
+                                            const isFirstInExchange = index % 2 === 0;
+
+                                            return (
+                                                <div key={argument.id}>
+                                                    {isFirstInExchange && exchangeNumber > 1 && (
+                                                        <div className="border-t border-white/20 my-6 pt-6">
+                                                            <div className="text-center text-sm text-white/50 mb-4">
+                                                                Exchange #{exchangeNumber}
+                                                            </div>
+                                                        </div>
+                                                    )}
+                                                    {index === 0 && (
+                                                        <div className="text-center text-sm text-white/50 mb-4">
+                                                            Exchange #1
+                                                        </div>
+                                                    )}
+                                                    <div className="relative overflow-hidden rounded-xl">
+                                                        {/* Glass morphism background for argument */}
+                                                        <div className={`absolute inset-0 ${argument.type === 'attack'
+                                                            ? 'bg-gradient-to-br from-red-500/20 via-red-400/10 to-orange-500/20'
+                                                            : 'bg-gradient-to-br from-blue-500/20 via-blue-400/10 to-indigo-500/20'
+                                                            } backdrop-blur-sm border-l-4 ${argument.type === 'attack'
+                                                                ? 'border-red-400'
+                                                                : 'border-blue-400'
+                                                            } shadow-lg`}></div>
+
+                                                        {/* Content */}
+                                                        <div className="relative z-10 p-6">
+                                                            <div className="flex items-center gap-3 mb-3">
+                                                                <span className="text-2xl">
+                                                                    {argument.type === 'attack' ? '🔥' : '🛡️'}
+                                                                </span>
+                                                                <span className={`font-semibold text-lg ${argument.type === 'attack' ? 'text-red-300' : 'text-blue-300'
+                                                                    }`}>
+                                                                    {argument.playerName} ({argument.type === 'attack' ? 'Prosecutor' : 'Defender'})
+                                                                </span>
+                                                                <span className="text-sm text-white/50 ml-auto">
+                                                                    Argument #{index + 1}
+                                                                </span>
+                                                            </div>
+                                                            <p className="text-white/90 text-lg leading-relaxed">{argument.content}</p>
+                                                        </div>
                                                     </div>
                                                 </div>
-                                            )}
-                                            {index === 0 && (
-                                                <div className="text-center text-sm text-gray-500 mb-4">
-                                                    Exchange #1
-                                                </div>
-                                            )}
-                                            <div
-                                                className={`p-6 rounded-lg border-l-4 ${argument.type === 'attack'
-                                                        ? 'bg-red-900/20 border-red-500'
-                                                        : 'bg-blue-900/20 border-blue-500'
-                                                    }`}
-                                            >
-                                                <div className="flex items-center gap-3 mb-3">
-                                                    <span className="text-2xl">
-                                                        {argument.type === 'attack' ? '🔥' : '🛡️'}
-                                                    </span>
-                                                    <span className={`font-semibold text-lg ${argument.type === 'attack' ? 'text-red-400' : 'text-blue-400'
-                                                        }`}>
-                                                        {argument.playerName} ({argument.type === 'attack' ? 'Attacker' : 'Defender'})
-                                                    </span>
-                                                    <span className="text-sm text-gray-500 ml-auto">
-                                                        Argument #{index + 1}
-                                                    </span>
-                                                </div>
-                                                <p className="text-gray-200 text-lg leading-relaxed">{argument.content}</p>
-                                            </div>
-                                        </div>
-                                    );
-                                })
-                            )}
+                                            );
+                                        })
+                                    )}
+                                </div>
+                            </div>
                         </div>
                     </div>
-                </div>
-            )}
+                )}
+            </div>
         </div>
     );
 }

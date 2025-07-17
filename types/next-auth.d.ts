@@ -23,15 +23,15 @@ declare module 'next-auth' {
       longestWinStreak: number
       currentWinStreak: number
       // Role-specific stats
-      attackerRoundsPlayed: number
-      attackerRoundsWon: number
-      attackerPointsWon: number
-      attackerAverageScore: number
+      prosecutorRoundsPlayed: number
+      prosecutorRoundsWon: number
+      prosecutorPointsWon: number
+      prosecutorAverageScore: number
       defenderRoundsPlayed: number
       defenderRoundsWon: number
       defenderPointsWon: number
       defenderAverageScore: number
-      preferredRole: 'attacker' | 'defender' | 'none'
+      preferredRole: 'prosecutor' | 'defender' | 'none'
     } & DefaultSession['user']
   }
 
@@ -54,15 +54,15 @@ declare module 'next-auth' {
     longestWinStreak?: number
     currentWinStreak?: number
     // Role-specific stats
-    attackerRoundsPlayed?: number
-    attackerRoundsWon?: number
-    attackerPointsWon?: number
-    attackerAverageScore?: number
+    prosecutorRoundsPlayed?: number
+    prosecutorRoundsWon?: number
+    prosecutorPointsWon?: number
+    prosecutorAverageScore?: number
     defenderRoundsPlayed?: number
     defenderRoundsWon?: number
     defenderPointsWon?: number
     defenderAverageScore?: number
-    preferredRole?: 'attacker' | 'defender' | 'none'
+    preferredRole?: 'prosecutor' | 'defender' | 'none'
   }
 }
 
@@ -86,15 +86,15 @@ declare module 'next-auth/jwt' {
     longestWinStreak?: number
     currentWinStreak?: number
     // Role-specific stats
-    attackerRoundsPlayed?: number
-    attackerRoundsWon?: number
-    attackerPointsWon?: number
-    attackerAverageScore?: number
+    prosecutorRoundsPlayed?: number
+    prosecutorRoundsWon?: number
+    prosecutorPointsWon?: number
+    prosecutorAverageScore?: number
     defenderRoundsPlayed?: number
     defenderRoundsWon?: number
     defenderPointsWon?: number
     defenderAverageScore?: number
-    preferredRole?: 'attacker' | 'defender' | 'none'
+    preferredRole?: 'prosecutor' | 'defender' | 'none'
   }
 }
 

@@ -8,9 +8,9 @@ interface GameState {
     maxRounds: number;
     roundResult?: {
         round: number;
-        winner: 'attacker' | 'defender';
+        winner: 'prosecutor' | 'defender';
         analysis: string;
-        attackerScore: number;
+        prosecutorScore: number;
         defenderScore: number;
         argumentScores?: { argumentId: string; score: number }[];
     };
@@ -26,12 +26,12 @@ interface RoundCompleteModalProps {
     showNextRoundReadyCheck: boolean;
     nextRoundMessage: string;
     handleNextRoundReady: () => void;
-    handleProceedToGameComplete: (winner: 'attacker' | 'defender') => void;
+    handleProceedToGameComplete: (winner: 'prosecutor' | 'defender') => void;
     formatTime: (seconds: number) => string;
     formatScore: (score: number) => string;
     getPlayerRoundWins: (playerId: string) => number;
     getPlayerScore: (playerId: string) => number;
-    getAttackerRoundWins: () => number;
+    getProsecutorRoundWins: () => number;
     getDefenderRoundWins: () => number;
     gameHasEnded: boolean;
 }
@@ -51,7 +51,7 @@ export default function RoundCompleteModal({
     formatScore,
     getPlayerRoundWins,
     getPlayerScore,
-    getAttackerRoundWins,
+    getProsecutorRoundWins,
     getDefenderRoundWins,
     gameHasEnded
 }: RoundCompleteModalProps) {
@@ -62,187 +62,280 @@ export default function RoundCompleteModal({
     const otherPlayer = room?.players.find(p => p.id !== currentPlayer?.id);
 
     return (
-        <div className="fixed inset-0 bg-black/80 backdrop-blur-sm flex items-center justify-center z-50 p-4">
-            <div className="bg-gradient-to-br from-gray-800 to-gray-900 rounded-2xl shadow-2xl p-8 max-w-5xl w-full border border-gray-600 max-h-[90vh] overflow-y-auto">
-                <div className="text-center mb-6">
-                    <h1 className="text-4xl font-bold mb-2">
-                        {gameState.roundResult.winner === 'attacker' ? '🔥' : '🛡️'} Round {gameState.roundResult.round} Complete!
-                    </h1>
-                    <h2 className={`text-3xl font-bold mb-4 ${gameState.roundResult.winner === 'attacker' ? 'text-red-400' : 'text-blue-400'}`}>
-                        {gameState.roundResult.winner === 'attacker' ? 'Attacker' : 'Defender'} Wins!
-                    </h2>
-                    {/* Show role switch message if applicable */}
-                    {nextRoundMessage && (
-                        <div className="bg-yellow-900/20 border border-yellow-500/30 rounded-lg p-3 mt-4">
-                            <div className="text-yellow-400 font-bold text-lg">
-                                🔄 {nextRoundMessage}
+        <div className="fixed inset-0 bg-slate-900/80 backdrop-blur-lg flex items-center justify-center z-50 p-4">
+            {/* Background effects matching game vibe */}
+            <div className="absolute inset-0">
+                <div className="absolute top-1/4 left-1/4 w-80 h-80 bg-red-500/15 rounded-full blur-3xl animate-pulse"></div>
+                <div className="absolute bottom-1/4 right-1/4 w-80 h-80 bg-blue-500/15 rounded-full blur-3xl animate-pulse delay-1000"></div>
+                <div className="absolute top-2/3 left-1/2 transform -translate-x-1/2 w-96 h-96 bg-violet-500/8 rounded-full blur-3xl animate-pulse delay-1500"></div>
+            </div>
+            
+            <div className="relative bg-gradient-to-br from-white/20 via-white/10 to-white/5 backdrop-blur-xl rounded-3xl shadow-2xl p-8 max-w-5xl w-full border border-white/30 max-h-[90vh] overflow-y-auto">
+                {/* Decorative elements */}
+                <div className="absolute -top-8 -right-8 w-32 h-32 bg-white/5 rounded-full blur-2xl"></div>
+                <div className="absolute -bottom-6 -left-6 w-24 h-24 bg-purple-500/10 rounded-full blur-lg"></div>
+                
+                {/* Content */}
+                <div className="relative z-10">
+                    <div className="text-center mb-8">
+                        <div className="inline-flex items-center justify-center w-20 h-20 bg-gradient-to-br from-yellow-500/20 to-orange-600/20 backdrop-blur-sm rounded-full mb-4 border border-yellow-400/30">
+                            <span className="text-4xl">
+                                {gameState.roundResult.winner === 'prosecutor' ? '🔥' : '🛡️'}
+                            </span>
+                        </div>
+                        <h1 className="text-4xl font-bold mb-2 bg-gradient-to-r from-yellow-300 to-orange-400 bg-clip-text text-transparent drop-shadow-lg">
+                            Round {gameState.roundResult.round} Complete!
+                        </h1>
+                        <h2 className={`text-3xl font-bold mb-4 ${
+                            gameState.roundResult.winner === 'prosecutor' ? 'text-red-300' : 'text-blue-300'
+                        }`}>
+                            {gameState.roundResult.winner === 'prosecutor' ? 'Prosecutor' : 'Defender'} Wins!
+                        </h2>
+                        {/* Show role switch message if applicable */}
+                        {nextRoundMessage && (
+                            <div className="relative overflow-hidden rounded-xl p-4 mt-4">
+                                <div className="absolute inset-0 bg-gradient-to-br from-yellow-500/20 via-yellow-400/10 to-orange-500/15 backdrop-blur-sm border border-yellow-400/30 shadow-lg"></div>
+                                <div className="relative z-10 text-yellow-300 font-semibold text-lg">
+                                    🔄 {nextRoundMessage}
+                                </div>
+                            </div>
+                        )}
+                    </div>
+
+                    {/* AI Analysis Section */}
+                    <div className="relative overflow-hidden rounded-2xl p-6 mb-8">
+                        <div className="absolute inset-0 bg-gradient-to-br from-indigo-900/40 via-purple-900/30 to-violet-900/40 backdrop-blur-sm border border-indigo-500/40 shadow-lg rounded-2xl"></div>
+                        
+                        <div className="relative z-10">
+                            <div className="flex items-center gap-3 mb-4">
+                                <div className="w-10 h-10 bg-gradient-to-br from-cyan-500/30 to-blue-500/30 backdrop-blur-sm rounded-full flex items-center justify-center border border-cyan-400/50">
+                                    <span className="text-xl">🤖</span>
+                                </div>
+                                <h3 className="text-xl font-bold text-white">AI Verdict</h3>
+                            </div>
+                            <p className="text-white/95 mb-4 leading-relaxed">{gameState.roundResult.analysis}</p>
+                            <div className="text-sm text-cyan-300 mb-6">
+                                AI analyzed 3 exchanges (6 total arguments) to determine the round winner.
+                            </div>
+                            
+                            {/* Score Display */}
+                            <div className="grid grid-cols-2 gap-6">
+                                <div className="relative overflow-hidden rounded-xl p-6 text-center">
+                                    <div className="absolute inset-0 bg-gradient-to-br from-red-500/25 via-orange-500/20 to-red-600/25 backdrop-blur-sm border border-red-400/40 shadow-lg rounded-xl"></div>
+                                    <div className="relative z-10">
+                                        <div className="w-12 h-12 bg-gradient-to-br from-red-500/40 to-orange-500/40 backdrop-blur-sm rounded-full flex items-center justify-center mx-auto mb-3 border border-red-400/60">
+                                            <span className="text-xl">🔥</span>
+                                        </div>
+                                        <h4 className="font-bold text-white mb-2">Prosecutor Score</h4>
+                                        <span className="text-3xl font-bold text-red-300">{gameState.roundResult.prosecutorScore}</span>
+                                    </div>
+                                </div>
+                                <div className="relative overflow-hidden rounded-xl p-6 text-center">
+                                    <div className="absolute inset-0 bg-gradient-to-br from-blue-500/25 via-cyan-500/20 to-blue-600/25 backdrop-blur-sm border border-blue-400/40 shadow-lg rounded-xl"></div>
+                                    <div className="relative z-10">
+                                        <div className="w-12 h-12 bg-gradient-to-br from-blue-500/40 to-cyan-500/40 backdrop-blur-sm rounded-full flex items-center justify-center mx-auto mb-3 border border-blue-400/60">
+                                            <span className="text-xl">🛡️</span>
+                                        </div>
+                                        <h4 className="font-bold text-white mb-2">Defender Score</h4>
+                                        <span className="text-3xl font-bold text-blue-300">{gameState.roundResult.defenderScore}</span>
+                                    </div>
+                                </div>
                             </div>
                         </div>
-                    )}
-                </div>
-
-                <div className="bg-gray-700/50 rounded-xl p-6 mb-6">
-                    <h3 className="text-lg font-bold text-yellow-400 mb-3">🤖 AI Analysis:</h3>
-                    <p className="text-gray-200 mb-4">{gameState.roundResult.analysis}</p>
-                    <div className="text-sm text-gray-400 mb-4">
-                        AI analyzed 3 exchanges (6 total arguments) to determine the round winner.
                     </div>
-                    
-                    <div className="grid grid-cols-2 gap-4">
-                        <div className="bg-red-900/30 rounded-lg p-4 text-center">
-                            <h4 className="font-bold text-red-400 mb-2">🔥 Attacker Score</h4>
-                            <span className="text-2xl font-bold text-white">{gameState.roundResult.attackerScore}</span>
-                        </div>
-                        <div className="bg-blue-900/30 rounded-lg p-4 text-center">
-                            <h4 className="font-bold text-blue-400 mb-2">🛡️ Defender Score</h4>
-                            <span className="text-2xl font-bold text-white">{gameState.roundResult.defenderScore}</span>
-                        </div>
-                    </div>
-                </div>
 
                 {/* Next Round Ready Check - only show if not final round and if game will continue */}
                 {(() => {
-                    const attackerWins = getAttackerRoundWins();
+                    const prosecutorWins = getProsecutorRoundWins();
                     const defenderWins = getDefenderRoundWins();
                     
                     // If game has ended (server sent game-end event), always show "View Final Results"
                     if (gameHasEnded) {
                         return (
                             <div className="text-center">
-                                <p className="text-gray-400 mb-6">
+                                <div className="w-20 h-20 bg-gradient-to-br from-yellow-500/20 to-orange-600/20 backdrop-blur-sm rounded-full mx-auto mb-6 flex items-center justify-center border border-yellow-400/30">
+                                    <span className="text-4xl">🏆</span>
+                                </div>
+                                <p className="text-white/80 mb-6 text-lg">
                                     The battle has concluded! Review the final analysis above.
                                 </p>
                                 <button
                                     onClick={() => {
-                                        const winner = attackerWins > defenderWins ? 'attacker' : 'defender';
+                                        const winner = prosecutorWins > defenderWins ? 'prosecutor' : 'defender';
                                         handleProceedToGameComplete(winner);
                                     }}
-                                    className="px-8 py-4 bg-gradient-to-r from-yellow-500 to-orange-600 hover:from-yellow-600 hover:to-orange-700 text-white font-bold rounded-lg transition-all duration-200 transform hover:scale-105 shadow-lg text-lg"
+                                    className="relative overflow-hidden px-8 py-4 font-bold rounded-xl transition-all duration-200 transform hover:scale-105 shadow-lg text-lg border border-yellow-400/50"
                                 >
-                                    🏆 View Final Results
+                                    <div className="absolute inset-0 bg-gradient-to-r from-yellow-500/80 to-orange-600/80 backdrop-blur-sm"></div>
+                                    <span className="relative z-10 text-white">🏆 View Final Results</span>
                                 </button>
                             </div>
                         );
                     }
                     
-                    // Game continues if nobody has 2+ wins AND the completed round is less than maxRounds
+
                     const completedRound = gameState.roundResult.round;
-                    const gameWillContinue = attackerWins < 2 && defenderWins < 2 && completedRound < gameState.maxRounds;
+                    const gameWillContinue = prosecutorWins < 2 && defenderWins < 2;
                     
                     if (gameWillContinue) {
                         return (
                             <>
                                 {/* Player Readiness Status */}
-                                <div className="grid grid-cols-2 gap-6 mb-6">
+                                <div className="grid grid-cols-2 gap-6 mb-8">
                                     {/* Current Player */}
-                                    <div className={`border-2 rounded-lg p-4 text-center transition-all duration-200 ${
-                                        isNextRoundReady 
-                                            ? 'bg-green-900/30 border-green-500' 
-                                            : 'bg-gray-900/30 border-gray-500'
+                                    <div className={`relative overflow-hidden rounded-xl p-6 text-center transition-all duration-300 ${
+                                        isNextRoundReady ? 'transform scale-105 shadow-2xl' : 'opacity-90'
                                     }`}>
-                                        <h3 className="text-xl font-bold mb-2 text-white">
-                                            {currentPlayer?.name} (You)
-                                        </h3>
+                                        <div className={`absolute inset-0 bg-gradient-to-br ${
+                                            isNextRoundReady 
+                                                ? 'from-emerald-500/30 via-green-500/20 to-teal-500/25' 
+                                                : 'from-indigo-700/40 via-purple-600/30 to-violet-700/35'
+                                        } backdrop-blur-sm border-2 ${
+                                            isNextRoundReady 
+                                                ? 'border-emerald-400/70 shadow-emerald-500/30' 
+                                                : 'border-purple-500/50'
+                                        } shadow-lg rounded-xl`}></div>
                                         
-                                        {/* Player Scores */}
-                                        <div className="bg-black/20 rounded-lg p-3 mb-3">
-                                            <div className="text-sm text-gray-400 mb-1">Round Wins</div>
-                                            <div className="text-2xl font-bold text-white mb-1">
-                                                {getPlayerRoundWins(currentPlayer!.id)}
+                                        <div className="relative z-10">
+                                            <div className={`w-16 h-16 rounded-full mx-auto mb-4 flex items-center justify-center transition-all duration-300 ${
+                                                isNextRoundReady 
+                                                    ? 'bg-gradient-to-br from-emerald-500/40 to-green-500/40 backdrop-blur-sm border border-emerald-400/60 shadow-lg shadow-emerald-500/30' 
+                                                    : 'bg-gradient-to-br from-purple-600/40 to-violet-700/40 backdrop-blur-sm border border-purple-500/50'
+                                            }`}>
+                                                <span className="text-2xl">👤</span>
                                             </div>
-                                            <div className="text-xs text-gray-400">
-                                                Total Points: {formatScore(getPlayerScore(currentPlayer!.id))}
+                                            <h3 className="text-xl font-bold mb-3 text-white">
+                                                {currentPlayer?.name} (You)
+                                            </h3>
+                                            
+                                            {/* Player Scores */}
+                                            <div className="bg-gradient-to-br from-black/50 to-black/30 backdrop-blur-sm rounded-lg p-4 mb-4 border border-white/30">
+                                                <div className="text-sm text-cyan-300 mb-1">Round Wins</div>
+                                                <div className="text-2xl font-bold text-white mb-1">
+                                                    {getPlayerRoundWins(currentPlayer!.id)}
+                                                </div>
+                                                <div className="text-xs text-cyan-200">
+                                                    Total Points: {formatScore(getPlayerScore(currentPlayer!.id))}
+                                                </div>
                                             </div>
-                                        </div>
-                                        
-                                        <div className="flex items-center justify-center mb-2">
-                                            {isNextRoundReady ? (
-                                                <span className="text-green-400 font-bold">✅ Ready</span>
-                                            ) : (
-                                                <span className="text-gray-400 font-bold">⏳ Not Ready</span>
-                                            )}
+                                            
+                                            <div className="flex items-center justify-center">
+                                                {isNextRoundReady ? (
+                                                    <div className="flex items-center gap-2 text-emerald-300 font-bold">
+                                                        <span className="text-lg animate-pulse">✅</span>
+                                                        <span>Ready</span>
+                                                    </div>
+                                                ) : (
+                                                    <div className="flex items-center gap-2 text-purple-300 font-medium">
+                                                        <span className="text-lg">⏳</span>
+                                                        <span>Not Ready</span>
+                                                    </div>
+                                                )}
+                                            </div>
                                         </div>
                                     </div>
 
                                     {/* Other Player */}
                                     {otherPlayer && (
-                                        <div className={`border-2 rounded-lg p-4 text-center transition-all duration-200 ${
-                                            otherPlayerNextRoundReady 
-                                                ? 'bg-green-900/30 border-green-500' 
-                                                : 'bg-gray-900/30 border-gray-500'
+                                        <div className={`relative overflow-hidden rounded-xl p-6 text-center transition-all duration-300 ${
+                                            otherPlayerNextRoundReady ? 'transform scale-105 shadow-2xl' : 'opacity-90'
                                         }`}>
-                                            <h3 className="text-xl font-bold mb-2 text-white">
-                                                {otherPlayer.name}
-                                            </h3>
+                                            <div className={`absolute inset-0 bg-gradient-to-br ${
+                                                otherPlayerNextRoundReady 
+                                                    ? 'from-emerald-500/30 via-green-500/20 to-teal-500/25' 
+                                                    : 'from-indigo-700/40 via-purple-600/30 to-violet-700/35'
+                                            } backdrop-blur-sm border-2 ${
+                                                otherPlayerNextRoundReady 
+                                                    ? 'border-emerald-400/70 shadow-emerald-500/30' 
+                                                    : 'border-purple-500/50'
+                                            } shadow-lg rounded-xl`}></div>
                                             
-                                            {/* Player Scores */}
-                                            <div className="bg-black/20 rounded-lg p-3 mb-3">
-                                                <div className="text-sm text-gray-400 mb-1">Round Wins</div>
-                                                <div className="text-2xl font-bold text-white mb-1">
-                                                    {getPlayerRoundWins(otherPlayer.id)}
+                                            <div className="relative z-10">
+                                                <div className={`w-16 h-16 rounded-full mx-auto mb-4 flex items-center justify-center transition-all duration-300 ${
+                                                    otherPlayerNextRoundReady 
+                                                        ? 'bg-gradient-to-br from-emerald-500/40 to-green-500/40 backdrop-blur-sm border border-emerald-400/60 shadow-lg shadow-emerald-500/30' 
+                                                        : 'bg-gradient-to-br from-purple-600/40 to-violet-700/40 backdrop-blur-sm border border-purple-500/50'
+                                                }`}>
+                                                    <span className="text-2xl">👤</span>
                                                 </div>
-                                                <div className="text-xs text-gray-400">
-                                                    Total Points: {formatScore(getPlayerScore(otherPlayer.id))}
+                                                <h3 className="text-xl font-bold mb-3 text-white">
+                                                    {otherPlayer.name}
+                                                </h3>
+                                                
+                                                {/* Player Scores */}
+                                                <div className="bg-gradient-to-br from-black/50 to-black/30 backdrop-blur-sm rounded-lg p-4 mb-4 border border-white/30">
+                                                    <div className="text-sm text-cyan-300 mb-1">Round Wins</div>
+                                                    <div className="text-2xl font-bold text-white mb-1">
+                                                        {getPlayerRoundWins(otherPlayer.id)}
+                                                    </div>
+                                                    <div className="text-xs text-cyan-200">
+                                                        Total Points: {formatScore(getPlayerScore(otherPlayer.id))}
+                                                    </div>
                                                 </div>
-                                            </div>
-                                            
-                                            <div className="flex items-center justify-center mb-2">
-                                                {otherPlayerNextRoundReady ? (
-                                                    <span className="text-green-400 font-bold">✅ Ready</span>
-                                                ) : (
-                                                    <span className="text-gray-400 font-bold">⏳ Not Ready</span>
-                                                )}
+                                                
+                                                <div className="flex items-center justify-center">
+                                                    {otherPlayerNextRoundReady ? (
+                                                        <div className="flex items-center gap-2 text-emerald-300 font-bold">
+                                                            <span className="text-lg animate-pulse">✅</span>
+                                                            <span>Ready</span>
+                                                        </div>
+                                                    ) : (
+                                                        <div className="flex items-center gap-2 text-purple-300 font-medium">
+                                                            <span className="text-lg">⏳</span>
+                                                            <span>Not Ready</span>
+                                                        </div>
+                                                    )}
+                                                </div>
                                             </div>
                                         </div>
                                     )}
                                 </div>
 
                                 {/* Auto-start timer */}
-                                <div className="bg-yellow-900/20 border border-yellow-500/30 rounded-lg p-4 mb-6">
-                                    <div className="text-center">
-                                        <div className="text-yellow-400 font-bold mb-2">⏰ Auto-Start Timer</div>
-                                        <div className={`text-2xl font-bold ${nextRoundAutoStartTime <= 10 ? 'text-red-400 animate-pulse' : 'text-yellow-400'}`}>
+                                <div className="relative overflow-hidden rounded-lg p-3 mb-6">
+                                    <div className="absolute inset-0 bg-gradient-to-r from-amber-500/20 via-yellow-500/15 to-orange-500/20 backdrop-blur-sm border border-amber-400/40 shadow-md rounded-lg"></div>
+                                    
+                                    <div className="relative z-10 flex items-center justify-center gap-3">
+                                        <div className="w-8 h-8 bg-gradient-to-br from-amber-500/30 to-orange-500/30 backdrop-blur-sm rounded-full flex items-center justify-center border border-amber-400/50">
+                                            <span className="text-sm">⏰</span>
+                                        </div>
+                                        <span className="text-amber-200 font-medium">Auto-Start:</span>
+                                        <span className={`text-2xl font-bold ${
+                                            nextRoundAutoStartTime <= 10 ? 'text-red-300 animate-pulse' : 'text-white'
+                                        }`}>
                                             {formatTime(nextRoundAutoStartTime)}
-                                        </div>
-                                        <div className="text-sm text-gray-400 mt-2">
-                                            Round will start automatically when both players are ready or when time expires
-                                        </div>
+                                        </span>
                                     </div>
                                 </div>
 
                                 {/* Ready Status Message */}
-                                <div className="text-center mb-6">
-                                    {isNextRoundReady && otherPlayerNextRoundReady ? (
-                                        <div className="text-green-400 font-bold text-lg mb-2">
-                                            🚀 Both players ready! Starting round...
-                                        </div>
-                                    ) : isNextRoundReady ? (
-                                        <div className="text-yellow-400 font-bold mb-2">
-                                            ✅ You're ready! Waiting for opponent...
-                                        </div>
-                                    ) : otherPlayerNextRoundReady ? (
-                                        <div className="text-yellow-400 font-bold mb-2">
-                                            ⏳ Opponent is ready! Click Ready to continue...
-                                        </div>
-                                    ) : (
-                                        <div className="text-gray-400 mb-2">
-                                            Read the analysis and click Ready when you're prepared for the next round!
-                                        </div>
-                                    )}
-                                </div>
+                                
 
                                 {/* Ready Button */}
                                 <div className="text-center">
                                     <button
                                         onClick={() => handleNextRoundReady()}
                                         disabled={isNextRoundReady}
-                                        className={`px-8 py-4 font-bold rounded-lg transition-all duration-200 transform hover:scale-105 shadow-lg ${
+                                        className={`relative overflow-hidden px-8 py-4 font-bold rounded-xl transition-all duration-300 transform hover:scale-105 shadow-lg text-lg border-2 ${
                                             isNextRoundReady 
-                                                ? 'bg-gray-600 text-gray-400 cursor-not-allowed'
-                                                : 'bg-gradient-to-r from-yellow-500 to-orange-600 hover:from-yellow-600 hover:to-orange-700 text-white'
+                                                ? 'border-purple-500/50 cursor-not-allowed opacity-75'
+                                                : 'border-emerald-400/70 hover:shadow-emerald-500/40 hover:shadow-xl'
                                         }`}
                                     >
-                                        {isNextRoundReady ? '✅ Ready! Waiting for opponent...' : '⚔️ Ready for Next Round'}
+                                        <div className={`absolute inset-0 ${
+                                            isNextRoundReady 
+                                                ? 'bg-gradient-to-r from-purple-600/60 to-violet-700/60' 
+                                                : 'bg-gradient-to-r from-emerald-500/90 to-teal-600/90 hover:from-emerald-400/95 hover:to-teal-500/95'
+                                        } backdrop-blur-sm transition-all duration-300 rounded-xl`}></div>
+                                        
+                                        <span className={`relative z-10 flex items-center justify-center gap-2 ${
+                                            isNextRoundReady ? 'text-purple-300' : 'text-white'
+                                        }`}>
+                                            <span className="text-xl">
+                                                {isNextRoundReady ? '✅' : '⚔️'}
+                                            </span>
+                                            {isNextRoundReady ? 'Ready! Waiting for opponent...' : 'Ready for Next Round'}
+                                        </span>
                                     </button>
                                 </div>
                             </>
@@ -250,25 +343,30 @@ export default function RoundCompleteModal({
                     } else {
                         return (
                             <div className="text-center">
-                                <p className="text-gray-400 mb-6">
-                                    {attackerWins >= 2 || defenderWins >= 2 
+                                <div className="w-20 h-20 bg-gradient-to-br from-yellow-500/20 to-orange-600/20 backdrop-blur-sm rounded-full mx-auto mb-6 flex items-center justify-center border border-yellow-400/30">
+                                    <span className="text-4xl">🏁</span>
+                                </div>
+                                <p className="text-white/80 mb-6 text-lg">
+                                    {prosecutorWins >= 2 || defenderWins >= 2 
                                         ? 'The battle has concluded! Review the final analysis above.' 
                                         : 'All rounds complete! The battle has ended.'
                                     }
                                 </p>
                                 <button
                                     onClick={() => {
-                                        const winner = attackerWins > defenderWins ? 'attacker' : 'defender';
+                                        const winner = prosecutorWins > defenderWins ? 'prosecutor' : 'defender';
                                         handleProceedToGameComplete(winner);
                                     }}
-                                    className="px-8 py-4 bg-gradient-to-r from-yellow-500 to-orange-600 hover:from-yellow-600 hover:to-orange-700 text-white font-bold rounded-lg transition-all duration-200 transform hover:scale-105 shadow-lg text-lg"
+                                    className="relative overflow-hidden px-8 py-4 font-bold rounded-xl transition-all duration-200 transform hover:scale-105 shadow-lg text-lg border border-yellow-400/50"
                                 >
-                                    🏆 View Final Results
+                                    <div className="absolute inset-0 bg-gradient-to-r from-yellow-500/80 to-orange-600/80 backdrop-blur-sm"></div>
+                                    <span className="relative z-10 text-white">🏆 View Final Results</span>
                                 </button>
                             </div>
                         );
                     }
                 })()}
+                </div>
             </div>
         </div>
     );

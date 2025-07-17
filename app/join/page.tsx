@@ -4,28 +4,23 @@ import { useState, useEffect } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { useSession, signOut } from 'next-auth/react';
 import { socketService, PlayerData } from '../services/socketService';
+import { useUser } from '../lib/UserContext';
 
 export default function JoinGame() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const { data: session, status } = useSession();
-  const roomIdFromUrl = searchParams.get('room');
-  const nameFromUrl = searchParams.get('name');
-  const avatarFromUrl = searchParams.get('avatar');
-  
-  const [roomId, setRoomId] = useState(roomIdFromUrl?.toUpperCase() || '');
-  const [playerName, setPlayerName] = useState(nameFromUrl || '');
-  const [selectedAvatar, setSelectedAvatar] = useState(avatarFromUrl || '⚖️');
+  const [roomId, setRoomId] = useState('');
+  const [playerName, setPlayerName] = useState('');
+  const [selectedAvatar, setSelectedAvatar] = useState('⚖️');
   const [showAvatarPicker, setShowAvatarPicker] = useState(false);
   const [isJoining, setIsJoining] = useState(false);
   const [error, setError] = useState('');
   const [isClient, setIsClient] = useState(false);
   const [placeholderName, setPlaceholderName] = useState('');
-  const [currentUser, setCurrentUser] = useState<any>(null);
-  const [isLoadingUser, setIsLoadingUser] = useState(false);
-  const [hasLoadedUser, setHasLoadedUser] = useState(false);
+  const { user: currentUser, isLoading: isLoadingUser, refetchUser } = useUser();
 
-  const avatarOptions = ['⚖️', '👨‍💼', '👩‍💼', '👨‍⚖️', '👩‍⚖️', '🎭', '⚔️', '🏛️'];
+  const avatarOptions = ['⚖️', '👨‍💼', '👩‍💼', '👨‍⚖️', '👩‍⚖️', '🎭', '⚔️', '🏛️', '📚', '🗣️', '💼', '🎯'];
   const guestNameSuggestions = [
     'LegalEagle2024', 'CourtCrusher', 'LawyerLegend', 'JusticeWarrior', 
     'ArgumentAce', 'DebateDefender', 'CaseCracker', 'VerdictVanguard'
@@ -36,57 +31,30 @@ export default function JoinGame() {
     <div className={`animate-pulse bg-gray-200 rounded ${className || 'h-4 w-16'}`}></div>
   );
 
-  // Fetch fresh user data from database
-  const fetchCurrentUser = async () => {
-    if (session?.user?.id && !hasLoadedUser) {
-      setIsLoadingUser(true);
-      try {
-        const response = await fetch('/api/user/current');
-        if (response.ok) {
-          const userData = await response.json();
-          console.log('Fetched user data:', userData); // Debug log
-          setCurrentUser(userData);
-          setHasLoadedUser(true);
-        }
-      } catch (error) {
-        console.error('Error fetching current user:', error);
-      } finally {
-        setIsLoadingUser(false);
-      }
-    }
-  };
 
   useEffect(() => {
     setIsClient(true);
-    // Only set a random placeholder if no name was passed from the main page
-    if (!nameFromUrl) {
-      setPlaceholderName(guestNameSuggestions[Math.floor(Math.random() * guestNameSuggestions.length)]);
-    } else {
-      setPlaceholderName(nameFromUrl);
+    setPlaceholderName(guestNameSuggestions[Math.floor(Math.random() * guestNameSuggestions.length)]);
+    // If ?room= is present, set it as the roomId
+    const urlRoom = searchParams?.get('room');
+    if (urlRoom && typeof urlRoom === 'string') {
+      setRoomId(urlRoom.toUpperCase());
     }
-  }, [nameFromUrl]);
+  }, [searchParams]);
 
-  // Set player name from session when available and fetch user data
+  // Set player name from session when available
   useEffect(() => {
     if (session?.user?.username || session?.user?.name) {
       setPlayerName(session.user.username || session.user.name || '');
-    }
-    if (session?.user?.id) {
-      fetchCurrentUser();
-    } else {
-      // Reset state when user logs out
-      setCurrentUser(null);
-      setHasLoadedUser(false);
-      setIsLoadingUser(false);
     }
   }, [session?.user?.id]);
 
   // Update selectedAvatar when currentUser data loads
   useEffect(() => {
-    if (currentUser?.avatar && !avatarFromUrl) {
+    if (currentUser?.avatar) {
       setSelectedAvatar(currentUser.avatar);
     }
-  }, [currentUser?.avatar, avatarFromUrl]);
+  }, [currentUser?.avatar]);
 
   const handleJoinGame = async () => {
     if (!roomId.trim()) {
@@ -107,7 +75,6 @@ export default function JoinGame() {
       const playerData: PlayerData = {
         name: finalName,
         avatar: currentUser?.avatar || selectedAvatar,
-        // Include fresh user data if available, otherwise use session data
         ...(session && {
           userId: session.user?.id,
           rating: currentUser?.rating || session.user?.rating || 1000,
@@ -152,10 +119,7 @@ export default function JoinGame() {
       {/* Back button */}
       <div className="absolute top-6 left-6 z-30">
         <button
-          onClick={() => {
-            const name = session?.user?.username || session?.user?.name || playerName.trim() || placeholderName;
-            router.push(`/?name=${encodeURIComponent(name)}&avatar=${encodeURIComponent(selectedAvatar)}`);
-          }}
+          onClick={() => router.push('/')}
           className="px-5 py-2.5 bg-white/10 backdrop-blur-sm text-white border border-white/20 rounded-lg font-medium hover:bg-white/20 transition-all duration-200 cursor-pointer"
         >
           ← Back to Home

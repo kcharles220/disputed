@@ -4,24 +4,20 @@ import { useState, useEffect } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { useSession, signOut } from 'next-auth/react';
 import { socketService, PlayerData } from './services/socketService';
+import { useUser } from './lib/UserContext';
 
 export default function Home() {
   const router = useRouter();
-  const searchParams = useSearchParams();
   const { data: session, status } = useSession();
-  const nameFromUrl = searchParams.get('name');
-  const avatarFromUrl = searchParams.get('avatar');
-  
-  const [selectedAvatar, setSelectedAvatar] = useState(avatarFromUrl || '⚖️');
+  const { user: currentUser, isLoading: isLoadingUser } = useUser();
+  const [selectedAvatar, setSelectedAvatar] = useState('⚖️');
   const [showAvatarPicker, setShowAvatarPicker] = useState(false);
-  const [playerName, setPlayerName] = useState(nameFromUrl || '');
+  const [playerName, setPlayerName] = useState('');
   const [isCreatingGame, setIsCreatingGame] = useState(false);
   const [error, setError] = useState('');
-  const [currentUser, setCurrentUser] = useState<any>(null);
-  const [isLoadingUser, setIsLoadingUser] = useState(false);
-  const [hasLoadedUser, setHasLoadedUser] = useState(false);
+  // Removed local isLoadingUser and hasLoadedUser state; use context only
 
-  const avatarOptions = ['⚖️', '👨‍💼', '👩‍💼', '👨‍⚖️', '👩‍⚖️', '🎭', '⚔️', '🏛️'];
+  const avatarOptions = ['⚖️', '👨‍💼', '👩‍💼', '👨‍⚖️', '👩‍⚖️', '🎭', '⚔️', '🏛️', '📚', '🗣️', '💼', '🎯'];
   const guestNameSuggestions = [
     'LegalEagle2024', 'CourtCrusher', 'LawyerLegend', 'JusticeWarrior', 
     'ArgumentAce', 'DebateDefender', 'CaseCracker', 'VerdictVanguard'
@@ -35,56 +31,26 @@ export default function Home() {
   // Use useState with null initially to avoid hydration mismatch
   const [placeholderName, setPlaceholderName] = useState('');
   const [isClient, setIsClient] = useState(false);
-
-  // Fetch fresh user data from database
-  const fetchCurrentUser = async () => {
-    if (session?.user?.id && !hasLoadedUser) {
-      setIsLoadingUser(true);
-      try {
-        const response = await fetch('/api/user/current');
-        if (response.ok) {
-          const userData = await response.json();
-          console.log('Fetched user data:', userData); // Debug log
-          setCurrentUser(userData);
-          setHasLoadedUser(true);
-        }
-      } catch (error) {
-        console.error('Error fetching current user:', error);
-      } finally {
-        setIsLoadingUser(false);
-      }
-    }
-  };
+  const [showHowToPlay, setShowHowToPlay] = useState(false);
+  
 
   // Set the placeholder name only on the client side after hydration
   useEffect(() => {
     setIsClient(true);
-    // Only generate a random placeholder if no name was passed from URL
-    if (!nameFromUrl) {
-      setPlaceholderName(guestNameSuggestions[Math.floor(Math.random() * guestNameSuggestions.length)]);
-    } else {
-      setPlaceholderName(nameFromUrl);
-    }
-  }, [nameFromUrl]);
+    setPlaceholderName(guestNameSuggestions[Math.floor(Math.random() * guestNameSuggestions.length)]);
+  }, []);
+
+  
 
   // Fetch user data when session changes
-  useEffect(() => {
-    if (session?.user?.id) {
-      fetchCurrentUser();
-    } else {
-      // Reset state when user logs out
-      setCurrentUser(null);
-      setHasLoadedUser(false);
-      setIsLoadingUser(false);
-    }
-  }, [session?.user?.id]);
+  // No need for local user loading state, context handles it
 
   // Update selectedAvatar when currentUser data loads
   useEffect(() => {
-    if (currentUser?.avatar && !avatarFromUrl) {
+    if (currentUser?.avatar) {
       setSelectedAvatar(currentUser.avatar);
     }
-  }, [currentUser?.avatar, avatarFromUrl]);
+  }, [currentUser?.avatar]);
 
   const handleCreateGame = async () => {
     setIsCreatingGame(true);
@@ -134,56 +100,36 @@ export default function Home() {
   };
 
   const handleJoinGame = () => {
-    const finalName = session?.user?.username || session?.user?.name || playerName.trim() || placeholderName;
-    const finalAvatar = currentUser?.avatar || selectedAvatar;
-    const params = new URLSearchParams({
-      name: finalName,
-      avatar: finalAvatar
-    });
-    
-    // Add fresh user data if available, otherwise use session data
-    if (session) {
-      if (session.user?.id) params.append('userId', session.user.id);
-      const rating = currentUser?.rating || session.user?.rating || 1000;
-      params.append('rating', rating.toString());
-      const gamesPlayed = currentUser?.gamesPlayed || session.user?.gamesPlayed || 0;
-      params.append('gamesPlayed', gamesPlayed.toString());
-      const gamesWon = currentUser?.gamesWon || session.user?.gamesWon || 0;
-      params.append('gamesWon', gamesWon.toString());
-      const gamesLost = currentUser?.gamesLost || session.user?.gamesLost || 0;
-      params.append('gamesLost', gamesLost.toString());
-      const winPercentage = currentUser?.winPercentage || session.user?.winPercentage || 0;
-      params.append('winPercentage', winPercentage.toString());
-      const averageArgumentScore = currentUser?.averageArgumentScore || session.user?.averageArgumentScore || 0;
-      params.append('averageArgumentScore', averageArgumentScore.toString());
-      const bestArgumentScore = currentUser?.bestArgumentScore || session.user?.bestArgumentScore || 0;
-      params.append('bestArgumentScore', bestArgumentScore.toString());
-      const worstArgumentScore = currentUser?.worstArgumentScore || session.user?.worstArgumentScore || 0;
-      params.append('worstArgumentScore', worstArgumentScore.toString());
-      const totalRoundsPlayed = currentUser?.totalRoundsPlayed || session.user?.totalRoundsPlayed || 0;
-      params.append('totalRoundsPlayed', totalRoundsPlayed.toString());
-      const totalRoundsWon = currentUser?.totalRoundsWon || session.user?.totalRoundsWon || 0;
-      params.append('totalRoundsWon', totalRoundsWon.toString());
-      const totalRoundsLost = currentUser?.totalRoundsLost || session.user?.totalRoundsLost || 0;
-      params.append('totalRoundsLost', totalRoundsLost.toString());
-      const averageGameDuration = currentUser?.averageGameDuration || session.user?.averageGameDuration || 0;
-      params.append('averageGameDuration', averageGameDuration.toString());
-      const longestWinStreak = currentUser?.longestWinStreak || session.user?.longestWinStreak || 0;
-      params.append('longestWinStreak', longestWinStreak.toString());
-      const currentWinStreak = currentUser?.currentWinStreak || session.user?.currentWinStreak || 0;
-      params.append('currentWinStreak', currentWinStreak.toString());
-    }
-    
-    router.push(`/join?${params.toString()}`);
+    router.push('/join');
   };
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-900 via-blue-900 to-indigo-900 relative overflow-hidden">
-      {/* Subtle animated background */}
+      {/* Enhanced animated background */}
       <div className="absolute inset-0">
         <div className="absolute top-1/4 left-1/4 w-72 h-72 bg-blue-500/20 rounded-full blur-3xl animate-pulse"></div>
         <div className="absolute bottom-1/4 right-1/4 w-72 h-72 bg-purple-500/20 rounded-full blur-3xl animate-pulse delay-1000"></div>
         <div className="absolute top-3/4 left-3/4 w-72 h-72 bg-indigo-500/20 rounded-full blur-3xl animate-pulse delay-2000"></div>
+        
+        {/* Additional floating orbs */}
+        <div className="absolute top-1/2 left-1/6 w-48 h-48 bg-cyan-500/15 rounded-full blur-2xl animate-float"></div>
+        <div className="absolute bottom-1/3 right-1/6 w-56 h-56 bg-violet-500/15 rounded-full blur-2xl animate-float-delayed"></div>
+      </div>
+
+      {/* Scanlines effect */}
+      <div className="absolute inset-0 opacity-10">
+        <div className="absolute inset-0 bg-gradient-to-b from-transparent via-white/5 to-transparent animate-pulse"></div>
+      </div>
+
+      {/* How to Play Button - Top Left */}
+      <div className="absolute top-6 left-6 z-30">
+        <button
+          onClick={() => setShowHowToPlay(true)}
+          className="group flex items-center gap-2 px-4 py-3 bg-white/10 backdrop-blur-sm text-white border border-white/20 rounded-xl font-semibold hover:bg-white/20 transition-all duration-200 cursor-pointer"
+        >
+          <span className="text-xl">❓</span>
+          <span className="hidden sm:inline">How to Play</span>
+        </button>
       </div>
 
       {/* Top Right Corner - Auth Section */}
@@ -342,10 +288,12 @@ export default function Home() {
       <div className="flex items-center justify-center min-h-screen p-6 relative z-10">
         <div className="bg-white/95 backdrop-blur-xl rounded-2xl shadow-2xl p-10 max-w-lg w-full border border-white/30">
           
-          {/* Title */}
-          <h1 className="text-5xl font-black text-center mb-10 bg-gradient-to-r from-slate-800 to-blue-800 bg-clip-text text-transparent">
-            DISPUTED
-          </h1>
+          {/* Clean Title with Subtle Animation */}
+          <div className="text-center mb-6">
+            <h1 className="text-6xl font-black mb-4 bg-gradient-to-r from-slate-800 via-blue-800 to-slate-800 bg-clip-text text-transparent animate-gentle-pulse">
+              DISPUTED!
+            </h1>
+          </div>
 
           {/* Error message */}
           {error && (
@@ -422,30 +370,234 @@ export default function Home() {
             </div>
           </div>
 
-          {/* Game Action Buttons */}
+          {/* Enhanced Game Action Buttons */}
           <div className="space-y-4">
             <button 
               onClick={handleCreateGame}
               disabled={isCreatingGame}
-              className={`w-full py-4 text-xl font-bold rounded-xl transition-all duration-200 shadow-lg cursor-pointer transform ${
+              className={`group relative overflow-hidden w-full py-4 text-xl font-bold rounded-xl transition-all duration-300 shadow-lg cursor-pointer transform border-2 ${
                 isCreatingGame 
-                  ? 'bg-gray-400 text-gray-600 cursor-not-allowed' 
-                  : 'bg-gradient-to-r from-blue-600 to-indigo-700 text-white hover:from-blue-700 hover:to-indigo-800 hover:scale-[1.02] active:scale-[0.98]'
+                  ? 'bg-gray-400 text-gray-600 cursor-not-allowed border-gray-300' 
+                  : 'bg-gradient-to-r from-blue-600 to-indigo-700 text-white hover:from-blue-700 hover:to-indigo-800 hover:scale-[1.02] active:scale-[0.98] border-blue-500/30 hover:shadow-blue-500/25 hover:shadow-xl'
               }`}
             >
-              {isCreatingGame ? 'CREATING...' : 'CREATE GAME'}
+              <div className="absolute inset-0 bg-gradient-to-r from-white/0 via-white/20 to-white/0 transform -skew-x-12 -translate-x-full group-hover:translate-x-full transition-transform duration-700"></div>
+              <span className="relative flex items-center justify-center gap-2">
+                <span className="text-2xl">⚖️</span>
+                {isCreatingGame ? 'CREATING...' : 'CREATE GAME'}
+              </span>
             </button>
             
             <button 
               onClick={handleJoinGame}
-              className="w-full py-4 bg-gradient-to-r from-purple-600 to-pink-600 text-white text-xl font-bold rounded-xl hover:from-purple-700 hover:to-pink-700 transition-all duration-200 shadow-lg cursor-pointer transform hover:scale-[1.02] active:scale-[0.98]"
+              className="group relative overflow-hidden w-full py-4 bg-gradient-to-r from-purple-600 to-pink-600 text-white text-xl font-bold rounded-xl hover:from-purple-700 hover:to-pink-700 transition-all duration-300 shadow-lg cursor-pointer transform hover:scale-[1.02] active:scale-[0.98] border-2 border-purple-500/30 hover:shadow-purple-500/25 hover:shadow-xl"
             >
-              JOIN GAME
+              <div className="absolute inset-0 bg-gradient-to-r from-white/0 via-white/20 to-white/0 transform -skew-x-12 -translate-x-full group-hover:translate-x-full transition-transform duration-700"></div>
+              <span className="relative flex items-center justify-center gap-2">
+                <span className="text-2xl">🚪</span>
+                JOIN GAME
+              </span>
             </button>
           </div>
 
         </div>
       </div>
+
+      {/* How to Play Modal */}
+      {showHowToPlay && (
+        <div 
+          className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center p-4 z-50"
+          onClick={() => setShowHowToPlay(false)}
+        >
+          <div 
+            className="bg-white/95 backdrop-blur-xl rounded-2xl shadow-2xl p-8 max-w-2xl w-full max-h-[80vh] overflow-y-auto border border-white/30 relative"
+            onClick={(e) => e.stopPropagation()}
+          >
+            {/* Close Button */}
+            <button
+              onClick={() => setShowHowToPlay(false)}
+              className="absolute top-4 right-4 w-8 h-8 bg-red-500/20 hover:bg-red-500/30 rounded-full flex items-center justify-center text-red-600 hover:text-red-700 transition-all duration-200"
+            >
+              ✕
+            </button>
+
+            {/* Modal Content */}
+            <div className="space-y-6">
+              <div className="text-center">
+                <h2 className="text-3xl font-black bg-gradient-to-r from-blue-800 to-purple-800 bg-clip-text text-transparent mb-2">
+                  How to Play DISPUTED!
+                </h2>
+                <p className="text-gray-600 text-lg">Master the art of legal argumentation</p>
+              </div>
+
+              {/* Game Overview */}
+              <div className="bg-gradient-to-r from-blue-50 to-purple-50 rounded-xl p-6 border border-blue-200">
+                <h3 className="text-xl font-bold text-blue-800 mb-3 flex items-center gap-2">
+                  <span className="text-2xl">⚖️</span>
+                  Game Overview
+                </h3>
+                <p className="text-gray-700 leading-relaxed">
+                  DISPUTED! is a best-of-3 competitive debate game where players receive the same legal case but argue from different perspectives. 
+                  Players alternate roles across rounds, with AI judging each round. If tied after 2 rounds, the best performer chooses their role for the decisive 3rd round!
+                </p>
+              </div>
+
+              {/* How to Start */}
+              <div className="grid md:grid-cols-2 gap-4">
+                <div className="bg-green-50 rounded-xl p-5 border border-green-200">
+                  <h4 className="text-lg font-bold text-green-800 mb-3 flex items-center gap-2">
+                    <span className="text-xl">🎯</span>
+                    Create Game
+                  </h4>
+                  <ul className="text-gray-700 space-y-2 text-sm">
+                    <li>• Click "CREATE GAME" to start a new match</li>
+                    <li>• Share the room code with friends</li>
+                    <li>• Wait for players to join your lobby</li>
+                    <li>• Start the game when everyone's ready</li>
+                  </ul>
+                </div>
+
+                <div className="bg-purple-50 rounded-xl p-5 border border-purple-200">
+                  <h4 className="text-lg font-bold text-purple-800 mb-3 flex items-center gap-2">
+                    <span className="text-xl">🚪</span>
+                    Join Game
+                  </h4>
+                  <ul className="text-gray-700 space-y-2 text-sm">
+                    <li>• Click "JOIN GAME" to enter a room</li>
+                    <li>• Enter the 6-digit room code</li>
+                    <li>• Choose your avatar and name</li>
+                    <li>• Wait for the host to start</li>
+                  </ul>
+                </div>
+              </div>
+
+              {/* Gameplay Steps */}
+              <div className="bg-gradient-to-r from-orange-50 to-red-50 rounded-xl p-6 border border-orange-200">
+                <h3 className="text-xl font-bold text-orange-800 mb-4 flex items-center gap-2">
+                  <span className="text-2xl">🏛️</span>
+                  Best-of-3 Format
+                </h3>
+                <div className="grid gap-3">
+                  <div className="flex items-start gap-3">
+                    <div className="w-8 h-8 bg-orange-500 text-white rounded-full flex items-center justify-center text-sm font-bold flex-shrink-0">1</div>
+                    <div>
+                      <strong className="text-orange-800">Case Assignment:</strong>
+                      <span className="text-gray-700 ml-2">Both players receive the same legal case to study</span>
+                    </div>
+                  </div>
+                  <div className="flex items-start gap-3">
+                    <div className="w-8 h-8 bg-orange-500 text-white rounded-full flex items-center justify-center text-sm font-bold flex-shrink-0">2</div>
+                    <div>
+                      <strong className="text-orange-800">Round 1:</strong>
+                      <span className="text-gray-700 ml-2">Roles assigned randomly - one defends, one attacks</span>
+                    </div>
+                  </div>
+                  <div className="flex items-start gap-3">
+                    <div className="w-8 h-8 bg-orange-500 text-white rounded-full flex items-center justify-center text-sm font-bold flex-shrink-0">3</div>
+                    <div>
+                      <strong className="text-orange-800">Round 2:</strong>
+                      <span className="text-gray-700 ml-2">Players automatically switch roles from Round 1</span>
+                    </div>
+                  </div>
+                  <div className="flex items-start gap-3">
+                    <div className="w-8 h-8 bg-orange-500 text-white rounded-full flex items-center justify-center text-sm font-bold flex-shrink-0">4</div>
+                    <div>
+                      <strong className="text-orange-800">Tiebreaker Round:</strong>
+                      <span className="text-gray-700 ml-2">If tied 1-1, best performer chooses their preferred role</span>
+                    </div>
+                  </div>
+                  <div className="flex items-start gap-3">
+                    <div className="w-8 h-8 bg-orange-500 text-white rounded-full flex items-center justify-center text-sm font-bold flex-shrink-0">5</div>
+                    <div>
+                      <strong className="text-orange-800">Victory:</strong>
+                      <span className="text-gray-700 ml-2">First to win 2 rounds wins the match!</span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* Scoring */}
+              <div className="bg-gradient-to-r from-yellow-50 to-amber-50 rounded-xl p-6 border border-yellow-200">
+                <h3 className="text-xl font-bold text-yellow-800 mb-3 flex items-center gap-2">
+                  <span className="text-2xl">🏆</span>
+                  Scoring & Strategy
+                </h3>
+                <div className="grid md:grid-cols-2 gap-4 text-sm">
+                  <div>
+                    <h4 className="font-bold text-yellow-800 mb-2">Win Conditions:</h4>
+                    <ul className="text-gray-700 space-y-1">
+                      <li>• Best 2 out of 3 rounds wins</li>
+                      <li>• AI judges each round individually</li>
+                      <li>• Strong logical arguments score higher</li>
+                      <li>• Clear evidence presentation matters</li>
+                      <li>• Best performer gets tiebreaker choice</li>
+                    </ul>
+                  </div>
+                  <div>
+                    <h4 className="font-bold text-yellow-800 mb-2">Winning Tips:</h4>
+                    <ul className="text-gray-700 space-y-1">
+                      <li>• Aim to win first 2 rounds quickly</li>
+                      <li>• Master both sides of the case</li>
+                      <li>• Perform consistently for tiebreaker edge</li>
+                      <li>• Choose your stronger role if tied</li>
+                      <li>• Adapt strategy based on round scores</li>
+                    </ul>
+                  </div>
+                </div>
+              </div>
+
+              {/* Close Button */}
+              <div className="text-center pt-4">
+                <button
+                  onClick={() => setShowHowToPlay(false)}
+                  className="group px-8 py-3 bg-gradient-to-r from-blue-600 to-purple-600 text-white font-bold rounded-xl hover:from-blue-700 hover:to-purple-700 transition-all duration-300 shadow-lg hover:shadow-xl transform hover:scale-[1.02]"
+                >
+                  Got it! Let's Play ⚖️
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Custom styles for animations */}
+      <style jsx>{`
+        @keyframes fade-in {
+          from { opacity: 0; transform: translateY(10px); }
+          to { opacity: 1; transform: translateY(0); }
+        }
+        
+        .animate-fade-in {
+          animation: fade-in 0.6s ease-out;
+        }
+        
+        @keyframes float {
+          0%, 100% { transform: translateY(0px) rotate(0deg); }
+          50% { transform: translateY(-15px) rotate(2deg); }
+        }
+        
+        .animate-float {
+          animation: float 4s ease-in-out infinite;
+        }
+        
+        @keyframes float-delayed {
+          0%, 100% { transform: translateY(0px) rotate(0deg); }
+          50% { transform: translateY(-20px) rotate(-2deg); }
+        }
+        
+        .animate-float-delayed {
+          animation: float-delayed 5s ease-in-out infinite 1s;
+        }
+        
+        @keyframes gentle-pulse {
+          0%, 100% { transform: scale(1); opacity: 1; }
+          50% { transform: scale(1.02); opacity: 0.9; }
+        }
+        
+        .animate-gentle-pulse {
+          animation: gentle-pulse 4s ease-in-out infinite;
+        }
+      `}</style>
 
     </div>
   );

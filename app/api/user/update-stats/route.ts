@@ -17,7 +17,7 @@ const gameResultSchema = z.object({
   // Role-specific data
   playerRoles: z.array(z.object({
     round: z.number(),
-    role: z.enum(['attacker', 'defender']),
+    role: z.enum(['prosecutor', 'defender']),
     roundWon: z.boolean(),
     roundScore: z.number()
   }))
@@ -67,56 +67,56 @@ export async function POST(request: NextRequest) {
     const currentAverageGameDuration = user.averageGameDuration || 0
 
     // Role-specific current stats
-    const currentAttackerRoundsPlayed = user.attackerRoundsPlayed || 0
-    const currentAttackerRoundsWon = user.attackerRoundsWon || 0
-    const currentAttackerPointsWon = user.attackerPointsWon || 0
-    const currentAttackerAverageScore = user.attackerAverageScore || 0
+    const currentProsecutorRoundsPlayed = user.prosecutorRoundsPlayed || 0
+    const currentProsecutorRoundsWon = user.prosecutorRoundsWon || 0
+    const currentProsecutorPointsWon = user.prosecutorPointsWon || 0
+    const currentProsecutorAverageScore = user.prosecutorAverageScore || 0
     const currentDefenderRoundsPlayed = user.defenderRoundsPlayed || 0
     const currentDefenderRoundsWon = user.defenderRoundsWon || 0
     const currentDefenderPointsWon = user.defenderPointsWon || 0
     const currentDefenderAverageScore = user.defenderAverageScore || 0
 
     // Calculate role-specific performance for this game
-    const attackerRounds = playerRoles.filter(r => r.role === 'attacker')
+    const prosecutorRounds = playerRoles.filter(r => r.role === 'prosecutor')
     const defenderRounds = playerRoles.filter(r => r.role === 'defender')
     
-    const attackerRoundsWon = attackerRounds.filter(r => r.roundWon).length
+    const prosecutorRoundsWon = prosecutorRounds.filter(r => r.roundWon).length
     const defenderRoundsWon = defenderRounds.filter(r => r.roundWon).length
     
-    const attackerPointsThisGame = attackerRounds.reduce((sum, r) => sum + r.roundScore, 0)
+    const prosecutorPointsThisGame = prosecutorRounds.reduce((sum, r) => sum + r.roundScore, 0)
     const defenderPointsThisGame = defenderRounds.reduce((sum, r) => sum + r.roundScore, 0)
     
-    const attackerAvgThisGame = attackerRounds.length > 0 ? attackerPointsThisGame / attackerRounds.length : 0
+    const prosecutorAvgThisGame = prosecutorRounds.length > 0 ? prosecutorPointsThisGame / prosecutorRounds.length : 0
     const defenderAvgThisGame = defenderRounds.length > 0 ? defenderPointsThisGame / defenderRounds.length : 0
 
     // Update role-specific stats
-    const newAttackerRoundsPlayed = currentAttackerRoundsPlayed + attackerRounds.length
-    const newAttackerRoundsWon = currentAttackerRoundsWon + attackerRoundsWon
-    const newAttackerPointsWon = currentAttackerPointsWon + attackerPointsThisGame
-    const newAttackerAverageScore = newAttackerRoundsPlayed > 0 ? 
-      ((currentAttackerAverageScore * currentAttackerRoundsPlayed) + attackerPointsThisGame) / newAttackerRoundsPlayed : 0
+    const newProsecutorRoundsPlayed = currentProsecutorRoundsPlayed + prosecutorRounds.length
+    const newProsecutorRoundsWon = currentProsecutorRoundsWon + prosecutorRoundsWon
+    const newProsecutorPointsWon = currentProsecutorPointsWon + prosecutorPointsThisGame
+    const newProsecutorAverageScore = newProsecutorRoundsPlayed > 0 ? 
+      parseFloat((Math.round((((currentProsecutorAverageScore * currentProsecutorRoundsPlayed) + prosecutorPointsThisGame) / newProsecutorRoundsPlayed) * 10) / 10).toFixed(1)) : 0
 
     const newDefenderRoundsPlayed = currentDefenderRoundsPlayed + defenderRounds.length
     const newDefenderRoundsWon = currentDefenderRoundsWon + defenderRoundsWon
     const newDefenderPointsWon = currentDefenderPointsWon + defenderPointsThisGame
     const newDefenderAverageScore = newDefenderRoundsPlayed > 0 ? 
-      ((currentDefenderAverageScore * currentDefenderRoundsPlayed) + defenderPointsThisGame) / newDefenderRoundsPlayed : 0
+      parseFloat((Math.round((((currentDefenderAverageScore * currentDefenderRoundsPlayed) + defenderPointsThisGame) / newDefenderRoundsPlayed) * 10) / 10).toFixed(1)) : 0
 
     // Determine preferred role based on performance
-    let preferredRole: 'attacker' | 'defender' | 'none' = 'none'
-    if (newAttackerRoundsPlayed > 0 && newDefenderRoundsPlayed > 0) {
-      const attackerWinRate = newAttackerRoundsWon / newAttackerRoundsPlayed
+    let preferredRole: 'prosecutor' | 'defender' | 'none' = 'none'
+    if (newProsecutorRoundsPlayed > 0 && newDefenderRoundsPlayed > 0) {
+      const prosecutorWinRate = newProsecutorRoundsWon / newProsecutorRoundsPlayed
       const defenderWinRate = newDefenderRoundsWon / newDefenderRoundsPlayed
-      const attackerAvgPerformance = newAttackerAverageScore
+      const prosecutorAvgPerformance = newProsecutorAverageScore
       const defenderAvgPerformance = newDefenderAverageScore
       
       // Consider both win rate and average performance
-      const attackerScore = (attackerWinRate * 0.6) + (attackerAvgPerformance / 100 * 0.4)
+      const prosecutorScore = (prosecutorWinRate * 0.6) + (prosecutorAvgPerformance / 100 * 0.4)
       const defenderScore = (defenderWinRate * 0.6) + (defenderAvgPerformance / 100 * 0.4)
       
-      preferredRole = attackerScore > defenderScore ? 'attacker' : 'defender'
-    } else if (newAttackerRoundsPlayed > 0) {
-      preferredRole = 'attacker'
+      preferredRole = prosecutorScore > defenderScore ? 'prosecutor' : 'defender'
+    } else if (newProsecutorRoundsPlayed > 0) {
+      preferredRole = 'prosecutor'
     } else if (newDefenderRoundsPlayed > 0) {
       preferredRole = 'defender'
     }
@@ -125,7 +125,7 @@ export async function POST(request: NextRequest) {
     const newGamesPlayed = currentGamesPlayed + 1
     const newGamesWon = gameWon ? currentGamesWon + 1 : currentGamesWon
     const newGamesLost = gameWon ? currentGamesLost : currentGamesLost + 1
-    const newWinPercentage = newGamesPlayed > 0 ? (newGamesWon / newGamesPlayed) * 100 : 0
+    const newWinPercentage = newGamesPlayed > 0 ? parseFloat((Math.round(((newGamesWon / newGamesPlayed) * 100) * 10) / 10).toFixed(1)) : 0
 
     // Update rounds
     const newTotalRoundsPlayed = currentTotalRoundsPlayed + roundsPlayed
@@ -161,12 +161,12 @@ export async function POST(request: NextRequest) {
         // Calculate weighted average of all arguments (not games)
         const totalPreviousScoreSum = totalPreviousArguments * currentAverageArgumentScore
         const totalNewScoreSum = argumentScores.reduce((a, b) => a + b, 0)
-        newAverageArgumentScore = totalNewArguments > 0 ? (totalPreviousScoreSum + totalNewScoreSum) / totalNewArguments : 0
+        newAverageArgumentScore = totalNewArguments > 0 ? parseFloat((Math.round(((totalPreviousScoreSum + totalNewScoreSum) / totalNewArguments) * 10) / 10).toFixed(1)) : 0
     }
 
     // Update average game duration
     const totalPreviousDuration = currentGamesPlayed * currentAverageGameDuration
-    const newAverageGameDuration = (totalPreviousDuration + gameDurationMinutes) / newGamesPlayed
+    const newAverageGameDuration = parseFloat((Math.round(((totalPreviousDuration + gameDurationMinutes) / newGamesPlayed) * 10) / 10).toFixed(1))
 
     // Calculate new rating (simplified ELO-like system)
     const currentRating = user.rating || 1200
@@ -197,10 +197,10 @@ export async function POST(request: NextRequest) {
           totalArguments: totalNewArguments,
           averageGameDuration: newAverageGameDuration,
           // Role-specific stats
-          attackerRoundsPlayed: newAttackerRoundsPlayed,
-          attackerRoundsWon: newAttackerRoundsWon,
-          attackerPointsWon: newAttackerPointsWon,
-          attackerAverageScore: newAttackerAverageScore,
+          prosecutorRoundsPlayed: newProsecutorRoundsPlayed,
+          prosecutorRoundsWon: newProsecutorRoundsWon,
+          prosecutorPointsWon: newProsecutorPointsWon,
+          prosecutorAverageScore: newProsecutorAverageScore,
           defenderRoundsPlayed: newDefenderRoundsPlayed,
           defenderRoundsWon: newDefenderRoundsWon,
           defenderPointsWon: newDefenderPointsWon,

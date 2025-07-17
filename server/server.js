@@ -33,6 +33,58 @@ const nextRoundTimers = new Map();
 // Store current timer values for synchronization
 const timerValues = new Map(); // { roomId: { argumentTime: 10, caseReadingTime: 120, nextRoundTime: 60, phase: 1 } }
 
+// Format comprehensive player data for client consumption
+function formatPlayerData(room) {
+  const playersData = {};
+  
+  if (!room || !room.players) {
+    return playersData;
+  }
+  
+  room.players.forEach(player => {
+    const playerId = player.id;
+    const playerPerformance = room.playerPerformance?.[playerId] || { totalScore: 0, rounds: 0 };
+    const roundWins = room.playerScores?.[playerId] || 0;
+    
+    // Get scores for each round
+    const roundScores = {};
+    for (let round = 1; round <= 3; round++) {
+      if (room.roundHistory && room.roundHistory[round - 1]) {
+        const roundData = room.roundHistory[round - 1];
+        // Find what role this player had in this round
+        const playerRoleInRound = roundData.playerRoles?.[playerId];
+        if (playerRoleInRound) {
+          roundScores[`round${round}_score`] = playerRoleInRound === 'prosecutor' ? 
+            roundData.prosecutorScore : roundData.defenderScore;
+          roundScores[`round${round}_role`] = playerRoleInRound;
+        } else {
+          roundScores[`round${round}_score`] = 0;
+          roundScores[`round${round}_role`] = null;
+        }
+      } else {
+        roundScores[`round${round}_score`] = 0;
+        roundScores[`round${round}_role`] = null;
+      }
+    }
+    
+    playersData[playerId] = {
+      id: playerId,
+      name: player.name,
+      avatar: player.avatar,
+      current_role: player.displayRole || player.role,
+      original_role: player.originalRole || player.role,
+      rounds_won: roundWins,
+      total_score: Math.round(playerPerformance.totalScore * 10) / 10,
+      average_score: playerPerformance.rounds > 0 ? 
+        Math.round((playerPerformance.totalScore / playerPerformance.rounds) * 10) / 10 : 0,
+      rounds_played: playerPerformance.rounds,
+      ...roundScores
+    };
+  });
+  
+  return playersData;
+}
+
 // Start argument timer for a room
 function startArgumentTimer(roomId, currentTurn) {
   // Check if game has ended before starting timer
@@ -196,7 +248,7 @@ function startCaseReadingTimer(roomId) {
       const currentRoom = gameRooms.get(roomId);
       if (currentRoom && currentRoom.gameState === 'case-reading' && !isGameEnded(currentRoom)) {
         currentRoom.gameState = 'arguing';
-        currentRoom.currentTurn = 'attacker';
+        currentRoom.currentTurn = 'prosecutor';
         
         io.to(roomId).emit('game-started', {
           gameState: currentRoom.gameState,
@@ -208,7 +260,7 @@ function startCaseReadingTimer(roomId) {
           // Double-check game hasn't ended while we were waiting
           const latestRoom = gameRooms.get(roomId);
           if (latestRoom && !isGameEnded(latestRoom)) {
-            startArgumentTimer(roomId, 'attacker');
+            startArgumentTimer(roomId, 'prosecutor');
           } else {
             console.log(`Preventing argument timer start for room ${roomId} - game ended during case reading timeout`);
           }
@@ -324,6 +376,8 @@ function isGameEnded(room) {
   const playerWins = Object.values(room.playerScores || {});
   const maxPlayerWins = Math.max(...(playerWins.length > 0 ? playerWins : [0]));
   
+  // Game ends when someone wins 2 rounds OR we've completed more than max rounds
+  // (max rounds is 3, so only end if currentRound > 3, meaning we're past round 3)
   return maxPlayerWins >= 2 || room.currentRound > room.maxRounds;
 }
 
@@ -391,14 +445,21 @@ function startNextRound(roomId) {
   
   // Clear readiness tracking
   delete room.nextRoundReady;
-  
+  // Notify all clients that readiness has been reset
+  io.to(roomId).emit('next-round-ready-cleared', {
+    message: 'Starting new round - ready states cleared'
+  });
   // Start the round
-  room.currentTurn = 'attacker';
+  room.currentTurn = 'prosecutor';
+  
+  // Generate comprehensive player data
+  const playersData = formatPlayerData(room);
   
   io.to(roomId).emit('next-round-started', {
     round: room.currentRound,
     scores: room.scores,
-    players: room.players
+    players: room.players,
+    playerData: playersData // NEW: Comprehensive player data
   });
   
   // Start timer for the new round
@@ -406,7 +467,7 @@ function startNextRound(roomId) {
     // Double-check game hasn't ended while we were waiting
     const currentRoom = gameRooms.get(roomId);
     if (currentRoom && !isGameEnded(currentRoom)) {
-      startArgumentTimer(roomId, 'attacker');
+      startArgumentTimer(roomId, 'prosecutor');
     } else {
       console.log(`Preventing argument timer start for room ${roomId} - game ended during timeout`);
     }
@@ -426,7 +487,7 @@ function generateCase() {
       title: "The Case of the Disputed Contract",
       description: "A tech startup claims a former employee violated their non-compete agreement by joining a competitor.",
       context: "TechNova Inc. hired Sarah Chen as a Senior Software Engineer with a 2-year non-compete clause. After 18 months, Sarah left to join RivalTech, a direct competitor, citing TechNova's toxic work environment and unpaid overtime. TechNova claims Sarah is using proprietary algorithms she developed while employed with them. Sarah argues the non-compete is unenforceable due to TechNova's breach of employment terms and the algorithms being based on open-source code she contributed to before joining TechNova.",
-      attackerSide: "TechNova Inc.",
+      prosecutorSide: "TechNova Inc.",
       defenderSide: "Sarah Chen"
     },
     {
@@ -434,7 +495,7 @@ function generateCase() {
       title: "The Intellectual Property Theft Case",
       description: "A software company accuses a former intern of stealing proprietary code and selling it to competitors.",
       context: "CodeCorp hired Alex Rodriguez as a summer intern to work on their flagship AI algorithm. Three months after the internship ended, CodeCorp discovered their exact algorithm implementation being used by three different startups. Alex claims the code was based on open-source libraries and academic papers, not proprietary work. CodeCorp argues Alex had access to confidential code repositories and signed strict NDAs.",
-      attackerSide: "CodeCorp",
+      prosecutorSide: "CodeCorp",
       defenderSide: "Alex Rodriguez"
     },
     {
@@ -442,7 +503,7 @@ function generateCase() {
       title: "The Trademark Dispute",
       description: "Two companies clash over the right to use a similar brand name in the same industry.",
       context: "FreshFoods LLC has operated a organic grocery chain since 2015 under the name 'Fresh Market'. In 2023, a new startup 'FreshMarket' (no space) launched a meal delivery service. FreshFoods claims trademark infringement and consumer confusion. FreshMarket argues the names are sufficiently different and they operate in different sectors of the food industry.",
-      attackerSide: "FreshFoods LLC",
+      prosecutorSide: "FreshFoods LLC",
       defenderSide: "FreshMarket Startup"
     }
   ];
@@ -450,51 +511,195 @@ function generateCase() {
   return cases[Math.floor(Math.random() * cases.length)];
 }
 
-// Simulate AI analysis of arguments and determine round winner
-function analyzeArgumentsAndDetermineWinner(attackArguments, defenseArguments) {
-  // Simulate AI analysis with weighted scoring
-  let attackerScore = 0;
-  let defenderScore = 0;
+// Function to call AI service and get analysis (placeholder for now)
+async function callAIForAnalysis(attackArguments, defenseArguments) {
+  // TODO: Replace this with actual AI API call
+  // Example implementation for real AI integration:
+  /*
+  try {
+    const response = await fetch('YOUR_AI_API_ENDPOINT', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${process.env.AI_API_KEY}`
+      },
+      body: JSON.stringify({
+        prosecutor_arguments: attackArguments.map(arg => arg.content),
+        defender_arguments: defenseArguments.map(arg => arg.content),
+        case_context: room.case // You might want to pass case context too
+      })
+    });
+    
+    if (!response.ok) {
+      throw new Error(`AI API error: ${response.status}`);
+    }
+    
+    const aiResponse = await response.json();
+    return aiResponse;
+  } catch (error) {
+    console.error('AI API call failed:', error);
+    throw error;
+  }
+  */
   
-  // Analyze attacker arguments (should be 3 arguments)
-  attackArguments.forEach((arg, index) => {
-    // Simple keyword-based scoring simulation
-    const strength = Math.random() * 10; // Random base strength
-    const lengthBonus = Math.min(arg.content.length / 25, 5); // Bonus for detailed arguments
-    const keywordBonus = (arg.content.match(/evidence|proof|violation|contract|law|precedent|liability|damages|breach/gi) || []).length;
-    const positionBonus = index === 0 ? 1 : index === 2 ? 1.2 : 0.8; // Slight bonus for opening and closing arguments
-    attackerScore += (strength + lengthBonus + keywordBonus) * positionBonus;
+  console.log('Calling AI for analysis with:', {
+    prosecutorArgs: attackArguments.length,
+    defenderArgs: defenseArguments.length
   });
   
-  // Analyze defender arguments (should be 3 arguments)
-  defenseArguments.forEach((arg, index) => {
-    const strength = Math.random() * 10;
-    const lengthBonus = Math.min(arg.content.length / 25, 5);
-    const keywordBonus = (arg.content.match(/defense|innocent|false|unfair|rights|freedom|justified|legal|proper/gi) || []).length;
-    const positionBonus = index === 0 ? 1 : index === 2 ? 1.2 : 0.8; // Slight bonus for opening and closing arguments
-    defenderScore += (strength + lengthBonus + keywordBonus) * positionBonus;
-  });
-  
-  // Add some randomness for unpredictability
-  attackerScore += Math.random() * 5;
-  defenderScore += Math.random() * 5;
-  
-  // Generate more detailed analysis
-  const attackerAvg = (attackerScore / attackArguments.length).toFixed(1);
-  const defenderAvg = (defenderScore / defenseArguments.length).toFixed(1);
-  const winner = attackerScore > defenderScore ? 'attacker' : 'defender';
-  
-  let analysis = `After analyzing ${attackArguments.length + defenseArguments.length} arguments across 3 exchanges:\n\n`;
-  analysis += `🔥 Attacker averaged ${attackerAvg} points per argument with strong ${attackArguments.length > 0 ? (attackArguments[0].content.match(/evidence|proof|violation/gi) || []).length > 0 ? 'factual' : 'strategic' : 'legal'} positioning.\n`;
-  analysis += `🛡️ Defender averaged ${defenderAvg} points per argument with effective ${defenseArguments.length > 0 ? (defenseArguments[0].content.match(/rights|freedom|unfair/gi) || []).length > 0 ? 'rights-based' : 'defensive' : 'legal'} rebuttals.\n\n`;
-  analysis += `The ${winner} presented the more compelling case through stronger argumentation and legal reasoning.`;
-  
-  return {
-    attackerScore: Math.round(attackerScore * 10) / 10,
-    defenderScore: Math.round(defenderScore * 10) / 10,
-    winner,
-    analysis
+  // Mock AI response - replace this with actual AI call later
+  const mockAIResponse = {
+    "Prosecutor": {
+      "Argument 1 score": 8.5,
+      "Argument 2 score": 7.0,
+      "Argument 3 score": 9.2
+    },
+    "Defender": {
+      "Argument 1 score": 8.8,
+      "Argument 2 score": 6.5,
+      "Argument 3 score": 7.9
+    },
+    "Analysis": "The prosecutor presented stronger arguments overall, particularly in Argument 3, which was both impactful and well-structured. The defender, however, made a solid point in Argument 1 but lacked consistency in the following arguments. Overall, the debate was fairly balanced but slightly favored the prosecutor."
   };
+  
+  // Simulate network delay
+  await new Promise(resolve => setTimeout(resolve, 1000));
+  
+  return mockAIResponse;
+}
+
+// Process AI response and calculate final scores
+function processAIAnalysis(aiResponse) {
+  try {
+    // Validate AI response structure
+    if (!aiResponse || typeof aiResponse !== 'object') {
+      throw new Error('Invalid AI response: not an object');
+    }
+    
+    if (!aiResponse.Prosecutor || !aiResponse.Defender) {
+      throw new Error('Invalid AI response: missing Prosecutor or Defender sections');
+    }
+    
+    // Extract and sum prosecutor scores
+    const prosecutorScores = Object.values(aiResponse.Prosecutor || {});
+    if (prosecutorScores.length === 0) {
+      throw new Error('Invalid AI response: no prosecutor scores found');
+    }
+    
+    const prosecutorScore = prosecutorScores.reduce((sum, score) => {
+      const numScore = parseFloat(score);
+      if (isNaN(numScore)) {
+        throw new Error(`Invalid prosecutor score: ${score}`);
+      }
+      return sum + numScore;
+    }, 0);
+    
+    // Extract and sum defender scores
+    const defenderScores = Object.values(aiResponse.Defender || {});
+    if (defenderScores.length === 0) {
+      throw new Error('Invalid AI response: no defender scores found');
+    }
+    
+    const defenderScore = defenderScores.reduce((sum, score) => {
+      const numScore = parseFloat(score);
+      if (isNaN(numScore)) {
+        throw new Error(`Invalid defender score: ${score}`);
+      }
+      return sum + numScore;
+    }, 0);
+    
+    // Determine winner based on total scores
+    const winner = prosecutorScore > defenderScore ? 'prosecutor' : 'defender';
+    
+    // Get analysis from AI response
+    const analysis = aiResponse.Analysis || "Analysis not provided by AI.";
+    
+    console.log('AI Analysis processed successfully:', {
+      prosecutorScore: prosecutorScore.toFixed(1),
+      defenderScore: defenderScore.toFixed(1),
+      winner,
+      analysisLength: analysis.length,
+      prosecutorIndividualScores: prosecutorScores,
+      defenderIndividualScores: defenderScores
+    });
+    
+    return {
+      prosecutorScore: Math.round(prosecutorScore * 10) / 10,
+      defenderScore: Math.round(defenderScore * 10) / 10,
+      winner,
+      analysis
+    };
+  } catch (error) {
+    console.error('Error processing AI analysis:', error);
+    
+    // Fallback to random scoring if AI processing fails
+    const fallbackProsecutorScore = Math.random() * 30; // 0-30 range for 3 arguments
+    const fallbackDefenderScore = Math.random() * 30;
+    
+    return {
+      prosecutorScore: Math.round(fallbackProsecutorScore * 10) / 10,
+      defenderScore: Math.round(fallbackDefenderScore * 10) / 10,
+      winner: fallbackProsecutorScore > fallbackDefenderScore ? 'prosecutor' : 'defender',
+      analysis: "Analysis could not be generated due to an error. Scores were determined using fallback method."
+    };
+  }
+}
+
+// Simulate AI analysis of arguments and determine round winner
+async function analyzeArgumentsAndDetermineWinner(attackArguments, defenseArguments) {
+  try {
+    // Call AI service to get analysis
+    const aiResponse = await callAIForAnalysis(attackArguments, defenseArguments);
+    
+    // Process the AI response to get final scores
+    const result = processAIAnalysis(aiResponse);
+    
+    console.log('Final analysis result:', result);
+    return result;
+    
+  } catch (error) {
+    console.error('Error in AI analysis:', error);
+    
+    // Fallback to the old random method if AI fails
+    console.log('Falling back to random scoring due to AI error');
+    
+    let prosecutorScore = 0;
+    let defenderScore = 0;
+    
+    // Simple fallback scoring
+    attackArguments.forEach((arg) => {
+      const strength = Math.random() * 10;
+      const lengthBonus = Math.min(arg.content.length / 25, 5);
+      const keywordBonus = (arg.content.match(/evidence|proof|violation|contract|law|precedent|liability|damages|breach/gi) || []).length;
+      prosecutorScore += strength + lengthBonus + keywordBonus;
+    });
+    
+    defenseArguments.forEach((arg) => {
+      const strength = Math.random() * 10;
+      const lengthBonus = Math.min(arg.content.length / 25, 5);
+      const keywordBonus = (arg.content.match(/defense|innocent|false|unfair|rights|freedom|justified|legal|proper/gi) || []).length;
+      defenderScore += strength + lengthBonus + keywordBonus;
+    });
+    
+    prosecutorScore += Math.random() * 5;
+    defenderScore += Math.random() * 5;
+    
+    const prosecutorAvg = (prosecutorScore / attackArguments.length).toFixed(1);
+    const defenderAvg = (defenderScore / defenseArguments.length).toFixed(1);
+    const winner = prosecutorScore > defenderScore ? 'prosecutor' : 'defender';
+    
+    let analysis = `After analyzing ${attackArguments.length + defenseArguments.length} arguments across 3 exchanges:\n\n`;
+    analysis += `🔥 Prosecutor averaged ${prosecutorAvg} points per argument with strong ${attackArguments.length > 0 ? (attackArguments[0].content.match(/evidence|proof|violation/gi) || []).length > 0 ? 'factual' : 'strategic' : 'legal'} positioning.\n`;
+    analysis += `🛡️ Defender averaged ${defenderAvg} points per argument with effective ${defenseArguments.length > 0 ? (defenseArguments[0].content.match(/rights|freedom|unfair/gi) || []).length > 0 ? 'rights-based' : 'defensive' : 'legal'} rebuttals.\n\n`;
+    analysis += `The ${winner} presented the more compelling case through stronger argumentation and legal reasoning.`;
+    
+    return {
+      prosecutorScore: Math.round(prosecutorScore * 10) / 10,
+      defenderScore: Math.round(defenderScore * 10) / 10,
+      winner,
+      analysis
+    };
+  }
 }
 
 // Socket.IO connection handling
@@ -518,9 +723,12 @@ io.on('connection', (socket) => {
       case: gameCase,
       currentRound: 1,
       maxRounds: 3,
-      scores: { attacker: 0, defender: 0 },
+      scores: { prosecutor: 0, defender: 0 },
+      playerScores: {}, // Track wins per player
+      playerPerformance: {}, // Track individual performance scores
+      roundHistory: [], // Track detailed round data
       roundArguments: [],
-      currentTurn: 'attacker', // Track whose turn it is
+      currentTurn: 'prosecutor', // Track whose turn it is
       createdAt: new Date()
     };
     
@@ -596,7 +804,7 @@ io.on('connection', (socket) => {
           room.gameState = 'starting';
           
           // Assign roles randomly
-          const roles = ['attacker', 'defender'];
+          const roles = ['prosecutor', 'defender'];
           const shuffledRoles = Math.random() < 0.5 ? roles : roles.reverse();
           
           room.players[0].role = shuffledRoles[0];
@@ -667,10 +875,10 @@ io.on('connection', (socket) => {
           stopCaseReadingTimer(roomId);
           
           room.gameState = 'arguing';
-          room.currentTurn = 'attacker'; // Start with attacker
+          room.currentTurn = 'prosecutor'; // Start with prosecutor
           
           // Start the argument timer
-          startArgumentTimer(roomId, 'attacker');
+          startArgumentTimer(roomId, 'prosecutor');
           
           io.to(roomId).emit('bothPlayersReady');
         }
@@ -683,7 +891,7 @@ io.on('connection', (socket) => {
   });
 
   // Game argument handling
-  socket.on('submit-argument', (data) => {
+  socket.on('submit-argument', async (data) => {
     const { roomId, argument } = data;
     console.log('Argument submitted for room:', roomId, 'by player:', argument.playerName);
     
@@ -704,31 +912,38 @@ io.on('connection', (socket) => {
       stopArgumentTimer(roomId);
       
       // Switch turns
-      room.currentTurn = room.currentTurn === 'attacker' ? 'defender' : 'attacker';
+      room.currentTurn = room.currentTurn === 'prosecutor' ? 'defender' : 'prosecutor';
       
-      // Broadcast argument to all players in room
+      // Broadcast argument to all players in room with turn update
       io.to(roomId).emit('game-argument', {
         ...argument,
         round: room.currentRound,
         nextTurn: room.currentTurn
       });
       
+      // Send explicit turn update to ensure all clients are synchronized
+      console.log(`Broadcasting turn update to all clients in room ${roomId}: turn is now ${room.currentTurn}`);
+      io.to(roomId).emit('turn-update', {
+        currentTurn: room.currentTurn,
+        round: room.currentRound
+      });
+      
       // Check if round should end (6 arguments per round - 3 from each player)
       const currentRoundArgs = room.roundArguments.filter(arg => arg.round === room.currentRound);
-      const attackerArgs = currentRoundArgs.filter(arg => arg.type === 'attack');
+      const prosecutorArgs = currentRoundArgs.filter(arg => arg.type === 'attack');
       const defenderArgs = currentRoundArgs.filter(arg => arg.type === 'defense');
       
-      console.log(`Round ${room.currentRound} progress: Total args: ${currentRoundArgs.length}, Attacker: ${attackerArgs.length}/3, Defender: ${defenderArgs.length}/3`);
+      console.log(`Round ${room.currentRound} progress: Total args: ${currentRoundArgs.length}, Prosecutor: ${prosecutorArgs.length}/3, Defender: ${defenderArgs.length}/3`);
       console.log('Current round arguments:', currentRoundArgs.map(arg => ({ player: arg.playerName, type: arg.type, round: arg.round })));
       
-      if (attackerArgs.length >= 3 && defenderArgs.length >= 3) {
-        console.log(`Round ${room.currentRound} ready for analysis with ${attackerArgs.length} attacker args and ${defenderArgs.length} defender args`);
+      if (prosecutorArgs.length >= 3 && defenderArgs.length >= 3) {
+        console.log(`Round ${room.currentRound} ready for analysis with ${prosecutorArgs.length} prosecutor args and ${defenderArgs.length} defender args`);
         
         // Stop any active timer since round is complete
         stopArgumentTimer(roomId);
         
-        // Analyze arguments and determine round winner
-        const roundResult = analyzeArgumentsAndDetermineWinner(attackerArgs, defenderArgs);
+        // Analyze arguments and determine round winner (now async)
+        const roundResult = await analyzeArgumentsAndDetermineWinner(prosecutorArgs, defenderArgs);
         
         // Initialize player-based scores if needed
         if (!room.playerScores) {
@@ -747,34 +962,56 @@ io.on('connection', (socket) => {
         }
         
         // Update role-based scores for UI compatibility (based on original roles, not current roles)
-        const originalAttackerPlayer = room.players.find(p => p.originalRole === 'attacker');
+        const originalProsecutorPlayer = room.players.find(p => p.originalRole === 'prosecutor');
         const originalDefenderPlayer = room.players.find(p => p.originalRole === 'defender');
         
-        room.scores.attacker = originalAttackerPlayer ? (room.playerScores[originalAttackerPlayer.id] || 0) : 0;
+        room.scores.prosecutor = originalProsecutorPlayer ? (room.playerScores[originalProsecutorPlayer.id] || 0) : 0;
         room.scores.defender = originalDefenderPlayer ? (room.playerScores[originalDefenderPlayer.id] || 0) : 0;
         
-        console.log(`Round ${room.currentRound} complete. Winner: ${roundResult.winner}. Role-based scores: ${room.scores.attacker}-${room.scores.defender}. Player scores:`, 
+        console.log(`Round ${room.currentRound} complete. Winner: ${roundResult.winner}. Role-based scores: ${room.scores.prosecutor}-${room.scores.defender}. Player scores:`, 
           Object.entries(room.playerScores).map(([id, score]) => {
             const player = room.players.find(p => p.id === id);
             return `${player ? player.name : id}: ${score}`;
           }).join(', ')
         );
         
+        // Store round history for comprehensive tracking
+        const roundData = {
+          round: room.currentRound,
+          winner: roundResult.winner,
+          prosecutorScore: roundResult.prosecutorScore,
+          defenderScore: roundResult.defenderScore,
+          analysis: roundResult.analysis,
+          playerRoles: {}, // Track which player had which role this round
+          arguments: currentRoundArgs
+        };
+        
+        // Record player roles for this round
+        room.players.forEach(player => {
+          roundData.playerRoles[player.id] = player.role;
+        });
+        
+        // Initialize round history if needed
+        if (!room.roundHistory) {
+          room.roundHistory = [];
+        }
+        room.roundHistory.push(roundData);
+
         // Store individual player performance for side choice decisions - INITIALIZE FIRST
         if (!room.playerPerformance) {
           room.playerPerformance = {};
         }
-        
+
         // Track individual player performance scores
-        const attackerPlayer = room.players.find(p => p.role === 'attacker');
+        const prosecutorPlayer = room.players.find(p => p.role === 'prosecutor');
         const defenderPlayer = room.players.find(p => p.role === 'defender');
         
-        if (attackerPlayer) {
-          if (!room.playerPerformance[attackerPlayer.id]) {
-            room.playerPerformance[attackerPlayer.id] = { totalScore: 0, rounds: 0 };
+        if (prosecutorPlayer) {
+          if (!room.playerPerformance[prosecutorPlayer.id]) {
+            room.playerPerformance[prosecutorPlayer.id] = { totalScore: 0, rounds: 0 };
           }
-          room.playerPerformance[attackerPlayer.id].totalScore += roundResult.attackerScore;
-          room.playerPerformance[attackerPlayer.id].rounds += 1;
+          room.playerPerformance[prosecutorPlayer.id].totalScore += roundResult.prosecutorScore;
+          room.playerPerformance[prosecutorPlayer.id].rounds += 1;
         }
         
         if (defenderPlayer) {
@@ -785,52 +1022,58 @@ io.on('connection', (socket) => {
           room.playerPerformance[defenderPlayer.id].rounds += 1;
         }
 
+        // Generate comprehensive player data
+        const playersData = formatPlayerData(room);
+
         // Detailed player information logging - NOW SAFE TO ACCESS playerPerformance
         console.log('\n=== ROUND END PLAYER DETAILS ===');
         console.log(`Room ID: ${roomId} | Round: ${room.currentRound}`);
         
-        room.players.forEach(player => {
-          const playerRoundWins = room.playerScores[player.id] || 0;
-          const playerPerformance = room.playerPerformance[player.id];
-          const averageScore = playerPerformance ? (playerPerformance.totalScore / playerPerformance.rounds).toFixed(1) : '0.0';
-          const currentRoundScore = player.role === 'attacker' ? roundResult.attackerScore : roundResult.defenderScore;
-          
-          console.log(`Player: ${player.name}`);
-          console.log(`  - Socket ID: ${player.id}`);
-          console.log(`  - Current Role: ${player.role}`);
-          console.log(`  - Original Role: ${player.originalRole || player.role}`);
-          console.log(`  - Display Role: ${player.displayRole || player.role}`);
-          console.log(`  - Round Wins: ${playerRoundWins}`);
-          console.log(`  - Current Round Score: ${currentRoundScore.toFixed(1)} points`);
-          console.log(`  - Average Score: ${averageScore} points`);
-          console.log(`  - Total Points Earned: ${playerPerformance ? playerPerformance.totalScore.toFixed(1) : '0.0'}`);
-          console.log(`  - Rounds Played: ${playerPerformance ? playerPerformance.rounds : 0}`);
-          console.log(`  - Is Round Winner: ${player.role === roundResult.winner ? 'YES' : 'NO'}`);
+        Object.values(playersData).forEach(playerData => {
+          console.log(`Player: ${playerData.name}`);
+          console.log(`  - Socket ID: ${playerData.id}`);
+          console.log(`  - Current Role: ${playerData.current_role}`);
+          console.log(`  - Original Role: ${playerData.original_role}`);
+          console.log(`  - Round Wins: ${playerData.rounds_won}`);
+          console.log(`  - Round 1 Score: ${playerData.round1_score || 0} (Role: ${playerData.round1_role || 'N/A'})`);
+          console.log(`  - Round 2 Score: ${playerData.round2_score || 0} (Role: ${playerData.round2_role || 'N/A'})`);
+          console.log(`  - Round 3 Score: ${playerData.round3_score || 0} (Role: ${playerData.round3_role || 'N/A'})`);
+          console.log(`  - Total Score: ${playerData.total_score}`);
+          console.log(`  - Average Score: ${playerData.average_score}`);
+          console.log(`  - Rounds Played: ${playerData.rounds_played}`);
           console.log('');
         });
         
         console.log(`Round Analysis: ${roundResult.analysis}`);
         console.log('=== END ROUND DETAILS ===\n');
 
-        // Broadcast round results with enhanced data
-        io.to(roomId).emit('round-complete', {
-          round: room.currentRound,
-          winner: roundResult.winner,
-          scores: room.scores, // Role-based scores for UI compatibility
-          playerScores: room.playerScores, // Player-based scores for accuracy
-          playerPerformance: room.playerPerformance, // Individual performance data
-          analysis: roundResult.analysis,
-          attackerScore: roundResult.attackerScore,
-          defenderScore: roundResult.defenderScore
-        });
-        
-        // Check if game should end - use player-based scoring
+        // Add a small delay before broadcasting round completion to ensure all clients have processed arguments
+        setTimeout(() => {
+          console.log(`Broadcasting round-complete to ALL clients in room ${roomId}`);
+          
+          // Broadcast round results with comprehensive player data
+          io.to(roomId).emit('round-complete', {
+            round: room.currentRound,
+            winner: roundResult.winner,
+            scores: room.scores, // Role-based scores for UI compatibility
+            playerScores: room.playerScores, // Player-based scores for accuracy
+            playerData: playersData, // NEW: Comprehensive player data
+            analysis: roundResult.analysis,
+            prosecutorScore: roundResult.prosecutorScore,
+            defenderScore: roundResult.defenderScore,
+            roundHistory: room.roundHistory // Include full round history
+          });
+          
+          console.log(`Round complete event sent to room ${roomId} with ${Object.keys(playersData).length} players`);
+        }, 500); // 500ms delay to ensure all clients are ready        // Check if game should end - use player-based scoring
         const playerWins = Object.values(room.playerScores || {});
         const maxPlayerWins = Math.max(...(playerWins.length > 0 ? playerWins : [0]));
         
+        // Game should end if someone has 2 wins OR we've completed more than max rounds
+        // For a 1-1 tie, we need to allow round 3 to start, then check again after round 3
         const shouldEndGame = 
           maxPlayerWins >= 2 || 
-          room.currentRound >= room.maxRounds;
+          room.currentRound > room.maxRounds;
         
         console.log(`SERVER: Checking game end conditions. Max player wins: ${maxPlayerWins}, Current round: ${room.currentRound}, Should end: ${shouldEndGame}`);
         
@@ -850,7 +1093,7 @@ io.on('connection', (socket) => {
           if (winningPlayerId && maxWins > 0) {
             const winningPlayer = room.players.find(p => p.id === winningPlayerId);
             const winningPlayerOriginalRole = winningPlayer?.originalRole;
-            gameWinner = winningPlayerOriginalRole; // Send 'attacker' or 'defender' for UI compatibility
+            gameWinner = winningPlayerOriginalRole; // Send 'prosecutor' or 'defender' for UI compatibility
             console.log(`SERVER: Game winner determined: ${winningPlayer?.name} (original role: ${gameWinner}) with ${maxWins} wins`);
           } else {
             gameWinner = 'tie';
@@ -864,11 +1107,16 @@ io.on('connection', (socket) => {
           // Mark the room as ended to prevent any further game actions
           room.gameEnded = true;
           
+          // Generate final comprehensive player data
+          const finalPlayersData = formatPlayerData(room);
+          
           setTimeout(() => {
             io.to(roomId).emit('game-end', { 
               winner: gameWinner,
               finalScores: room.scores, // Keep role-based scores for UI compatibility
               playerScores: room.playerScores, // Add player-based scores
+              playerData: finalPlayersData, // NEW: Comprehensive final player data
+              roundHistory: room.roundHistory, // Complete round history
               message: gameWinner === 'tie' ? 'The battle ends in a tie!' : `${gameWinner} wins the battle!`
             });
           }, 3000);
@@ -882,7 +1130,10 @@ io.on('connection', (socket) => {
           room.players.forEach(player => {
             room.nextRoundReady[player.id] = false;
           });
-          
+                    // Notify all clients about their initial ready state (false)
+          io.to(roomId).emit('next-round-ready-state-reset', {
+            readyStates: room.nextRoundReady
+          });
           // Start next round timer (60 seconds)
           startNextRoundTimer(roomId);
           
@@ -916,16 +1167,20 @@ io.on('connection', (socket) => {
                 player.originalRole = player.role; // Store original role if somehow missing
               }
               // Switch both display role and current role (opposite of original role)
-              player.displayRole = player.originalRole === 'attacker' ? 'defender' : 'attacker';
-              player.role = player.originalRole === 'attacker' ? 'defender' : 'attacker';
+              player.displayRole = player.originalRole === 'prosecutor' ? 'defender' : 'prosecutor';
+              player.role = player.originalRole === 'prosecutor' ? 'defender' : 'prosecutor';
               console.log(`Player ${player.name}: originalRole=${player.originalRole}, displayRole=${player.displayRole}, role=${player.role}`);
             });
+            
+            // Generate updated player data after role switch
+            const round2PlayersData = formatPlayerData(room);
             
             // Send updated player data to clients immediately with role switch message
             io.to(roomId).emit('players-updated', {
               round: room.currentRound,
               scores: room.scores,
               players: room.players,
+              playerData: round2PlayersData, // NEW: Comprehensive player data
               message: 'Roles have been switched for Round 2!'
             });
             
@@ -965,20 +1220,26 @@ io.on('connection', (socket) => {
                   playerName: chooserPlayer.name
                 };
                 
+                // Generate player data for Round 2 completion
+                const round2CompletePlayersData = formatPlayerData(room);
+                
                 // Send players-updated event with NO role switch message for Round 2 completion
                 io.to(roomId).emit('players-updated', {
                   round: room.currentRound,
                   scores: room.scores,
                   players: room.players,
+                  playerData: round2CompletePlayersData, // NEW: Comprehensive player data
                   message: '' // No message for Round 2 completion
                 });
                 
                 setTimeout(() => {
+                  const sideChoicePlayersData = formatPlayerData(room);
                   io.to(roomId).emit('side-choice-needed', {
                     round: room.currentRound,
                     scores: room.scores,
                     chooserPlayerId: bestPlayerId,
                     chooserPlayerName: chooserPlayer.name,
+                    playerData: sideChoicePlayersData, // NEW: Comprehensive player data
                     playerPerformance: room.playerPerformance
                   });
                 }, 3000);
@@ -987,11 +1248,15 @@ io.on('connection', (socket) => {
               // Round 2 completed, not a tie - proceed to Round 3 with current roles
               console.log('Round 3: Not a tie, proceeding with current roles');
               
+              // Generate player data for Round 2 completion (no tie)
+              const round2NoTiePlayersData = formatPlayerData(room);
+              
               // Send updated player data to clients with NO role switch message for Round 2 completion
               io.to(roomId).emit('players-updated', {
                 round: room.currentRound,
                 scores: room.scores,
                 players: room.players,
+                playerData: round2NoTiePlayersData, // NEW: Comprehensive player data
                 message: '' // No message for Round 2 completion
               });
             }
@@ -999,11 +1264,15 @@ io.on('connection', (socket) => {
             // Other rounds (shouldn't happen in 3-round game, but just in case)
             console.log(`Round ${currentCompletedRound} completed: No special handling needed`);
             
+            // Generate player data for other rounds
+            const otherRoundPlayersData = formatPlayerData(room);
+            
             // Send updated player data to clients (no message)
             io.to(roomId).emit('players-updated', {
               round: room.currentRound,
               scores: room.scores,
               players: room.players,
+              playerData: otherRoundPlayersData, // NEW: Comprehensive player data
               message: '' // No message for other rounds
             });
           }
@@ -1017,7 +1286,7 @@ io.on('connection', (socket) => {
 
   // Handle side choice for round 3 when it's a draw
   socket.on('choose-side', (data) => {
-    const { roomId, chosenSide } = data; // chosenSide: 'attacker' or 'defender'
+    const { roomId, chosenSide } = data; // chosenSide: 'prosecutor' or 'defender'
     console.log('Side choice received for room:', roomId, 'side:', chosenSide, 'from socket:', socket.id);
     
     const room = gameRooms.get(roomId);
@@ -1036,11 +1305,11 @@ io.on('connection', (socket) => {
         
         // Assign display roles based on choice (keep original roles unchanged)
         chooserPlayer.displayRole = chosenSide;
-        otherPlayer.displayRole = chosenSide === 'attacker' ? 'defender' : 'attacker';
+        otherPlayer.displayRole = chosenSide === 'prosecutor' ? 'defender' : 'prosecutor';
         
         // Also update the current role to match the chosen display role
         chooserPlayer.role = chosenSide;
-        otherPlayer.role = chosenSide === 'attacker' ? 'defender' : 'attacker';
+        otherPlayer.role = chosenSide === 'prosecutor' ? 'defender' : 'prosecutor';
         
         console.log(`Side choice complete:`);
         console.log(`${chooserPlayer.name}: originalRole=${chooserPlayer.originalRole}, displayRole=${chooserPlayer.displayRole}, role=${chooserPlayer.role}`);
@@ -1053,28 +1322,34 @@ io.on('connection', (socket) => {
         delete room.nextRoundReady;
         
         // Start the round
-        room.currentTurn = 'attacker';
+        room.currentTurn = 'prosecutor';
+        
+        // Generate updated player data after role assignment
+        const updatedPlayersData = formatPlayerData(room);
         
         // Emit side choice complete first
         io.to(roomId).emit('side-choice-complete', {
           round: room.currentRound,
           scores: room.scores,
           players: room.players,
+          playerData: updatedPlayersData, // NEW: Comprehensive player data
           chooserName: chooserPlayer.name,
           chosenSide: chosenSide
         });
         
         // Then emit next round started to properly transition clients to arguing phase
         setTimeout(() => {
+          const nextRoundPlayersData = formatPlayerData(room);
           io.to(roomId).emit('next-round-started', {
             round: room.currentRound,
             scores: room.scores,
-            players: room.players
+            players: room.players,
+            playerData: nextRoundPlayersData // NEW: Comprehensive player data
           });
           
           // Start timer for the new round
           setTimeout(() => {
-            startArgumentTimer(roomId, 'attacker');
+            startArgumentTimer(roomId, 'prosecutor');
           }, 2000);
         }, 1000);
       }
@@ -1111,7 +1386,8 @@ io.on('connection', (socket) => {
       playerName: player.name,
       readyCount: readyCount,
       totalPlayers: totalPlayers,
-      allReady: readyCount === totalPlayers
+            allReady: readyCount === totalPlayers,
+      readyStates: room.nextRoundReady // Send all player ready states
     });
     
     // Check if both players are ready
@@ -1157,7 +1433,7 @@ io.on('connection', (socket) => {
       // Notify all players that an interrupt occurred (this will trigger client-side submission)
       io.to(roomId).emit('player-interrupted', {
         interruptedTurn: previousTurn,
-        nextTurn: room.currentTurn === 'attacker' ? 'defender' : 'attacker'
+        nextTurn: room.currentTurn === 'prosecutor' ? 'defender' : 'prosecutor'
       });
       
       // Set a timeout to submit a fallback argument if no argument is received within 2 seconds
@@ -1175,7 +1451,7 @@ io.on('connection', (socket) => {
               playerName: interruptedPlayer.name,
               content: "[Interrupted by opponent]",
               timestamp: new Date(),
-              type: interruptedPlayer.role === 'attacker' ? 'attack' : 'defense',
+              type: interruptedPlayer.role === 'prosecutor' ? 'attack' : 'defense',
               round: currentRoom.currentRound
             };
             
@@ -1186,7 +1462,7 @@ io.on('connection', (socket) => {
             currentRoom.roundArguments.push(forcedArgument);
             
             // Switch turns
-            currentRoom.currentTurn = currentRoom.currentTurn === 'attacker' ? 'defender' : 'attacker';
+            currentRoom.currentTurn = currentRoom.currentTurn === 'prosecutor' ? 'defender' : 'prosecutor';
             
             // Broadcast the forced argument to all players
             io.to(roomId).emit('game-argument', {
@@ -1197,10 +1473,10 @@ io.on('connection', (socket) => {
             
             // Check if round should end and continue game logic
             const currentRoundArgs = currentRoom.roundArguments.filter(arg => arg.round === currentRoom.currentRound);
-            const attackerArgs = currentRoundArgs.filter(arg => arg.type === 'attack');
+            const prosecutorArgs = currentRoundArgs.filter(arg => arg.type === 'attack');
             const defenderArgs = currentRoundArgs.filter(arg => arg.type === 'defense');
             
-            if (attackerArgs.length < 3 || defenderArgs.length < 3) {
+            if (prosecutorArgs.length < 3 || defenderArgs.length < 3) {
               // Round not complete yet, start timer for next player's turn
               console.log(`Starting timer for ${currentRoom.currentTurn} after fallback interrupt`);
               startArgumentTimer(roomId, currentRoom.currentTurn);
@@ -1300,7 +1576,14 @@ io.on('connection', (socket) => {
     const room = gameRooms.get(roomId);
     if (room) {
       console.log('Room found:', room.id, 'players:', room.players.map(p => p.name));
-      socket.emit('room-info', room);
+      
+      // Generate comprehensive player data if game has started
+      const roomWithPlayerData = {
+        ...room,
+        playerData: formatPlayerData(room)
+      };
+      
+      socket.emit('room-info', roomWithPlayerData);
     } else {
       console.log('Room not found:', roomId);
       console.log('Available rooms:', Array.from(gameRooms.keys()));

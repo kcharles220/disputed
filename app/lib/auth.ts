@@ -70,10 +70,10 @@ export const authOptions: AuthOptions = {
             longestWinStreak: user.longestWinStreak,
             currentWinStreak: user.currentWinStreak,
             // Role-specific stats
-            attackerRoundsPlayed: user.attackerRoundsPlayed,
-            attackerRoundsWon: user.attackerRoundsWon,
-            attackerPointsWon: user.attackerPointsWon,
-            attackerAverageScore: user.attackerAverageScore,
+            prosecutorRoundsPlayed: user.prosecutorRoundsPlayed,
+            prosecutorRoundsWon: user.prosecutorRoundsWon,
+            prosecutorPointsWon: user.prosecutorPointsWon,
+            prosecutorAverageScore: user.prosecutorAverageScore,
             defenderRoundsPlayed: user.defenderRoundsPlayed,
             defenderRoundsWon: user.defenderRoundsWon,
             defenderPointsWon: user.defenderPointsWon,
@@ -112,10 +112,10 @@ export const authOptions: AuthOptions = {
         token.longestWinStreak = (user as any).longestWinStreak
         token.currentWinStreak = (user as any).currentWinStreak
         // Role-specific stats
-        token.attackerRoundsPlayed = (user as any).attackerRoundsPlayed
-        token.attackerRoundsWon = (user as any).attackerRoundsWon
-        token.attackerPointsWon = (user as any).attackerPointsWon
-        token.attackerAverageScore = (user as any).attackerAverageScore
+        token.prosecutorRoundsPlayed = (user as any).prosecutorRoundsPlayed
+        token.prosecutorRoundsWon = (user as any).prosecutorRoundsWon
+        token.prosecutorPointsWon = (user as any).prosecutorPointsWon
+        token.prosecutorAverageScore = (user as any).prosecutorAverageScore
         token.defenderRoundsPlayed = (user as any).defenderRoundsPlayed
         token.defenderRoundsWon = (user as any).defenderRoundsWon
         token.defenderPointsWon = (user as any).defenderPointsWon
@@ -208,10 +208,10 @@ export const authOptions: AuthOptions = {
               longestWinStreak: 0,
               currentWinStreak: 0,
               // Role-specific stats
-              attackerRoundsPlayed: 0,
-              attackerRoundsWon: 0,
-              attackerPointsWon: 0,
-              attackerAverageScore: 0,
+              prosecutorRoundsPlayed: 0,
+              prosecutorRoundsWon: 0,
+              prosecutorPointsWon: 0,
+              prosecutorAverageScore: 0,
               defenderRoundsPlayed: 0,
               defenderRoundsWon: 0,
               defenderPointsWon: 0,
@@ -242,10 +242,10 @@ export const authOptions: AuthOptions = {
             token.longestWinStreak = 0
             token.currentWinStreak = 0
             // Role-specific stats
-            token.attackerRoundsPlayed = 0
-            token.attackerRoundsWon = 0
-            token.attackerPointsWon = 0
-            token.attackerAverageScore = 0
+            token.prosecutorRoundsPlayed = 0
+            token.prosecutorRoundsWon = 0
+            token.prosecutorPointsWon = 0
+            token.prosecutorAverageScore = 0
             token.defenderRoundsPlayed = 0
             token.defenderRoundsWon = 0
             token.defenderPointsWon = 0
@@ -282,10 +282,10 @@ export const authOptions: AuthOptions = {
         (session.user as any).longestWinStreak = token.longestWinStreak as number
         (session.user as any).currentWinStreak = token.currentWinStreak as number
         // Role-specific stats
-        (session.user as any).attackerRoundsPlayed = token.attackerRoundsPlayed as number
-        (session.user as any).attackerRoundsWon = token.attackerRoundsWon as number
-        (session.user as any).attackerPointsWon = token.attackerPointsWon as number
-        (session.user as any).attackerAverageScore = token.attackerAverageScore as number
+        (session.user as any).prosecutorRoundsPlayed = token.prosecutorRoundsPlayed as number
+        (session.user as any).prosecutorRoundsWon = token.prosecutorRoundsWon as number
+        (session.user as any).prosecutorPointsWon = token.prosecutorPointsWon as number
+        (session.user as any).prosecutorAverageScore = token.prosecutorAverageScore as number
         (session.user as any).defenderRoundsPlayed = token.defenderRoundsPlayed as number
         (session.user as any).defenderRoundsWon = token.defenderRoundsWon as number
         (session.user as any).defenderPointsWon = token.defenderPointsWon as number

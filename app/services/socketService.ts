@@ -5,9 +5,9 @@ export interface Player {
   name: string;
   avatar: string;
   ready: boolean;
-  role?: 'attacker' | 'defender';
-  displayRole?: 'attacker' | 'defender'; // Visual role (can be different from actual role)
-  originalRole?: 'attacker' | 'defender'; // Store original role assignment
+  role?: 'prosecutor' | 'defender';
+  displayRole?: 'prosecutor' | 'defender'; // Visual role (can be different from actual role)
+  originalRole?: 'prosecutor' | 'defender'; // Store original role assignment
 }
 
 export interface GameRoom {
@@ -19,12 +19,12 @@ export interface GameRoom {
     title: string;
     description: string;
     context: string;
-    attackerSide: string;
+    prosecutorSide: string;
     defenderSide: string;
   };
   currentRound?: number;
   maxRounds?: number;
-  scores?: { attacker: number; defender: number };
+  scores?: { prosecutor: number; defender: number };
   createdAt: Date;
 }
 
@@ -48,15 +48,15 @@ export interface PlayerData {
   longestWinStreak?: number;
   currentWinStreak?: number;
   // Role-specific stats
-  attackerGamesPlayed?: number;
-  attackerGamesWon?: number;
-  attackerPointsWon?: number;
-  attackerAverageScore?: number;
+  prosecutorGamesPlayed?: number;
+  prosecutorGamesWon?: number;
+  prosecutorPointsWon?: number;
+  prosecutorAverageScore?: number;
   defenderGamesPlayed?: number;
   defenderGamesWon?: number;
   defenderPointsWon?: number;
   defenderAverageScore?: number;
-  preferredRole?: 'attacker' | 'defender' | 'none';
+  preferredRole?: 'prosecutor' | 'defender' | 'none';
 }
 
 class SocketService {
@@ -229,6 +229,33 @@ class SocketService {
     }
   }
 
+  // Listen for next round ready state updates
+  onNextRoundReadyUpdate(callback: (data: any) => void) {
+    if (this.socket) {
+      this.socket.on('next-round-ready-update', callback);
+    }
+  }
+
+  // Listen for next round ready state reset
+  onNextRoundReadyStateReset(callback: (data: any) => void) {
+    if (this.socket) {
+      this.socket.on('next-round-ready-state-reset', callback);
+    }
+  }
+
+  // Listen for next round ready cleared
+  onNextRoundReadyCleared(callback: (data: any) => void) {
+    if (this.socket) {
+      this.socket.on('next-round-ready-cleared', callback);
+    }
+  }
+
+  // Listen for next round timer updates
+  onNextRoundTimerUpdate(callback: (data: any) => void) {
+    if (this.socket) {
+      this.socket.on('next-round-timer-update', callback);
+    }
+  }
   // Remove event listeners
   removeAllListeners() {
     if (this.socket) {

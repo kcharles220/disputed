@@ -482,7 +482,7 @@ export default function ProfilePage() {
                   <div className="bg-gradient-to-r from-yellow-100 to-orange-100 p-4 rounded-xl border-2 border-yellow-300">
                     <div className="text-center">
                       <h4 className="text-md font-bold text-yellow-800 mb-1">
-                        🏆 Best Role: {(user as any).preferredRole === 'attacker' ? '🔥 ATTACKER' : '🛡️ DEFENDER'}
+                        🏆 Best Role: {(user as any).preferredRole === 'prosecutor' ? '🔥 PROSECUTOR' : '🛡️ DEFENDER'}
                       </h4>
                       <div className="text-yellow-700 text-xs">
                         Based on win rate and performance
@@ -502,29 +502,29 @@ export default function ProfilePage() {
 
                 {/* Role Stats Compact */}
                 <div className="space-y-3">
-                  {/* Attacker Stats */}
+                  {/* Prosecutor Stats */}
                   <div className="bg-red-50 p-3 rounded-xl border-2 border-red-300">
                     <h4 className="text-md font-bold text-red-800 mb-2 flex items-center gap-1">
-                      🔥 Attacker
+                      🔥 Prosecutor
                     </h4>
                     {!statsLoading ? (
                       <div className="space-y-1 text-sm">
                         <div className="flex justify-between">
                           <span className="text-red-600">Rounds</span>
-                          <span className="font-bold text-red-800">{(user as any)?.attackerRoundsPlayed || 0}</span>
+                          <span className="font-bold text-red-800">{(user as any)?.prosecutorRoundsPlayed || 0}</span>
                         </div>
                         <div className="flex justify-between">
                           <span className="text-red-600">Win Rate</span>
                           <span className="font-bold text-red-800">
-                            {(user as any)?.attackerRoundsPlayed ? 
-                              (((user as any).attackerRoundsWon / (user as any).attackerRoundsPlayed) * 100).toFixed(1) : '0.0'}%
+                            {(user as any)?.prosecutorRoundsPlayed ? 
+                              (((user as any).prosecutorRoundsWon / (user as any).prosecutorRoundsPlayed) * 100).toFixed(1) : '0.0'}%
                           </span>
                         </div>
                         <div className="flex justify-between">
                           <span className="text-red-600">Avg Score</span>
                           <span className="font-bold text-red-800">
-                            {(user as any)?.attackerAverageScore ? 
-                              (user as any).attackerAverageScore.toFixed(1) : '0.0'}
+                            {(user as any)?.prosecutorAverageScore ? 
+                              (user as any).prosecutorAverageScore.toFixed(1) : '0.0'}
                           </span>
                         </div>
                       </div>
