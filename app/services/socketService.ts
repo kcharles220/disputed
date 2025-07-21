@@ -1,38 +1,43 @@
 import { io, Socket } from 'socket.io-client';
 
+
 export interface Player {
   id: string;
-  name: string;
+  username: string;
   avatar: string;
+  position?: 'left' | 'right';
+  currentRole?: 'prosecutor' | 'defender' | null;
+  points: number;
   ready: boolean;
-  role?: 'prosecutor' | 'defender';
-  displayRole?: 'prosecutor' | 'defender'; // Visual role (can be different from actual role)
-  originalRole?: 'prosecutor' | 'defender'; // Store original role assignment
+  score: number;
+  arguments: { argument: string; score: number }[];
+  socketId?: string;
 }
 
 export interface GameRoom {
-  id: string;
+  roomId: string;
+  gameState: string;
+  caseDetails: any;
   players: Player[];
-  gameState: 'waiting' | 'starting' | 'playing' | 'finished';
-  case?: {
-    id: number;
-    title: string;
-    description: string;
-    context: string;
-    prosecutorSide: string;
-    defenderSide: string;
-  };
-  currentRound?: number;
-  maxRounds?: number;
-  scores?: { prosecutor: number; defender: number };
-  createdAt: Date;
+  turn: string | null;
+  round: { number: number; analysis: any };
+  exchange: number;
+  argumentCount: number;
+  tiebreakerWinner: string | null;
 }
 
 export interface PlayerData {
   name: string;
   avatar: string;
-  userId?: string;
-  rating?: number;
+  roomId: string;
+  gameState: string;
+  caseDetails: any;
+  players: Player[];
+  turn: string | null;
+  round: { number: number; analysis: any };
+  exchange: number;
+  argumentCount: number;
+  tiebreakerWinner: string | null;
   gamesPlayed?: number;
   gamesWon?: number;
   gamesLost?: number;
@@ -60,6 +65,8 @@ export interface PlayerData {
 }
 
 class SocketService {
+  // Listen for game state updates
+  
   private socket: Socket | null = null;
   private readonly serverUrl = 'http://localhost:3001';
 
@@ -90,10 +97,6 @@ class SocketService {
       this.socket.on('connect_error', (error) => {
         console.error('Connection error:', error);
         reject(error);
-      });
-
-      this.socket.on('disconnect', (reason) => {
-        console.log('Disconnected from server:', reason);
       });
 
       // Timeout after 10 seconds
@@ -143,7 +146,7 @@ class SocketService {
 
       this.socket.emit('join-room', { roomId, playerData });
       
-      this.socket.once('room-updated', (room: GameRoom) => {
+      this.socket.once('gameStateUpdate', (room: GameRoom) => {
         resolve(room);
       });
       
@@ -159,9 +162,9 @@ class SocketService {
   }
 
   // Toggle player ready status
-  toggleReady(roomId: string) {
+  toggleReady(roomId: string, ready: boolean) {
     if (this.socket) {
-      this.socket.emit('player-ready', { roomId });
+      this.socket.emit('setReady', { roomId, ready });
     }
   }
 
@@ -191,7 +194,11 @@ class SocketService {
       this.socket.on('room-updated', callback);
     }
   }
-
+  onGameStateUpdate(callback: (gameState: GameRoom) => void) {
+    if (this.socket) {
+      this.socket.on('gameStateUpdate', callback);
+    }
+  }
   onGameStarting(callback: (room: GameRoom) => void) {
     if (this.socket) {
       this.socket.on('game-starting', callback);

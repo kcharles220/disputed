@@ -86,21 +86,16 @@ export default function GameBattle() {
     const params = useParams();
     const router = useRouter();
     const { data: session } = useSession();
-    console.log('Game page params:', params);
-    console.log('Raw params:', JSON.stringify(params));
-    console.log('Window location:', typeof window !== 'undefined' ? window.location.href : 'server');
+   
 
     let roomId = params.roomId as string;
-    console.log('Extracted roomId from params:', roomId);
-    console.log('Type of roomId:', typeof roomId);
+   
 
     // Fallback to localStorage if roomId is undefined
     if ((!roomId || roomId === 'undefined') && typeof window !== 'undefined') {
         const storedRoomId = localStorage.getItem('currentRoomId');
-        console.log('Trying localStorage fallback, found:', storedRoomId);
         if (storedRoomId) {
             roomId = storedRoomId;
-            console.log('Using stored room ID:', roomId);
         }
     }
 
@@ -157,7 +152,6 @@ export default function GameBattle() {
             setIsPageVisible(visible);
 
             if (visible && roomId) {
-                console.log('Tab became visible, requesting timer sync from server');
                 // Request fresh timer state from server when tab becomes visible
                 socketService.getSocket()?.emit('request-timer-sync', { roomId });
             }
@@ -173,7 +167,6 @@ export default function GameBattle() {
     // Function to update user stats when game ends
     const updateUserStats = async (gameResult: any) => {
         if (!session?.user?.id || !currentPlayer) {
-            console.log('No authenticated user or current player, skipping stats update');
             return;
         }
 
@@ -266,7 +259,6 @@ export default function GameBattle() {
                 playerRoles
             };
 
-            console.log('Updating user stats with:', gameData);
 
             const response = await fetch('/api/user/update-stats', {
                 method: 'POST',
@@ -278,7 +270,6 @@ export default function GameBattle() {
 
             if (response.ok) {
                 const result = await response.json();
-                console.log('Stats updated successfully:', result);
             } else {
                 console.error('Failed to update stats:', await response.text());
             }
@@ -305,7 +296,6 @@ export default function GameBattle() {
     }, [gameHasEnded]);
 
     useEffect(() => {
-        console.log('Game page useEffect - roomId:', roomId);
         if (!roomId || roomId === 'undefined') {
             console.log('No valid roomId, redirecting to home');
             router.push('/');
@@ -320,12 +310,12 @@ export default function GameBattle() {
                     router.push(`/join?room=${roomId}`);
                     return;
                 }
-
+                socketService.getSocket()?.onAny((event, ...args) => {
+                    console.log('Socket event:', event, args);
+                });
                 // Get room info and current player
-                console.log('Getting room info for:', roomId);
                 try {
                     const roomInfo = await socketService.getRoomInfo(roomId);
-                    console.log('Room info received:', roomInfo);
                     setRoom(roomInfo);
 
                     // Set the case from server
@@ -341,12 +331,10 @@ export default function GameBattle() {
 
                     const player = roomInfo.players.find(p => p.id === socketService.getSocket()?.id);
                     setCurrentPlayer(player || null);
-                    console.log('Current player:', player);
 
                     // Check if current player should start first based on display role
                     if (player && getPlayerDisplayRole(player) === 'prosecutor') {
                         setIsMyTurn(true);
-                        console.log('Player display role is prosecutor, setting isMyTurn to true');
                     }
                 } catch (roomError) {
                     console.error('Failed to get room info:', roomError);
@@ -357,15 +345,11 @@ export default function GameBattle() {
 
                 // Set up socket listeners for game events
                 socketService.onGameArgument((argument) => {
-                    console.log('Received argument:', argument);
-                    console.log('Server says next turn is:', argument.nextTurn);
 
                     setGameState(prev => {
                         const newArguments = [...prev.arguments, argument];
                         const newAllRoundArguments = [...prev.allRoundArguments, { ...argument, round: prev.currentRound }];
 
-                        // Use the server's nextTurn information to keep clients in sync
-                        console.log('Updating turn from server:', prev.currentTurn, '->', argument.nextTurn);
 
                         return {
                             ...prev,
@@ -378,7 +362,6 @@ export default function GameBattle() {
 
                 // Listen for explicit turn updates from server
                 socketService.getSocket()?.on('turn-update', (data) => {
-                    console.log('Turn update from server:', data);
                     setGameState(prev => ({
                         ...prev,
                         currentTurn: data.currentTurn,
@@ -387,21 +370,10 @@ export default function GameBattle() {
                 });
 
                 socketService.onRoundComplete((result) => {
-                    console.log('=== ROUND COMPLETE RECEIVED ===');
-                    console.log('Socket ID:', socketService.getSocket()?.id);
-                    console.log('Round complete received from server:', result);
-                    console.log('Server scores:', result.scores);
-                    console.log('Server player scores:', result.playerScores);
-                    console.log('Server player data:', result.playerData);
-                    console.log('Current game phase before update:', gameState.gamePhase);
-                    console.log('=== END ROUND COMPLETE DEBUG ===');
+                   
 
                     setGameState(prev => {
-                        console.log('Updating game state for round complete');
-                        console.log('Previous phase:', prev.gamePhase);
-                        console.log('Setting phase to: round-complete');
-
-                        // Create round history entry
+                       
                         const roundHistoryEntry = {
                             round: result.round,
                             winner: result.winner,
@@ -412,11 +384,7 @@ export default function GameBattle() {
                             argumentScores: result.argumentScores || []
                         };
 
-                        // Use server data directly instead of client-side calculations
-                        console.log('CLIENT: Using server data directly');
-                        console.log('CLIENT: Role-based scores from server:', result.scores);
-                        console.log('CLIENT: Player-based scores from server:', result.playerScores);
-                        console.log('CLIENT: Comprehensive player data from server:', result.playerData);
+                   
 
                         const newState = {
                             ...prev,
@@ -428,7 +396,6 @@ export default function GameBattle() {
                             roundHistory: [...prev.roundHistory, roundHistoryEntry]
                         };
 
-                        console.log('New game state phase:', newState.gamePhase);
                         return newState;
                     });
 
@@ -437,13 +404,6 @@ export default function GameBattle() {
                     const maxPlayerWins = Math.max(...(playerWins.length > 0 ? playerWins : [0]));
                     const gameWillContinue = maxPlayerWins < 2 && result.round < 3; // Use maxRounds directly since gameState isn't updated yet
 
-                    console.log('Round complete - checking if game continues:', {
-                        round: result.round,
-                        maxRounds: 3,
-                        playerWins,
-                        maxPlayerWins,
-                        gameWillContinue
-                    });
 
                     // Check for 1-1 tie scenario going to round 3 (side choice needed)
                     const playerWinCounts = Object.values(result.playerScores || {}) as number[];
@@ -458,35 +418,24 @@ export default function GameBattle() {
                             setNextRoundAutoStartTime(60);
 
                             if (is1v1Tie) {
-                                console.log('Ready check enabled for 1-1 tie scenario - side choice after both ready');
                             } else {
-                                console.log('Ready check enabled for next round');
                             }
                         }, 2000); // 2 second delay to let users read the analysis first
                     } else {
-                        console.log('Game will not continue - no ready check needed');
                     }
                 });
 
                 socketService.onNextRound((data) => {
-                    console.log('Next round starting:', data);
-                    console.log('Data players:', data.players);
-                    console.log('DisplayRolesSwitched flag:', data.displayRolesSwitched);
+                    
 
                     // Handle role switching - update both currentPlayer and room carefully
                     if (data.players) {
-                        console.log('Updating players for next round');
 
                         // Find the updated current player
                         const updatedCurrentPlayer = data.players.find((p: any) => p.id === socketService.getSocket()?.id);
 
                         if (updatedCurrentPlayer) {
-                            console.log('Updated current player:', {
-                                name: updatedCurrentPlayer.name,
-                                role: updatedCurrentPlayer.role,
-                                displayRole: updatedCurrentPlayer.displayRole,
-                                originalRole: updatedCurrentPlayer.originalRole
-                            });
+                           
 
                             // Update current player state
                             setCurrentPlayer(updatedCurrentPlayer);
@@ -496,18 +445,7 @@ export default function GameBattle() {
                         setRoom(prev => {
                             if (!prev) return null;
 
-                            console.log('Updating room players from:', prev.players.map(p => ({
-                                name: p.name,
-                                role: p.role,
-                                displayRole: p.displayRole,
-                                originalRole: p.originalRole
-                            })));
-                            console.log('Updating room players to:', data.players.map((p: any) => ({
-                                name: p.name,
-                                role: p.role,
-                                displayRole: p.displayRole,
-                                originalRole: p.originalRole
-                            })));
+                            
 
                             return {
                                 ...prev,
@@ -515,10 +453,7 @@ export default function GameBattle() {
                             };
                         });
 
-                        // Log role switching information
-                        if (data.displayRolesSwitched) {
-                            console.log('Display roles switched for round 2 - roles are now swapped visually');
-                        }
+                        
                     }
 
                     setGameState(prev => ({
@@ -543,12 +478,10 @@ export default function GameBattle() {
 
                 // Listen for side choice needed (round 3 draw)
                 socketService.getSocket()?.on('side-choice-needed', (data) => {
-                    console.log('Side choice needed:', data);
-                    console.log('Current ready states - isNextRoundReady:', isNextRoundReady, 'otherPlayerNextRoundReady:', otherPlayerNextRoundReady);
+                    
 
                     // Store the side choice data but don't change game phase yet
                     // The modal will only appear when both players are ready
-                    console.log('Storing side choice data, waiting for both players to be ready');
                     setGameState(prev => ({
                         ...prev,
                         currentRound: data.round,
@@ -565,7 +498,6 @@ export default function GameBattle() {
 
                 // Listen for side choice completion
                 socketService.getSocket()?.on('side-choice-complete', (data) => {
-                    console.log('Side choice complete:', data);
 
                     // Update player roles
                     const updatedPlayer = data.players.find((p: any) => p.id === socketService.getSocket()?.id);
@@ -595,7 +527,6 @@ export default function GameBattle() {
 
                 // Listen for players updated (when roles are switched)
                 socketService.getSocket()?.on('players-updated', (data) => {
-                    console.log('Players updated:', data);
                     setNextRoundMessage(data.message || '');
 
                     // Update room and players
@@ -620,13 +551,11 @@ export default function GameBattle() {
                     setTimeout(() => {
                         setShowNextRoundReadyCheck(true);
                         setNextRoundAutoStartTime(60);
-                        console.log('Ready check enabled after players-updated');
                     }, 1000);
                 });
 
                 // Listen for next round ready updates - server-driven ready state management
                 socketService.onNextRoundReadyUpdate((data) => {
-                    console.log('Next round ready update from server:', data);
 
                     // Use the server's readyStates to set our local state accurately
                     if (data.readyStates && currentPlayer) {
@@ -637,45 +566,32 @@ export default function GameBattle() {
                         setIsNextRoundReady(myReadyState);
                         setOtherPlayerNextRoundReady(otherPlayerReadyState);
 
-                        console.log('Updated ready states from server:', {
-                            myId: currentPlayer.id,
-                            myReady: myReadyState,
-                            otherReady: otherPlayerReadyState,
-                            allReady: data.allReady
-                        });
+                        
                     }
 
-                    // If all players are ready, round will start soon
-                    if (data.allReady) {
-                        console.log('All players are ready, round will start soon');
-                    }
+                    
                 });
 
                 // Listen for ready state reset when a new round completes
                 socketService.onNextRoundReadyStateReset((data) => {
-                    console.log('Ready states reset by server:', data);
 
                     // Reset both players' ready states as instructed by server
                     setIsNextRoundReady(false);
                     setOtherPlayerNextRoundReady(false);
 
-                    console.log('Ready states reset to false for both players');
                 });
 
                 // Listen for ready state cleared when round starts
                 socketService.onNextRoundReadyCleared((data) => {
-                    console.log('Ready states cleared by server:', data);
 
                     // Ensure both players are marked as not ready when round starts
                     setIsNextRoundReady(false);
                     setOtherPlayerNextRoundReady(false);
 
-                    console.log('Ready states cleared - both players now not ready');
                 });
 
                 // Listen for next round started
                 socketService.getSocket()?.on('next-round-started', (data) => {
-                    console.log('Next round started:', data);
 
                     // Reset all readiness states for the new round
                     setShowNextRoundReadyCheck(false);
@@ -683,7 +599,6 @@ export default function GameBattle() {
                     setOtherPlayerNextRoundReady(false);
                     setNextRoundAutoStartTime(60);
                     setNextRoundMessage(''); // Clear any role switch message when new round starts
-                    console.log('Next round started - all ready states reset to false');
 
                     setGameState(prev => ({
                         ...prev,
@@ -697,8 +612,7 @@ export default function GameBattle() {
                 });
 
                 socketService.onGameEnd((result) => {
-                    console.log('Game ended:', result);
-                    console.log('Final player data from server:', result.playerData);
+                    
 
                     // Stop all game activities but keep the modal visible
                     setGameHasEnded(true);
@@ -720,41 +634,59 @@ export default function GameBattle() {
 
                 // Listen for player ready states
                 socketService.getSocket()?.on('playerReady', (data) => {
-                    console.log('Player ready update:', data);
                     if (data.playerId !== socketService.getSocket()?.id) {
                         setOtherPlayerReady(data.ready);
                     }
                 });
 
-                socketService.getSocket()?.on('bothPlayersReady', () => {
-                    console.log('Both players ready, starting game');
-                    startGame();
-                });
-
-                // Listen for server-side timer updates
-                socketService.getSocket()?.on('timer-update', (data) => {
-                    if (gameHasEndedRef.current) return; // Ignore timer updates after game ends
-
-                    console.log('Timer update:', data);
-                    setTimeLeft(data.timeLeft);
-                    setTimerPhase(data.phase || 1);
+                // Listen for single game-state event from server
+                socketService.getSocket()?.on('game-state', (data) => {
+                    if (!data) return;
+                    // Always update arguments, turn, and phase robustly
                     setGameState(prev => ({
                         ...prev,
-                        currentTurn: data.currentTurn
+                        ...data,
+                        gamePhase: data.gamePhase || data.phase || prev.gamePhase,
+                        currentTurn: data.currentTurn || prev.currentTurn,
+                        arguments: data.arguments || prev.arguments,
+                        allRoundArguments: data.allRoundArguments || prev.allRoundArguments,
+                        currentRound: data.currentRound || data.round || prev.currentRound,
+                        maxRounds: data.maxRounds || prev.maxRounds,
+                        scores: data.scores || prev.scores,
+                        playerScores: data.playerScores || prev.playerScores,
+                        playerData: data.playerData || prev.playerData,
+                        case: data.case || prev.case,
+                        roundHistory: data.roundHistory || prev.roundHistory
                     }));
-                });
 
-                // Listen for server-side case reading timer updates
-                socketService.getSocket()?.on('case-reading-timer-update', (data) => {
-                    if (gameHasEndedRef.current) return;
-
-                    console.log('Case reading timer update:', data);
-                    setCaseReadingTimeLeft(data.timeLeft);
-
-                    // Auto-start game when server timer reaches 0
-                    if (data.timeLeft === 0 && showCaseModal && !gameHasEnded) {
-                        console.log('Server case reading timer expired, starting game');
-                        startGame();
+                    // Hide/show modals and set game end state based on phase
+                    const phase = data.gamePhase || data.phase;
+                    if (phase === 'case-reading') {
+                        setShowCaseModal(true);
+                        setShowNextRoundReadyCheck(false);
+                        setShowGameCompleteModal(false);
+                        setGameHasEnded(false);
+                    } else if (phase === 'arguing') {
+                        setShowCaseModal(false);
+                        setShowNextRoundReadyCheck(false);
+                        setShowGameCompleteModal(false);
+                        setGameHasEnded(false);
+                        setCurrentArgument('');
+                    } else if (phase === 'round-complete') {
+                        setShowCaseModal(false);
+                        setShowNextRoundReadyCheck(true);
+                        setShowGameCompleteModal(false);
+                        setGameHasEnded(false);
+                    } else if (phase === 'side-choice') {
+                        setShowCaseModal(false);
+                        setShowNextRoundReadyCheck(false);
+                        setShowGameCompleteModal(false);
+                        setGameHasEnded(false);
+                    } else if (phase === 'game-over' || phase === 'finished') {
+                        setShowCaseModal(false);
+                        setShowNextRoundReadyCheck(false);
+                        setShowGameCompleteModal(true);
+                        setGameHasEnded(true);
                     }
                 });
 
@@ -762,7 +694,6 @@ export default function GameBattle() {
                 socketService.onNextRoundTimerUpdate((data) => {
                     if (gameHasEndedRef.current) return;
 
-                    console.log('Next round timer update:', data);
                     setNextRoundAutoStartTime(data.timeLeft);
 
                     // Server will handle auto-start when timer reaches 0
@@ -772,11 +703,9 @@ export default function GameBattle() {
                 socketService.getSocket()?.on('time-up', (data) => {
                     if (gameHasEndedRef.current) return; // Ignore time-up events after game ends
 
-                    console.log('Time up (Phase 2):', data);
 
                     // Only auto-submit if it's phase 2 and my turn
                     if (data.phase === 2 && currentPlayerRef.current?.role === data.currentTurn && currentPlayerRef.current) {
-                        console.log('Phase 2 timer expired, auto-submitting current argument:', currentArgumentRef.current.trim());
 
                         const argument: GameArgument = {
                             id: Date.now().toString(),
@@ -798,7 +727,6 @@ export default function GameBattle() {
                 socketService.getSocket()?.on('interrupt-available', (data) => {
                     if (gameHasEndedRef.current) return; // Ignore interrupt events after game ends
 
-                    console.log('Interrupt now available (Phase 2):', data);
                     // Only allow interrupt in phase 2 and if it's not my turn
                     if (data.phase === 2) {
                         setCanInterrupt(currentPlayerRef.current?.role !== data.currentTurn);
@@ -810,12 +738,10 @@ export default function GameBattle() {
                 socketService.getSocket()?.on('player-interrupted', (data) => {
                     if (gameHasEndedRef.current) return; // Ignore interrupt events after game ends
 
-                    console.log('Player interrupted:', data);
                     setCanInterrupt(false);
 
                     // If I was the one interrupted, submit my current argument
                     if (currentPlayerRef.current?.role === data.interruptedTurn && currentArgumentRef.current.trim() && currentPlayerRef.current) {
-                        console.log('I was interrupted, submitting current argument:', currentArgumentRef.current.trim());
 
                         const argument: GameArgument = {
                             id: Date.now().toString(),
@@ -876,13 +802,7 @@ export default function GameBattle() {
             // Use display role for turn checking (visual representation)
             const myDisplayRole = getPlayerDisplayRole(currentPlayer);
             const isMyTurnNow = myDisplayRole === gameState.currentTurn;
-            console.log('Turn check:', {
-                currentTurn: gameState.currentTurn,
-                myCurrentRole: currentPlayer.role,
-                myDisplayRole: myDisplayRole,
-                myOriginalRole: currentPlayer.originalRole,
-                isMyTurnNow
-            });
+            
 
             if (isMyTurnNow !== isMyTurn) {
                 setIsMyTurn(isMyTurnNow);
@@ -893,21 +813,13 @@ export default function GameBattle() {
 
     // Handle transition to side choice when ready states change
     useEffect(() => {
-        console.log('Ready state change detected:', {
-            gamePhase: gameState.gamePhase,
-            hasSideChoice: !!gameState.sideChoice,
-            isNextRoundReady,
-            otherPlayerNextRoundReady,
-            bothReady: isNextRoundReady && otherPlayerNextRoundReady
-        });
-
+        
         // If we have side choice data stored but are still in round-complete phase,
         // and both players are now ready, transition to side choice phase
         if (gameState.gamePhase === 'round-complete' &&
             gameState.sideChoice &&
             isNextRoundReady &&
             otherPlayerNextRoundReady) {
-            console.log('🎯 TRANSITION TRIGGERED: Both players now ready for 1-1 tie, transitioning to side choice phase');
 
             // Stop the auto-start timer when entering side choice phase
             setShowNextRoundReadyCheck(false);
@@ -922,7 +834,6 @@ export default function GameBattle() {
                 gamePhase: 'side-choice'
             }));
 
-            console.log('✅ Successfully transitioned to side choice phase');
         }
     }, [isNextRoundReady, otherPlayerNextRoundReady, gameState.gamePhase, gameState.sideChoice]);
 
@@ -946,7 +857,6 @@ export default function GameBattle() {
     const handleSubmitArgument = () => {
         if (!currentArgument.trim() || !currentPlayer || gameHasEnded) return;
 
-        console.log('Submitting argument:', currentArgument.trim());
 
         const argument: GameArgument = {
             id: Date.now().toString(),
@@ -967,19 +877,13 @@ export default function GameBattle() {
     };
 
     const handleSideChoice = (chosenSide: 'prosecutor' | 'defender') => {
-        console.log('Player chose side:', chosenSide);
-        console.log('Current game state before side choice:', {
-            gamePhase: gameState.gamePhase,
-            currentRound: gameState.currentRound,
-            hasSideChoice: !!gameState.sideChoice
-        });
+        
 
         socketService.getSocket()?.emit('choose-side', {
             roomId: roomId,
             chosenSide: chosenSide
         });
 
-        console.log('Side choice sent to server');
     };
 
     const handleInterrupt = () => {
@@ -989,14 +893,12 @@ export default function GameBattle() {
         });
 
         setCanInterrupt(false);
-        console.log('Interrupt signal sent to server');
     };
 
     // Simplified next round ready handler
     const handleNextRoundReady = () => {
         if (gameHasEnded || isNextRoundReady) return;
 
-        console.log('Player clicked ready for next round - sending to server');
 
 
         // Send ready signal to server (no ready/unready toggle, just ready once)
@@ -1006,7 +908,6 @@ export default function GameBattle() {
     };
 
     const handleProceedToGameComplete = (winner: 'prosecutor' | 'defender') => {
-        console.log('Proceeding to game complete with winner:', winner);
         setGameHasEnded(true);
         setGameState(prev => ({
             ...prev,
@@ -1048,21 +949,19 @@ export default function GameBattle() {
     // Helper functions to get player data from server-provided comprehensive data
     const getPlayerData = (playerId: string): PlayerData | null => {
         const data = gameState.playerData?.[playerId] || null;
-        console.log('CLIENT: Player data for', playerId, ':', data);
         return data;
     };
 
     const getPlayerScore = (playerId: string) => {
         const playerData = getPlayerData(playerId);
         const score = playerData?.total_score || 0;
-        console.log('CLIENT: Total score for player', playerId, ':', score);
+
         return score;
     };
 
     const getPlayerRoundWins = (playerId: string) => {
         const playerData = getPlayerData(playerId);
         const wins = playerData?.rounds_won || 0;
-        console.log('CLIENT: Player', playerId, 'has', wins, 'round wins from server data');
         return wins;
     };
 
@@ -1093,28 +992,24 @@ export default function GameBattle() {
     const getProsecutorScore = () => {
         const prosecutorPlayer = room?.players.find(p => (p.originalRole || p.role) === 'prosecutor');
         const score = prosecutorPlayer ? getPlayerScore(prosecutorPlayer.id) : 0;
-        console.log('CLIENT: Prosecutor total score:', score, 'for player:', prosecutorPlayer?.name);
         return score;
     };
 
     const getDefenderScore = () => {
         const defenderPlayer = room?.players.find(p => (p.originalRole || p.role) === 'defender');
         const score = defenderPlayer ? getPlayerScore(defenderPlayer.id) : 0;
-        console.log('CLIENT: Defender total score:', score, 'for player:', defenderPlayer?.name);
         return score;
     };
 
     const getProsecutorRoundWins = () => {
         const prosecutorPlayer = room?.players.find(p => (p.originalRole || p.role) === 'prosecutor');
         const wins = prosecutorPlayer ? getPlayerRoundWins(prosecutorPlayer.id) : 0;
-        console.log('CLIENT: Prosecutor round wins:', wins, 'for player:', prosecutorPlayer?.name);
         return wins;
     };
 
     const getDefenderRoundWins = () => {
         const defenderPlayer = room?.players.find(p => (p.originalRole || p.role) === 'defender');
         const wins = defenderPlayer ? getPlayerRoundWins(defenderPlayer.id) : 0;
-        console.log('CLIENT: Defender round wins:', wins, 'for player:', defenderPlayer?.name);
         return wins;
     };
 
@@ -1124,11 +1019,9 @@ export default function GameBattle() {
     const getPlayerDisplayRole = (player: Player): 'prosecutor' | 'defender' => {
         // If displayRole is set, use it (for rounds 2+ with role switching)
         if (player.displayRole) {
-            console.log(`Player ${player.name} has displayRole: ${player.displayRole}`);
             return player.displayRole;
         }
         // Otherwise use the original role (round 1)
-        console.log(`Player ${player.name} using original role: ${player.role}`);
         return player.role as 'prosecutor' | 'defender';
     };
 
@@ -1291,15 +1184,7 @@ export default function GameBattle() {
                                 const leftPlayerLabel = leftPlayerDisplayRole === 'prosecutor' ? 'PROSECUTOR' : 'DEFENDER';
                                 const leftPlayerIsProsecutor = leftPlayerDisplayRole === 'prosecutor';
 
-                                console.log('LEFT PLAYER:', {
-                                    name: leftPlayer?.name,
-                                    id: leftPlayer?.id,
-                                    originalRole: leftPlayer?.originalRole,
-                                    role: leftPlayer?.role,
-                                    displayRole: leftPlayer?.displayRole,
-                                    leftPlayerDisplayRole,
-                                    isCurrentPlayerOnLeft
-                                });
+                                
 
                                 return (
                                     <div className={`w-[35%] relative overflow-hidden transition-all duration-300 h-36 ${isCurrentPlayerOnLeft
@@ -1455,15 +1340,7 @@ export default function GameBattle() {
                                 const rightPlayerLabel = rightPlayerDisplayRole === 'prosecutor' ? 'PROSECUTOR' : 'DEFENDER';
                                 const rightPlayerIsProsecutor = rightPlayerDisplayRole === 'prosecutor';
 
-                                console.log('RIGHT PLAYER:', {
-                                    name: rightPlayer?.name,
-                                    id: rightPlayer?.id,
-                                    originalRole: rightPlayer?.originalRole,
-                                    role: rightPlayer?.role,
-                                    displayRole: rightPlayer?.displayRole,
-                                    rightPlayerDisplayRole,
-                                    isCurrentPlayerOnRight
-                                });
+                               
 
                                 return (
                                     <div className={`w-[35%] relative overflow-hidden transition-all duration-300 h-36 ${isCurrentPlayerOnRight

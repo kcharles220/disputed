@@ -31,33 +31,18 @@ export default function GameLobby() {
           console.log('Socket not connected, redirecting to join page...');
           router.push(`/join?room=${roomId}`);
           return;
-        }
+        }else{console.log('Socket already connected:', socketService.getSocket()?.id);}
 
-        // Set up socket listeners
-        socketService.onRoomUpdated((updatedRoom) => {
-          console.log('Room updated:', updatedRoom);
-          console.log('Players ready status:', updatedRoom.players.map(p => ({ name: p.name, ready: p.ready })));
-          setRoom(updatedRoom);
-          // Find current player
-          const player = updatedRoom.players.find(p => p.id === socketService.getSocket()?.id);
+        // Listen for gameStateUpdate and update room state
+        socketService.onGameStateUpdate((gameState) => {
+          console.log('Received gameStateUpdate:', gameState);
+          setRoom(gameState);
+          // Use socketId to determine current player
+          const socketId = socketService.getSocket()?.id;
+          const player = gameState.players.find(p => p.socketId === socketId);
           setCurrentPlayer(player || null);
           if (player) {
-            console.log('Setting current player ready state to:', player.ready);
             setIsReady(player.ready);
-          }
-        });
-
-        socketService.onGameStarting((roomData) => {
-          console.log('Game starting for room:', roomData.id);
-          console.log('Players with roles:', roomData.players.map(p => ({ name: p.name, role: p.role })));
-          
-          // Find current player's role
-          const currentPlayerInRoom = roomData.players.find(p => p.id === socketService.getSocket()?.id);
-          const playerRole = currentPlayerInRoom?.role;
-          
-          if (playerRole) {
-            // Start coin flip animation with server-assigned role and pass the room ID from the event
-            startCoinFlipWithRole(playerRole, roomData.id);
           }
         });
 
@@ -71,7 +56,9 @@ export default function GameLobby() {
           const roomInfo = await socketService.getRoomInfo(roomId);
           console.log('Room info received:', roomInfo);
           setRoom(roomInfo);
-          const player = roomInfo.players.find(p => p.id === socketService.getSocket()?.id);
+          // Use socketId to determine current player
+          const socketId = socketService.getSocket()?.id;
+          const player = roomInfo.players.find(p => p.socketId === socketId);
           setCurrentPlayer(player || null);
           if (player) {
             setIsReady(player.ready);
@@ -96,8 +83,9 @@ export default function GameLobby() {
 
   const handleToggleReady = () => {
     if (room) {
-      console.log('Toggling ready for room:', room.id, 'Current ready state:', isReady);
-      socketService.toggleReady(room.id);
+      const newReadyState = !currentPlayer?.ready;
+      console.log('Toggling ready for room:', room.roomId, 'Sending ready:', newReadyState);
+      socketService.toggleReady(room.roomId, newReadyState);
     }
   };
 
@@ -130,7 +118,7 @@ export default function GameLobby() {
     console.log('Starting coin flip with role:', role, 'Current room:', room);
     
     // Use passed room ID or fall back to current room state
-    const currentRoomId = roomIdParam || room?.id;
+    const currentRoomId = roomIdParam || room?.roomId;
     console.log('Using room ID:', currentRoomId);
     
     if (!currentRoomId) {
@@ -196,7 +184,16 @@ export default function GameLobby() {
     );
   }
 
-  const otherPlayer = room.players.find(p => p.id !== currentPlayer?.id);
+  // Always display current player on the left and opponent on the right
+  let leftPlayer: Player | null = null;
+  let rightPlayer: Player | null = null;
+  if (currentPlayer) {
+    leftPlayer = currentPlayer;
+    rightPlayer = room.players.find(p => p.id !== currentPlayer.id) || null;
+  } else if (room.players.length > 0) {
+    leftPlayer = room.players[0];
+    rightPlayer = room.players[1] || null;
+  }
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-900 via-indigo-900 to-purple-900 relative overflow-hidden">
@@ -231,21 +228,20 @@ export default function GameLobby() {
 
         {/* Players section */}
         <div className="flex items-end justify-center gap-16">
-          
-          {/* Current Player */}
+          {/* Left: Current Player */}
           <div className="text-center">
             <div className="relative">
               <div className="w-28 h-28 bg-gradient-to-br from-blue-500/30 to-indigo-600/30 backdrop-blur-sm rounded-full flex items-center justify-center text-5xl shadow-2xl border-2 border-blue-300/40 mb-4 mx-auto">
-                {currentPlayer?.avatar || '⚖️'}
+                {leftPlayer?.avatar || '⚖️'}
               </div>
             </div>
-            <h3 className="text-xl font-bold text-blue-100 drop-shadow-sm">{currentPlayer?.name || 'You'}</h3>
+            <h3 className="text-xl font-bold text-blue-100 drop-shadow-sm">{leftPlayer?.username || 'You'}</h3>
             <div className="mt-2">
               <div className={`w-40 mx-auto px-4 py-2 rounded-full text-sm font-medium backdrop-blur-sm border shadow-lg transition-colors duration-200 ${
-                isReady ? 'bg-green-500/70 text-white border-green-300/50' : 'bg-blue-500/70 text-white border-blue-300/50'
+                leftPlayer?.ready ? 'bg-green-500/70 text-white border-green-300/50' : 'bg-blue-500/70 text-white border-blue-300/50'
               }`}>
                 <div className="text-center">
-                  {isReady ? '✓ Ready to Debate' : '📝 Preparing...'}
+                  {leftPlayer?.ready ? '✓ Ready to Debate' : '📝 Preparing...'}
                 </div>
               </div>
             </div>
@@ -258,22 +254,22 @@ export default function GameLobby() {
             </div>
           </div>
 
-          {/* Opponent */}
+          {/* Right: Opponent */}
           <div className="text-center">
-            {otherPlayer ? (
+            {rightPlayer ? (
               <>
                 <div className="relative">
                   <div className="w-28 h-28 bg-gradient-to-br from-purple-500/30 to-violet-600/30 backdrop-blur-sm rounded-full flex items-center justify-center text-5xl shadow-2xl border-2 border-purple-300/40 mb-4 mx-auto">
-                    {otherPlayer.avatar}
+                    {rightPlayer.avatar}
                   </div>
                 </div>
-                <h3 className="text-xl font-bold text-purple-100 drop-shadow-sm">{otherPlayer.name}</h3>
+                <h3 className="text-xl font-bold text-purple-100 drop-shadow-sm">{rightPlayer.username}</h3>
                 <div className="mt-2">
                   <div className={`w-40 mx-auto px-4 py-2 rounded-full text-sm font-medium backdrop-blur-sm border shadow-lg transition-colors duration-200 ${
-                    otherPlayer.ready ? 'bg-green-500/70 text-white border-green-300/50' : 'bg-purple-500/70 text-white border-purple-300/50'
+                    rightPlayer.ready ? 'bg-green-500/70 text-white border-green-300/50' : 'bg-purple-500/70 text-white border-purple-300/50'
                   }`}>
                     <div className="text-center">
-                      {otherPlayer.ready ? '✓ Ready to Debate' : '📝 Preparing...'}
+                      {rightPlayer.ready ? '✓ Ready to Debate' : '📝 Preparing...'}
                     </div>
                   </div>
                 </div>
@@ -294,7 +290,6 @@ export default function GameLobby() {
               </>
             )}
           </div>
-
         </div>
 
         {/* Game info and controls */}
@@ -304,12 +299,12 @@ export default function GameLobby() {
             <p className="text-blue-200 mb-4 font-medium">Debate Chamber Code:</p>
             <div className="flex items-center justify-center gap-3 mb-6">
               <div className="bg-indigo-900/60 backdrop-blur-sm rounded-lg px-6 py-3 font-mono text-xl font-bold text-blue-200 border border-indigo-400/30 shadow-lg">
-                {room.id}
+                {room.roomId}
               </div>
               <div className="relative">
                 <button
                   onClick={() => {
-                    const shareableLink = `${window.location.origin}/lobby/${room.id}`;
+                    const shareableLink = `${window.location.origin}/lobby/${room.roomId}`;
                     navigator.clipboard.writeText(shareableLink).then(() => {
                       setLinkCopied(true);
                       setTimeout(() => setLinkCopied(false), 2000);

@@ -14,9 +14,32 @@ interface GameArgument {
 }
 
 interface GameState {
+    case: {
+        id: number;
+        title: string;
+        description: string;
+        context: string;
+        prosecutorSide: string;
+        defenderSide: string;
+    } | null;
+    arguments: GameArgument[];
+    allRoundArguments: GameArgument[]; // Store all arguments from all rounds
+    currentTurn: 'prosecutor' | 'defender';
+    currentRound: number;
+    maxRounds: number;
+    scores: { prosecutor: number; defender: number }; // Role-based round wins for display
+    playerScores: { [playerId: string]: number }; // Player-based round wins for tracking
+    individualScores: { [playerId: string]: number }; // Track scores by player ID
     gamePhase: 'case-reading' | 'arguing' | 'round-complete' | 'finished' | 'side-choice';
     winner?: string;
-    scores: { prosecutor: number; defender: number };
+    roundResult?: {
+        round: number;
+        winner: 'prosecutor' | 'defender';
+        analysis: string;
+        prosecutorScore: number;
+        defenderScore: number;
+        argumentScores?: { argumentId: string; score: number }[]; // Individual argument scores
+    };
     roundHistory: {
         round: number;
         winner: 'prosecutor' | 'defender';
@@ -26,6 +49,11 @@ interface GameState {
         arguments: GameArgument[];
         argumentScores?: { argumentId: string; score: number }[];
     }[];
+    sideChoice?: {
+        chooserPlayerId: string;
+        chooserPlayerName: string;
+        playerPerformance: any;
+    };
 }
 
 interface GameCompleteModalProps {
@@ -54,7 +82,7 @@ export default function GameCompleteModal({
     if (!showModal) {
         return null;
     }
-
+    console.log('Game complete state:', gameState);
     return (
         <>
             {/* Game Complete Full Screen */}
@@ -222,7 +250,7 @@ export default function GameCompleteModal({
                         <div className="absolute bottom-1/4 right-1/4 w-80 h-80 bg-purple-500/15 rounded-full blur-3xl animate-pulse delay-1000"></div>
                     </div>
                     
-                    <div className="relative bg-gradient-to-br from-white/20 via-white/10 to-white/5 backdrop-blur-xl rounded-3xl shadow-2xl max-w-6xl w-full max-h-[90vh] border border-white/30 overflow-hidden">
+                        <div className="relative bg-gradient-to-br from-white/20 via-white/10 to-white/5 backdrop-blur-xl rounded-3xl shadow-2xl max-w-6xl w-full max-h-[90vh] border border-white/30">
                         {/* Header */}
                         <div className="relative overflow-hidden p-6 border-b border-white/20">
                             {/* Glass morphism background */}
@@ -249,103 +277,96 @@ export default function GameCompleteModal({
                                     <p className="text-white/60">No arguments recorded.</p>
                                 </div>
                             ) : (
-                                <div className="space-y-8">
-                                    {/* Display completed rounds from history */}
-                                    {gameState.roundHistory.map((round, roundIndex) => (
-                                        <div key={`round-history-${roundIndex}`} className="space-y-6">
-                                            {/* Round Header */}
-                                            <div className="relative overflow-hidden rounded-xl p-4">
-                                                {/* Glass morphism background */}
-                                                <div className="absolute inset-0 bg-gradient-to-br from-yellow-500/20 via-yellow-400/10 to-orange-500/15 backdrop-blur-sm border border-yellow-400/30 shadow-lg"></div>
-                                                
-                                                {/* Content */}
-                                                <div className="relative z-10 flex items-center justify-between">
-                                                    <h3 className="text-2xl font-bold text-yellow-300">
-                                                        ⚔️ Round {round.round}
-                                                        {round.round === 2 && <span className="text-lg ml-2">(Roles Switched)</span>}
-                                                    </h3>
-                                                    <div className="text-right">
-                                                        <div className={`text-lg font-bold ${round.winner === 'prosecutor' ? 'text-red-300' : 'text-blue-300'}`}>
-                                                            🏆 {round.winner === 'prosecutor' ? 'Prosecutor' : 'Defender'} Won
-                                                        </div>
-                                                        <div className="text-sm text-white/60">
-                                                            Score: {round.prosecutorScore} - {round.defenderScore}
-                                                        </div>
-                                                    </div>
-                                                </div>
-                                            </div>
-                                            
-                                            {/* Round Arguments */}
-                                            <div className="space-y-4 ml-4">
-                                                {round.arguments.map((argument, argIndex) => {
-                                                    const exchangeNumber = Math.floor(argIndex / 2) + 1;
-                                                    const isFirstInExchange = argIndex % 2 === 0;
-                                                    const argumentScore = round.argumentScores?.find(score => score.argumentId === argument.id)?.score;
-                                                    
-                                                    return (
-                                                        <div key={argument.id}>
-                                                            {/* Exchange Header */}
-                                                            {isFirstInExchange && (
-                                                                <div className="text-center text-sm text-white/50 mb-3 font-semibold">
-                                                                    Exchange #{exchangeNumber}
-                                                                </div>
-                                                            )}
-                                                            
-                                                            {/* Argument */}
-                                                            <div className="relative overflow-hidden rounded-xl">
-                                                                {/* Glass morphism background */}
-                                                                <div className={`absolute inset-0 ${argument.type === 'attack'
-                                                                        ? 'bg-gradient-to-br from-red-500/20 via-red-400/10 to-orange-500/20'
-                                                                        : 'bg-gradient-to-br from-blue-500/20 via-blue-400/10 to-indigo-500/20'
-                                                                    } backdrop-blur-sm border-l-4 ${argument.type === 'attack'
-                                                                        ? 'border-red-400'
-                                                                        : 'border-blue-400'
-                                                                    } shadow-lg`}></div>
-                                                                
-                                                                {/* Content */}
-                                                                <div className="relative z-10 p-4">
-                                                                    <div className="flex items-center justify-between mb-3">
-                                                                        <div className="flex items-center gap-3">
-                                                                            <span className="text-xl">
-                                                                                {argument.type === 'attack' ? '🔥' : '🛡️'}
-                                                                            </span>
-                                                                            <span className={`font-semibold ${argument.type === 'attack' ? 'text-red-300' : 'text-blue-300'}`}>
-                                                                                {argument.playerName}
-                                                                            </span>
-                                                                        </div>
-                                                                        <div className="flex items-center gap-4">
-                                                                            {argumentScore !== undefined && (
-                                                                                <div className="bg-gradient-to-br from-gray-700/80 to-gray-800/80 backdrop-blur-sm rounded-lg px-3 py-1 border border-white/10">
-                                                                                    <span className="text-yellow-300 font-bold">⭐ {formatScore(argumentScore)}</span>
-                                                                                </div>
-                                                                            )}
-                                                                            <span className="text-xs text-white/50">
-                                                                                Arg #{argIndex + 1}
-                                                                            </span>
-                                                                        </div>
+                                            <div className="space-y-8">
+                                                {/* Display completed rounds from history */}
+                                                {gameState.roundHistory.map((round, roundIndex) => (
+                                                    <div key={`round-history-${roundIndex}`} className="space-y-6">
+                                                        {/* Round Header */}
+                                                        <div className="relative overflow-hidden rounded-xl p-4">
+                                                            {/* Glass morphism background */}
+                                                            <div className="absolute inset-0 bg-gradient-to-br from-yellow-500/20 via-yellow-400/10 to-orange-500/15 backdrop-blur-sm border border-yellow-400/30 shadow-lg"></div>
+                                                            {/* Content */}
+                                                            <div className="relative z-10 flex items-center justify-between">
+                                                                <h3 className="text-2xl font-bold text-yellow-300">
+                                                                    ⚔️ Round {round.round}
+                                                                    {round.round === 2 && <span className="text-lg ml-2">(Roles Switched)</span>}
+                                                                </h3>
+                                                                <div className="text-right">
+                                                                    <div className={`text-lg font-bold ${round.winner === 'prosecutor' ? 'text-red-300' : 'text-blue-300'}`}>
+                                                                        🏆 {round.winner === 'prosecutor' ? 'Prosecutor' : 'Defender'} Won
                                                                     </div>
-                                                                    <p className="text-white/90 leading-relaxed">{argument.content}</p>
+                                                                    <div className="text-sm text-white/60">
+                                                                        Score: {round.prosecutorScore} - {round.defenderScore}
+                                                                    </div>
                                                                 </div>
                                                             </div>
                                                         </div>
-                                                    );
-                                                })}
+                                                        {/* Round Arguments */}
+                                                        <div className="space-y-4 ml-4">
+                                                            {round.arguments.map((argument, argIndex) => {
+                                                                const exchangeNumber = Math.floor(argIndex / 2) + 1;
+                                                                const isFirstInExchange = argIndex % 2 === 0;
+                                                                const argumentScore = round.argumentScores?.find(score => score.argumentId === argument.id)?.score;
+                                                                return (
+                                                                    <div key={argument.id}>
+                                                                        {/* Exchange Header */}
+                                                                        {isFirstInExchange && (
+                                                                            <div className="text-center text-sm text-white/50 mb-3 font-semibold">
+                                                                                Exchange #{exchangeNumber}
+                                                                            </div>
+                                                                        )}
+                                                                        {/* Argument */}
+                                                                        <div className="relative overflow-hidden ">
+                                                                            {/* Glass morphism background - fix layering and only round right side */}
+                                                                            <div className={`absolute inset-0 ${argument.type === 'attack'
+                                                                                    ? 'bg-gradient-to-br from-red-500/20 via-red-400/10 to-orange-500/20 border-l-4'
+                                                                                    : 'bg-gradient-to-br from-blue-500/20 via-blue-400/10 to-indigo-500/20 border-r-4'
+                                                                                } backdrop-blur-sm  ${argument.type === 'attack'
+                                                                                    ? 'border-red-400 rounded-r-xl'
+                                                                                    : 'border-blue-400 rounded-l-xl'
+                                                                                } shadow-lg `}></div>
+                                                                            {/* Content */}
+                                                                            <div className="relative z-10 p-4">
+                                                                                <div className="flex items-center justify-between mb-3">
+                                                                                    <div className="flex items-center gap-3">
+                                                                                        <span className="text-xl">
+                                                                                            {argument.type === 'attack' ? '🔥' : '🛡️'}
+                                                                                        </span>
+                                                                                        <span className={`font-semibold ${argument.type === 'attack' ? 'text-red-300' : 'text-blue-300'}`}>
+                                                                                            {argument.playerName}
+                                                                                        </span>
+                                                                                    </div>
+                                                                                    <div className="flex items-center gap-4">
+                                                                                        {argumentScore !== undefined && (
+                                                                                            <span className={`text-lg font-bold ${argumentScore >= 0 ? 'text-green-300' : 'text-red-300'}`}>
+                                                                                                {argumentScore >= 0 ? `+${argumentScore}` : argumentScore}
+                                                                                            </span>
+                                                                                        )}
+                                                                                        <span className="text-xs text-white/50">
+                                                                                            Arg #{argIndex + 1}
+                                                                                        </span>
+                                                                                    </div>
+                                                                                </div>
+                                                                                <p className="text-white/90 leading-relaxed">{argument.content}</p>
+                                                                            </div>
+                                                                        </div>
+                                                                    </div>
+                                                                );
+                                                            })}
+                                                        </div>
+                                                        {/* Round Analysis */}
+                                                        <div className="relative overflow-hidden rounded-xl ml-4">
+                                                            {/* Glass morphism background */}
+                                                            <div className="absolute inset-0 bg-gradient-to-br from-gray-700/30 via-gray-600/20 to-gray-800/30 backdrop-blur-sm border border-gray-400/20 shadow-lg"></div>
+                                                            {/* Content */}
+                                                            <div className="relative z-10 p-4">
+                                                                <h4 className="text-yellow-300 font-bold mb-2">🤖 AI Round Analysis:</h4>
+                                                                <p className="text-white/90 text-sm leading-relaxed">{round.analysis}</p>
+                                                            </div>
+                                                        </div>
+                                                    </div>
+                                                ))}
                                             </div>
-
-                                            {/* Round Analysis */}
-                                            <div className="relative overflow-hidden rounded-xl ml-4">
-                                                {/* Glass morphism background */}
-                                                <div className="absolute inset-0 bg-gradient-to-br from-gray-700/30 via-gray-600/20 to-gray-800/30 backdrop-blur-sm border border-gray-400/20 shadow-lg"></div>
-                                                
-                                                {/* Content */}
-                                                <div className="relative z-10 p-4">
-                                                    <h4 className="text-yellow-300 font-bold mb-2">🤖 AI Round Analysis:</h4>
-                                                    <p className="text-white/90 text-sm leading-relaxed">{round.analysis}</p>
-                                                </div>
-                                            </div>
-                                        </div>
-                                    ))}
-                                </div>
                             )}
                         </div>
 

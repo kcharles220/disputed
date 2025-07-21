@@ -32,6 +32,7 @@ export default function SideChoiceModal({
     getDefenderScore,
     formatScore
 }: SideChoiceModalProps) {
+    /*
     console.log('SideChoiceModal render check:', {
         gamePhase: gameState.gamePhase,
         hasSideChoice: !!gameState.sideChoice,
@@ -39,13 +40,12 @@ export default function SideChoiceModal({
         currentPlayerId: currentPlayer?.id,
         shouldRender: gameState.gamePhase === 'side-choice' && !!gameState.sideChoice
     });
-    
+    */
+   
     if (gameState.gamePhase !== 'side-choice' || !gameState.sideChoice) {
-        console.log('SideChoiceModal not rendering - phase:', gameState.gamePhase, 'hasSideChoice:', !!gameState.sideChoice);
         return null;
     }
 
-    console.log('🎯 SideChoiceModal is rendering - side choice active after both players ready!');
 
     return (
         <div className="fixed inset-0 bg-slate-900/80 backdrop-blur-lg flex items-center justify-center z-[100] p-4"

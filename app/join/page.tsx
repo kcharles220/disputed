@@ -91,7 +91,19 @@ export default function JoinGame() {
           averageGameDuration: currentUser?.averageGameDuration || session.user?.averageGameDuration || 0,
           longestWinStreak: currentUser?.longestWinStreak || session.user?.longestWinStreak || 0,
           currentWinStreak: currentUser?.currentWinStreak || session.user?.currentWinStreak || 0
-        })
+        }),
+        roomId: '',
+        gameState: '',
+        caseDetails: undefined,
+        players: [],
+        turn: null,
+        round: {
+          number: 0,
+          analysis: undefined
+        },
+        exchange: 0,
+        argumentCount: 0,
+        tiebreakerWinner: null
       };
 
       // Join the room

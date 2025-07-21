@@ -36,16 +36,16 @@ const timerValues = new Map(); // { roomId: { argumentTime: 10, caseReadingTime:
 // Format comprehensive player data for client consumption
 function formatPlayerData(room) {
   const playersData = {};
-  
+
   if (!room || !room.players) {
     return playersData;
   }
-  
+
   room.players.forEach(player => {
     const playerId = player.id;
     const playerPerformance = room.playerPerformance?.[playerId] || { totalScore: 0, rounds: 0 };
     const roundWins = room.playerScores?.[playerId] || 0;
-    
+
     // Get scores for each round
     const roundScores = {};
     for (let round = 1; round <= 3; round++) {
@@ -54,7 +54,7 @@ function formatPlayerData(room) {
         // Find what role this player had in this round
         const playerRoleInRound = roundData.playerRoles?.[playerId];
         if (playerRoleInRound) {
-          roundScores[`round${round}_score`] = playerRoleInRound === 'prosecutor' ? 
+          roundScores[`round${round}_score`] = playerRoleInRound === 'prosecutor' ?
             roundData.prosecutorScore : roundData.defenderScore;
           roundScores[`round${round}_role`] = playerRoleInRound;
         } else {
@@ -66,7 +66,7 @@ function formatPlayerData(room) {
         roundScores[`round${round}_role`] = null;
       }
     }
-    
+
     playersData[playerId] = {
       id: playerId,
       name: player.name,
@@ -75,13 +75,13 @@ function formatPlayerData(room) {
       original_role: player.originalRole || player.role,
       rounds_won: roundWins,
       total_score: Math.round(playerPerformance.totalScore * 10) / 10,
-      average_score: playerPerformance.rounds > 0 ? 
+      average_score: playerPerformance.rounds > 0 ?
         Math.round((playerPerformance.totalScore / playerPerformance.rounds) * 10) / 10 : 0,
       rounds_played: playerPerformance.rounds,
       ...roundScores
     };
   });
-  
+
   return playersData;
 }
 
@@ -93,15 +93,15 @@ function startArgumentTimer(roomId, currentTurn) {
     console.log(`Preventing argument timer start for room ${roomId} - game has ended`);
     return;
   }
-  
+
   // Clear any existing timer for this room
   if (roomTimers.has(roomId)) {
     clearInterval(roomTimers.get(roomId));
   }
-  
+
   let timeLeft = 10; // 10 seconds per turn (first phase)
   let phase = 1; // Phase 1: normal timer, Phase 2: interrupt grace period
-  
+
   // Initialize timer values
   if (!timerValues.has(roomId)) {
     timerValues.set(roomId, {});
@@ -109,7 +109,7 @@ function startArgumentTimer(roomId, currentTurn) {
   const roomTimerData = timerValues.get(roomId);
   roomTimerData.argumentTime = timeLeft;
   roomTimerData.phase = phase;
-  
+
   const timer = setInterval(() => {
     // Check if game has ended - stop timer if so
     const room = gameRooms.get(roomId);
@@ -123,43 +123,43 @@ function startArgumentTimer(roomId, currentTurn) {
       }
       return;
     }
-    
+
     timeLeft -= 1;
     roomTimerData.argumentTime = timeLeft;
     roomTimerData.phase = phase;
-    
+
     // Broadcast timer update to all players in the room
     io.to(roomId).emit('timer-update', {
       timeLeft,
       currentTurn,
       phase
     });
-    
+
     // When first timer reaches 0, start interrupt phase
     if (timeLeft === 0 && phase === 1) {
       console.log(`Phase 1 timer expired for ${currentTurn} in room ${roomId}, starting interrupt phase`);
-      
+
       // Start phase 2 - interrupt grace period
       phase = 2;
       timeLeft = 10; // Another 10 seconds for interrupt phase
       roomTimerData.argumentTime = timeLeft;
       roomTimerData.phase = phase;
-      
+
       // Notify players that interrupt is now available
       io.to(roomId).emit('interrupt-available', {
         currentTurn,
         phase: 2
       });
-      
+
     } else if (timeLeft === 0 && phase === 2) {
       // Phase 2 timer expired - force submission
       console.log(`Phase 2 timer expired for ${currentTurn} in room ${roomId}, forcing auto-submission`);
-      
+
       io.to(roomId).emit('time-up', {
         currentTurn,
         phase: 2
       });
-      
+
       clearInterval(timer);
       roomTimers.delete(roomId);
       if (timerValues.has(roomId)) {
@@ -168,9 +168,9 @@ function startArgumentTimer(roomId, currentTurn) {
       }
     }
   }, 1000);
-  
+
   roomTimers.set(roomId, timer);
-  
+
   // Send initial timer state
   io.to(roomId).emit('timer-update', {
     timeLeft,
@@ -200,21 +200,21 @@ function startCaseReadingTimer(roomId) {
     console.log(`Preventing case reading timer start for room ${roomId} - game has ended`);
     return;
   }
-  
+
   // Clear any existing timer for this room
   if (caseReadingTimers.has(roomId)) {
     clearInterval(caseReadingTimers.get(roomId));
   }
-  
+
   let timeLeft = 120; // 2 minutes to read case
-  
+
   // Initialize timer values
   if (!timerValues.has(roomId)) {
     timerValues.set(roomId, {});
   }
   const roomTimerData = timerValues.get(roomId);
   roomTimerData.caseReadingTime = timeLeft;
-  
+
   const timer = setInterval(() => {
     // Check if game has ended - stop timer if so
     const room = gameRooms.get(roomId);
@@ -227,15 +227,15 @@ function startCaseReadingTimer(roomId) {
       }
       return;
     }
-    
+
     timeLeft -= 1;
     roomTimerData.caseReadingTime = timeLeft;
-    
+
     // Broadcast timer update to all players in the room
     io.to(roomId).emit('case-reading-timer-update', {
       timeLeft
     });
-    
+
     if (timeLeft <= 0) {
       console.log(`Case reading timer expired for room ${roomId}, checking if game ended before auto-starting`);
       clearInterval(timer);
@@ -243,18 +243,18 @@ function startCaseReadingTimer(roomId) {
       if (timerValues.has(roomId)) {
         delete timerValues.get(roomId).caseReadingTime;
       }
-      
+
       // Auto-start the game only if it hasn't ended
       const currentRoom = gameRooms.get(roomId);
       if (currentRoom && currentRoom.gameState === 'case-reading' && !isGameEnded(currentRoom)) {
         currentRoom.gameState = 'arguing';
         currentRoom.currentTurn = 'prosecutor';
-        
+
         io.to(roomId).emit('game-started', {
           gameState: currentRoom.gameState,
           currentTurn: currentRoom.currentTurn
         });
-        
+
         // Start argument timer
         setTimeout(() => {
           // Double-check game hasn't ended while we were waiting
@@ -270,9 +270,9 @@ function startCaseReadingTimer(roomId) {
       }
     }
   }, 1000);
-  
+
   caseReadingTimers.set(roomId, timer);
-  
+
   // Send initial timer state
   io.to(roomId).emit('case-reading-timer-update', {
     timeLeft
@@ -296,20 +296,20 @@ function startNextRoundTimer(roomId) {
   if (nextRoundTimers.has(roomId)) {
     clearInterval(nextRoundTimers.get(roomId));
   }
-  
+
   let timeLeft = 60; // 60 seconds to get ready for next round
-  
+
   // Initialize timer values
   if (!timerValues.has(roomId)) {
     timerValues.set(roomId, {});
   }
   const roomTimerData = timerValues.get(roomId);
   roomTimerData.nextRoundTime = timeLeft;
-  
+
   const timer = setInterval(() => {
     timeLeft -= 1;
     roomTimerData.nextRoundTime = timeLeft;
-    
+
     // Check if game has ended - stop timer if so
     const room = gameRooms.get(roomId);
     if (!room || isGameEnded(room)) {
@@ -321,12 +321,12 @@ function startNextRoundTimer(roomId) {
       }
       return;
     }
-    
+
     // Broadcast timer update to all players in the room
     io.to(roomId).emit('next-round-timer-update', {
       timeLeft
     });
-    
+
     if (timeLeft <= 0) {
       console.log(`Next round timer expired for room ${roomId}, checking if game ended before auto-starting`);
       clearInterval(timer);
@@ -334,7 +334,7 @@ function startNextRoundTimer(roomId) {
       if (timerValues.has(roomId)) {
         delete timerValues.get(roomId).nextRoundTime;
       }
-      
+
       // Double-check game hasn't ended before auto-starting
       const currentRoom = gameRooms.get(roomId);
       if (currentRoom && !isGameEnded(currentRoom)) {
@@ -346,9 +346,9 @@ function startNextRoundTimer(roomId) {
       }
     }
   }, 1000);
-  
+
   nextRoundTimers.set(roomId, timer);
-  
+
   // Send initial timer state
   io.to(roomId).emit('next-round-timer-update', {
     timeLeft
@@ -369,13 +369,13 @@ function stopNextRoundTimer(roomId) {
 // Check if a game has ended (utility function)
 function isGameEnded(room) {
   if (!room) return true;
-  
+
   // Check if game is explicitly marked as ended
   if (room.gameEnded === true) return true;
-  
+
   const playerWins = Object.values(room.playerScores || {});
   const maxPlayerWins = Math.max(...(playerWins.length > 0 ? playerWins : [0]));
-  
+
   // Game ends when someone wins 2 rounds OR we've completed more than max rounds
   // (max rounds is 3, so only end if currentRound > 3, meaning we're past round 3)
   return maxPlayerWins >= 2 || room.currentRound > room.maxRounds;
@@ -384,41 +384,41 @@ function isGameEnded(room) {
 // Clean up all timers and resources for a room when game ends
 function cleanupRoomTimers(roomId) {
   console.log(`[CLEANUP] Starting cleanup for room ${roomId}`);
-  
+
   // Stop argument timer
   if (roomTimers.has(roomId)) {
     clearInterval(roomTimers.get(roomId));
     roomTimers.delete(roomId);
     console.log(`[CLEANUP] Cleared argument timer for room ${roomId}`);
   }
-  
+
   // Stop case reading timer
   if (caseReadingTimers.has(roomId)) {
     clearInterval(caseReadingTimers.get(roomId));
     caseReadingTimers.delete(roomId);
     console.log(`[CLEANUP] Cleared case reading timer for room ${roomId}`);
   }
-  
+
   // Stop next round timer
   if (nextRoundTimers.has(roomId)) {
     clearInterval(nextRoundTimers.get(roomId));
     nextRoundTimers.delete(roomId);
     console.log(`[CLEANUP] Cleared next round timer for room ${roomId}`);
   }
-  
+
   // Clear auto-start timer
   if (autoStartTimers.has(roomId)) {
     clearTimeout(autoStartTimers.get(roomId));
     autoStartTimers.delete(roomId);
     console.log(`[CLEANUP] Cleared auto-start timer for room ${roomId}`);
   }
-  
+
   // Clear all timer values
   if (timerValues.has(roomId)) {
     timerValues.delete(roomId);
     console.log(`[CLEANUP] Cleared timer values for room ${roomId}`);
   }
-  
+
   console.log(`[CLEANUP] All timers cleaned up for room ${roomId}`);
 }
 
@@ -426,23 +426,23 @@ function cleanupRoomTimers(roomId) {
 function startNextRound(roomId) {
   const room = gameRooms.get(roomId);
   if (!room) return;
-  
+
   // Check if game has already ended - prevent starting new rounds
   if (isGameEnded(room)) {
     console.log(`Preventing startNextRound for room ${roomId} - game has already ended`);
     cleanupRoomTimers(roomId);
     return;
   }
-  
+
   // Clear auto-start timer if it exists
   if (autoStartTimers.has(roomId)) {
     clearTimeout(autoStartTimers.get(roomId));
     autoStartTimers.delete(roomId);
   }
-  
+
   // Clear next round timer if it exists
   stopNextRoundTimer(roomId);
-  
+
   // Clear readiness tracking
   delete room.nextRoundReady;
   // Notify all clients that readiness has been reset
@@ -451,17 +451,17 @@ function startNextRound(roomId) {
   });
   // Start the round
   room.currentTurn = 'prosecutor';
-  
+
   // Generate comprehensive player data
   const playersData = formatPlayerData(room);
-  
+
   io.to(roomId).emit('next-round-started', {
     round: room.currentRound,
     scores: room.scores,
     players: room.players,
     playerData: playersData // NEW: Comprehensive player data
   });
-  
+
   // Start timer for the new round
   setTimeout(() => {
     // Double-check game hasn't ended while we were waiting
@@ -507,7 +507,7 @@ function generateCase() {
       defenderSide: "FreshMarket Startup"
     }
   ];
-  
+
   return cases[Math.floor(Math.random() * cases.length)];
 }
 
@@ -541,12 +541,12 @@ async function callAIForAnalysis(attackArguments, defenseArguments) {
     throw error;
   }
   */
-  
+
   console.log('Calling AI for analysis with:', {
     prosecutorArgs: attackArguments.length,
     defenderArgs: defenseArguments.length
   });
-  
+
   // Mock AI response - replace this with actual AI call later
   const mockAIResponse = {
     "Prosecutor": {
@@ -561,10 +561,10 @@ async function callAIForAnalysis(attackArguments, defenseArguments) {
     },
     "Analysis": "The prosecutor presented stronger arguments overall, particularly in Argument 3, which was both impactful and well-structured. The defender, however, made a solid point in Argument 1 but lacked consistency in the following arguments. Overall, the debate was fairly balanced but slightly favored the prosecutor."
   };
-  
+
   // Simulate network delay
   await new Promise(resolve => setTimeout(resolve, 1000));
-  
+
   return mockAIResponse;
 }
 
@@ -575,17 +575,17 @@ function processAIAnalysis(aiResponse) {
     if (!aiResponse || typeof aiResponse !== 'object') {
       throw new Error('Invalid AI response: not an object');
     }
-    
+
     if (!aiResponse.Prosecutor || !aiResponse.Defender) {
       throw new Error('Invalid AI response: missing Prosecutor or Defender sections');
     }
-    
+
     // Extract and sum prosecutor scores
     const prosecutorScores = Object.values(aiResponse.Prosecutor || {});
     if (prosecutorScores.length === 0) {
       throw new Error('Invalid AI response: no prosecutor scores found');
     }
-    
+
     const prosecutorScore = prosecutorScores.reduce((sum, score) => {
       const numScore = parseFloat(score);
       if (isNaN(numScore)) {
@@ -593,13 +593,13 @@ function processAIAnalysis(aiResponse) {
       }
       return sum + numScore;
     }, 0);
-    
+
     // Extract and sum defender scores
     const defenderScores = Object.values(aiResponse.Defender || {});
     if (defenderScores.length === 0) {
       throw new Error('Invalid AI response: no defender scores found');
     }
-    
+
     const defenderScore = defenderScores.reduce((sum, score) => {
       const numScore = parseFloat(score);
       if (isNaN(numScore)) {
@@ -607,13 +607,13 @@ function processAIAnalysis(aiResponse) {
       }
       return sum + numScore;
     }, 0);
-    
+
     // Determine winner based on total scores
     const winner = prosecutorScore > defenderScore ? 'prosecutor' : 'defender';
-    
+
     // Get analysis from AI response
     const analysis = aiResponse.Analysis || "Analysis not provided by AI.";
-    
+
     console.log('AI Analysis processed successfully:', {
       prosecutorScore: prosecutorScore.toFixed(1),
       defenderScore: defenderScore.toFixed(1),
@@ -622,7 +622,7 @@ function processAIAnalysis(aiResponse) {
       prosecutorIndividualScores: prosecutorScores,
       defenderIndividualScores: defenderScores
     });
-    
+
     return {
       prosecutorScore: Math.round(prosecutorScore * 10) / 10,
       defenderScore: Math.round(defenderScore * 10) / 10,
@@ -631,11 +631,11 @@ function processAIAnalysis(aiResponse) {
     };
   } catch (error) {
     console.error('Error processing AI analysis:', error);
-    
+
     // Fallback to random scoring if AI processing fails
     const fallbackProsecutorScore = Math.random() * 30; // 0-30 range for 3 arguments
     const fallbackDefenderScore = Math.random() * 30;
-    
+
     return {
       prosecutorScore: Math.round(fallbackProsecutorScore * 10) / 10,
       defenderScore: Math.round(fallbackDefenderScore * 10) / 10,
@@ -650,22 +650,22 @@ async function analyzeArgumentsAndDetermineWinner(attackArguments, defenseArgume
   try {
     // Call AI service to get analysis
     const aiResponse = await callAIForAnalysis(attackArguments, defenseArguments);
-    
+
     // Process the AI response to get final scores
     const result = processAIAnalysis(aiResponse);
-    
+
     console.log('Final analysis result:', result);
     return result;
-    
+
   } catch (error) {
     console.error('Error in AI analysis:', error);
-    
+
     // Fallback to the old random method if AI fails
     console.log('Falling back to random scoring due to AI error');
-    
+
     let prosecutorScore = 0;
     let defenderScore = 0;
-    
+
     // Simple fallback scoring
     attackArguments.forEach((arg) => {
       const strength = Math.random() * 10;
@@ -673,26 +673,26 @@ async function analyzeArgumentsAndDetermineWinner(attackArguments, defenseArgume
       const keywordBonus = (arg.content.match(/evidence|proof|violation|contract|law|precedent|liability|damages|breach/gi) || []).length;
       prosecutorScore += strength + lengthBonus + keywordBonus;
     });
-    
+
     defenseArguments.forEach((arg) => {
       const strength = Math.random() * 10;
       const lengthBonus = Math.min(arg.content.length / 25, 5);
       const keywordBonus = (arg.content.match(/defense|innocent|false|unfair|rights|freedom|justified|legal|proper/gi) || []).length;
       defenderScore += strength + lengthBonus + keywordBonus;
     });
-    
+
     prosecutorScore += Math.random() * 5;
     defenderScore += Math.random() * 5;
-    
+
     const prosecutorAvg = (prosecutorScore / attackArguments.length).toFixed(1);
     const defenderAvg = (defenderScore / defenseArguments.length).toFixed(1);
     const winner = prosecutorScore > defenderScore ? 'prosecutor' : 'defender';
-    
+
     let analysis = `After analyzing ${attackArguments.length + defenseArguments.length} arguments across 3 exchanges:\n\n`;
     analysis += `🔥 Prosecutor averaged ${prosecutorAvg} points per argument with strong ${attackArguments.length > 0 ? (attackArguments[0].content.match(/evidence|proof|violation/gi) || []).length > 0 ? 'factual' : 'strategic' : 'legal'} positioning.\n`;
     analysis += `🛡️ Defender averaged ${defenderAvg} points per argument with effective ${defenseArguments.length > 0 ? (defenseArguments[0].content.match(/rights|freedom|unfair/gi) || []).length > 0 ? 'rights-based' : 'defensive' : 'legal'} rebuttals.\n\n`;
     analysis += `The ${winner} presented the more compelling case through stronger argumentation and legal reasoning.`;
-    
+
     return {
       prosecutorScore: Math.round(prosecutorScore * 10) / 10,
       defenderScore: Math.round(defenderScore * 10) / 10,
@@ -710,7 +710,7 @@ io.on('connection', (socket) => {
   socket.on('create-room', (playerData) => {
     const roomId = generateRoomId();
     const gameCase = generateCase();
-    
+
     const room = {
       id: roomId,
       players: [{
@@ -731,10 +731,10 @@ io.on('connection', (socket) => {
       currentTurn: 'prosecutor', // Track whose turn it is
       createdAt: new Date()
     };
-    
+
     gameRooms.set(roomId, room);
     socket.join(roomId);
-    
+
     socket.emit('room-created', { roomId, room });
     console.log(`Room ${roomId} created by ${playerData.name} with case: ${gameCase.title}`);
   });
@@ -743,32 +743,32 @@ io.on('connection', (socket) => {
   socket.on('join-room', (data) => {
     const { roomId, playerData } = data;
     const room = gameRooms.get(roomId);
-    
+
     if (!room) {
       socket.emit('join-error', { message: 'Room not found' });
       return;
     }
-    
+
     if (room.players.length >= 2) {
       socket.emit('join-error', { message: 'Room is full' });
       return;
     }
-    
+
     if (room.gameState !== 'waiting') {
       socket.emit('join-error', { message: 'Game already in progress' });
       return;
     }
-    
+
     // Check for duplicate usernames (case-insensitive)
-    const existingPlayer = room.players.find(player => 
+    const existingPlayer = room.players.find(player =>
       player.name.toLowerCase() === playerData.name.toLowerCase()
     );
-    
+
     if (existingPlayer) {
       socket.emit('join-error', { message: 'Username already taken in this room' });
       return;
     }
-    
+
     // Add player to room
     room.players.push({
       id: socket.id,
@@ -776,9 +776,9 @@ io.on('connection', (socket) => {
       avatar: playerData.avatar,
       ready: false
     });
-    
+
     socket.join(roomId);
-    
+
     // Notify all players in the room
     io.to(roomId).emit('room-updated', room);
     console.log(`${playerData.name} joined room ${roomId}`);
@@ -789,46 +789,46 @@ io.on('connection', (socket) => {
     console.log('Player ready event received:', data, 'from socket:', socket.id);
     const { roomId } = data;
     const room = gameRooms.get(roomId);
-    
+
     if (room) {
       const player = room.players.find(p => p.id === socket.id);
       if (player) {
         console.log(`Player ${player.name} toggling ready from ${player.ready} to ${!player.ready}`);
         player.ready = !player.ready;
-        
+
         console.log('Room players ready status:', room.players.map(p => ({ name: p.name, ready: p.ready })));
-        
+
         // Check if both players are ready
         if (room.players.length === 2 && room.players.every(p => p.ready)) {
           console.log('Both players ready! Setting game state to starting');
           room.gameState = 'starting';
-          
+
           // Assign roles randomly
           const roles = ['prosecutor', 'defender'];
           const shuffledRoles = Math.random() < 0.5 ? roles : roles.reverse();
-          
+
           room.players[0].role = shuffledRoles[0];
           room.players[1].role = shuffledRoles[1];
-          
+
           // Store original roles immediately when first assigned
           room.players[0].originalRole = shuffledRoles[0];
           room.players[1].originalRole = shuffledRoles[1];
-          
+
           // Initialize display roles to match original roles (Round 1)
           room.players[0].displayRole = shuffledRoles[0];
           room.players[1].displayRole = shuffledRoles[1];
-          
-          console.log('Roles assigned:', room.players.map(p => ({ 
-            name: p.name, 
-            role: p.role, 
+
+          console.log('Roles assigned:', room.players.map(p => ({
+            name: p.name,
+            role: p.role,
             originalRole: p.originalRole,
-            displayRole: p.displayRole 
+            displayRole: p.displayRole
           })));
-          
+
           // Transition to case-reading phase and start case reading timer
           room.gameState = 'case-reading';
           startCaseReadingTimer(roomId);
-          
+
           io.to(roomId).emit('game-starting', room);
         } else {
           console.log('Emitting room-updated event');
@@ -847,7 +847,7 @@ io.on('connection', (socket) => {
     console.log('Case reading ready event received:', data, 'from socket:', socket.id);
     const { roomId, ready } = data;
     const room = gameRooms.get(roomId);
-    
+
     if (room) {
       const player = room.players.find(p => p.id === socket.id);
       if (player) {
@@ -856,31 +856,47 @@ io.on('connection', (socket) => {
           player.caseReadingReady = false;
         }
         player.caseReadingReady = ready;
-        
+
         console.log(`Player ${player.name} case reading ready: ${ready}`);
         console.log('Room players case reading status:', room.players.map(p => ({ name: p.name, caseReadingReady: p.caseReadingReady })));
-        
+
         // Emit individual player ready state to all players
         io.to(roomId).emit('playerReady', {
           playerId: socket.id,
           playerName: player.name,
           ready: ready
         });
-        
+
         // Check if both players are ready for case reading
         if (room.players.length === 2 && room.players.every(p => p.caseReadingReady)) {
           console.log('Both players ready for case reading! Starting game');
-          
+
           // Stop case reading timer since players are ready
           stopCaseReadingTimer(roomId);
-          
+
           room.gameState = 'arguing';
           room.currentTurn = 'prosecutor'; // Start with prosecutor
-          
+
           // Start the argument timer
           startArgumentTimer(roomId, 'prosecutor');
-          
-          io.to(roomId).emit('bothPlayersReady');
+
+          // Prepare the full game state object
+          const playersData = formatPlayerData(room);
+          const gameState = {
+            gamePhase: 'arguing',
+            currentTurn: room.currentTurn,
+            arguments: room.roundArguments ? room.roundArguments.filter(arg => arg.round === room.currentRound) : [],
+            allRoundArguments: room.roundArguments || [],
+            currentRound: room.currentRound,
+            maxRounds: room.maxRounds,
+            scores: room.scores,
+            playerScores: room.playerScores,
+            playerData: playersData,
+            case: room.case,
+            roundHistory: room.roundHistory || [],
+            // Add timer info if needed
+          };
+          io.to(roomId).emit('game-state', gameState);
         }
       } else {
         console.log('Player not found in room for case reading ready');
@@ -894,88 +910,110 @@ io.on('connection', (socket) => {
   socket.on('submit-argument', async (data) => {
     const { roomId, argument } = data;
     console.log('Argument submitted for room:', roomId, 'by player:', argument.playerName);
-    
+
     const room = gameRooms.get(roomId);
     if (room) {
       // Initialize round arguments if needed
       if (!room.roundArguments) {
         room.roundArguments = [];
       }
-      
+
       // Add argument to current round
       room.roundArguments.push({
         ...argument,
         round: room.currentRound
       });
-      
+
       // Stop the current timer since an argument was submitted
       stopArgumentTimer(roomId);
-      
+
       // Switch turns
       room.currentTurn = room.currentTurn === 'prosecutor' ? 'defender' : 'prosecutor';
-      
+
       // Broadcast argument to all players in room with turn update
       io.to(roomId).emit('game-argument', {
         ...argument,
         round: room.currentRound,
         nextTurn: room.currentTurn
       });
-      
+
       // Send explicit turn update to ensure all clients are synchronized
       console.log(`Broadcasting turn update to all clients in room ${roomId}: turn is now ${room.currentTurn}`);
       io.to(roomId).emit('turn-update', {
         currentTurn: room.currentTurn,
         round: room.currentRound
       });
-      
+
       // Check if round should end (6 arguments per round - 3 from each player)
       const currentRoundArgs = room.roundArguments.filter(arg => arg.round === room.currentRound);
       const prosecutorArgs = currentRoundArgs.filter(arg => arg.type === 'attack');
       const defenderArgs = currentRoundArgs.filter(arg => arg.type === 'defense');
-      
+
       console.log(`Round ${room.currentRound} progress: Total args: ${currentRoundArgs.length}, Prosecutor: ${prosecutorArgs.length}/3, Defender: ${defenderArgs.length}/3`);
       console.log('Current round arguments:', currentRoundArgs.map(arg => ({ player: arg.playerName, type: arg.type, round: arg.round })));
-      
+
       if (prosecutorArgs.length >= 3 && defenderArgs.length >= 3) {
         console.log(`Round ${room.currentRound} ready for analysis with ${prosecutorArgs.length} prosecutor args and ${defenderArgs.length} defender args`);
-        
+
         // Stop any active timer since round is complete
         stopArgumentTimer(roomId);
-        
+
         // Analyze arguments and determine round winner (now async)
         const roundResult = await analyzeArgumentsAndDetermineWinner(prosecutorArgs, defenderArgs);
-        
+
         // Initialize player-based scores if needed
-        if (!room.playerScores) {
-          room.playerScores = {};
-        }
-        
-        // Update player-based scores (tracks wins by actual player, not role)
-        // Find the player who was playing the winning role this round
-        const winningPlayer = room.players.find(p => p.role === roundResult.winner);
-        if (winningPlayer) {
-          if (!room.playerScores[winningPlayer.id]) {
-            room.playerScores[winningPlayer.id] = 0;
-          }
-          room.playerScores[winningPlayer.id] += 1;
-          console.log(`SERVER: Player ${winningPlayer.name} (${winningPlayer.id}) wins round ${room.currentRound} as ${roundResult.winner}. Player now has ${room.playerScores[winningPlayer.id]} wins.`);
-        }
-        
-        // Update role-based scores for UI compatibility (based on original roles, not current roles)
-        const originalProsecutorPlayer = room.players.find(p => p.originalRole === 'prosecutor');
-        const originalDefenderPlayer = room.players.find(p => p.originalRole === 'defender');
-        
-        room.scores.prosecutor = originalProsecutorPlayer ? (room.playerScores[originalProsecutorPlayer.id] || 0) : 0;
-        room.scores.defender = originalDefenderPlayer ? (room.playerScores[originalDefenderPlayer.id] || 0) : 0;
-        
-        console.log(`Round ${room.currentRound} complete. Winner: ${roundResult.winner}. Role-based scores: ${room.scores.prosecutor}-${room.scores.defender}. Player scores:`, 
-          Object.entries(room.playerScores).map(([id, score]) => {
-            const player = room.players.find(p => p.id === id);
-            return `${player ? player.name : id}: ${score}`;
-          }).join(', ')
-        );
-        
-        // Store round history for comprehensive tracking
+    if (room) {
+      // Initialize round arguments if needed
+      if (!room.roundArguments) {
+        room.roundArguments = [];
+      }
+
+      // Add argument to current round
+      room.roundArguments.push({
+        ...argument,
+        round: room.currentRound
+      });
+
+      // Stop the current timer since an argument was submitted
+      stopArgumentTimer(roomId);
+
+      // Switch turns
+      room.currentTurn = room.currentTurn === 'prosecutor' ? 'defender' : 'prosecutor';
+
+      // Prepare the full game state object after argument submission
+      const playersData = formatPlayerData(room);
+      const gameState = {
+        gamePhase: 'arguing',
+        currentTurn: room.currentTurn,
+        arguments: room.roundArguments ? room.roundArguments.filter(arg => arg.round === room.currentRound) : [],
+        allRoundArguments: room.roundArguments || [],
+        currentRound: room.currentRound,
+        maxRounds: room.maxRounds,
+        scores: room.scores,
+        playerScores: room.playerScores,
+        playerData: playersData,
+        case: room.case,
+        roundHistory: room.roundHistory || [],
+        // Add timer info if needed
+      };
+      io.to(roomId).emit('game-state', gameState);
+
+      // Check if round should end (6 arguments per round - 3 from each player)
+      const currentRoundArgs = room.roundArguments.filter(arg => arg.round === room.currentRound);
+      const prosecutorArgs = currentRoundArgs.filter(arg => arg.type === 'attack');
+      const defenderArgs = currentRoundArgs.filter(arg => arg.type === 'defense');
+
+      console.log(`Round ${room.currentRound} progress: Total args: ${currentRoundArgs.length}, Prosecutor: ${prosecutorArgs.length}/3, Defender: ${defenderArgs.length}/3`);
+      console.log('Current round arguments:', currentRoundArgs.map(arg => ({ player: arg.playerName, type: arg.type, round: arg.round })));
+
+      if (prosecutorArgs.length >= 3 && defenderArgs.length >= 3) {
+        // ...existing code for round end and game-state emission...
+      }
+    }
+
+        // Fix: define argumentScores as an empty array for now to prevent ReferenceError
+        const argumentScores = [];
+        // TODO: Populate argumentScores with actual data if needed
         const roundData = {
           round: room.currentRound,
           winner: roundResult.winner,
@@ -983,14 +1021,15 @@ io.on('connection', (socket) => {
           defenderScore: roundResult.defenderScore,
           analysis: roundResult.analysis,
           playerRoles: {}, // Track which player had which role this round
-          arguments: currentRoundArgs
+          arguments: currentRoundArgs,
+          argumentScores // Ordered array for client (currently empty)
         };
-        
+
         // Record player roles for this round
         room.players.forEach(player => {
           roundData.playerRoles[player.id] = player.role;
         });
-        
+
         // Initialize round history if needed
         if (!room.roundHistory) {
           room.roundHistory = [];
@@ -1005,7 +1044,7 @@ io.on('connection', (socket) => {
         // Track individual player performance scores
         const prosecutorPlayer = room.players.find(p => p.role === 'prosecutor');
         const defenderPlayer = room.players.find(p => p.role === 'defender');
-        
+
         if (prosecutorPlayer) {
           if (!room.playerPerformance[prosecutorPlayer.id]) {
             room.playerPerformance[prosecutorPlayer.id] = { totalScore: 0, rounds: 0 };
@@ -1013,7 +1052,7 @@ io.on('connection', (socket) => {
           room.playerPerformance[prosecutorPlayer.id].totalScore += roundResult.prosecutorScore;
           room.playerPerformance[prosecutorPlayer.id].rounds += 1;
         }
-        
+
         if (defenderPlayer) {
           if (!room.playerPerformance[defenderPlayer.id]) {
             room.playerPerformance[defenderPlayer.id] = { totalScore: 0, rounds: 0 };
@@ -1028,7 +1067,7 @@ io.on('connection', (socket) => {
         // Detailed player information logging - NOW SAFE TO ACCESS playerPerformance
         console.log('\n=== ROUND END PLAYER DETAILS ===');
         console.log(`Room ID: ${roomId} | Round: ${room.currentRound}`);
-        
+
         Object.values(playersData).forEach(playerData => {
           console.log(`Player: ${playerData.name}`);
           console.log(`  - Socket ID: ${playerData.id}`);
@@ -1043,243 +1082,59 @@ io.on('connection', (socket) => {
           console.log(`  - Rounds Played: ${playerData.rounds_played}`);
           console.log('');
         });
-        
+
         console.log(`Round Analysis: ${roundResult.analysis}`);
         console.log('=== END ROUND DETAILS ===\n');
 
         // Add a small delay before broadcasting round completion to ensure all clients have processed arguments
         setTimeout(() => {
-          console.log(`Broadcasting round-complete to ALL clients in room ${roomId}`);
-          
-          // Broadcast round results with comprehensive player data
-          io.to(roomId).emit('round-complete', {
+          // Check if game should end - use player-based scoring
+          const playerWins = Object.values(room.playerScores || {});
+          const maxPlayerWins = Math.max(...(playerWins.length > 0 ? playerWins : [0]));
+          const shouldEndGame =
+            maxPlayerWins >= 2 ||
+            room.currentRound > room.maxRounds;
+
+          // Prepare the full game state object
+          const gameState = {
+            phase: shouldEndGame ? 'game-over' : 'round-complete',
             round: room.currentRound,
-            winner: roundResult.winner,
-            scores: room.scores, // Role-based scores for UI compatibility
-            playerScores: room.playerScores, // Player-based scores for accuracy
-            playerData: playersData, // NEW: Comprehensive player data
+            winner: shouldEndGame ? (() => {
+              let gameWinner = null;
+              let winningPlayerId = null;
+              let maxWins = 0;
+              for (const [playerId, wins] of Object.entries(room.playerScores || {})) {
+                if (wins > maxWins) {
+                  maxWins = wins;
+                  winningPlayerId = playerId;
+                }
+              }
+              if (winningPlayerId && maxWins > 0) {
+                const winningPlayer = room.players.find(p => p.id === winningPlayerId);
+                return winningPlayer?.originalRole;
+              } else {
+                return 'tie';
+              }
+            })() : roundResult.winner,
+            scores: room.scores,
+            playerScores: room.playerScores,
+            playerData: playersData,
             analysis: roundResult.analysis,
             prosecutorScore: roundResult.prosecutorScore,
             defenderScore: roundResult.defenderScore,
-            roundHistory: room.roundHistory // Include full round history
-          });
-          
-          console.log(`Round complete event sent to room ${roomId} with ${Object.keys(playersData).length} players`);
-        }, 500); // 500ms delay to ensure all clients are ready        // Check if game should end - use player-based scoring
-        const playerWins = Object.values(room.playerScores || {});
-        const maxPlayerWins = Math.max(...(playerWins.length > 0 ? playerWins : [0]));
-        
-        // Game should end if someone has 2 wins OR we've completed more than max rounds
-        // For a 1-1 tie, we need to allow round 3 to start, then check again after round 3
-        const shouldEndGame = 
-          maxPlayerWins >= 2 || 
-          room.currentRound > room.maxRounds;
-        
-        console.log(`SERVER: Checking game end conditions. Max player wins: ${maxPlayerWins}, Current round: ${room.currentRound}, Should end: ${shouldEndGame}`);
-        
-        if (shouldEndGame) {
-          // Determine overall winner based on player scores
-          let gameWinner = null;
-          let winningPlayerId = null;
-          let maxWins = 0;
-          
-          for (const [playerId, wins] of Object.entries(room.playerScores || {})) {
-            if (wins > maxWins) {
-              maxWins = wins;
-              winningPlayerId = playerId;
-            }
-          }
-          
-          if (winningPlayerId && maxWins > 0) {
-            const winningPlayer = room.players.find(p => p.id === winningPlayerId);
-            const winningPlayerOriginalRole = winningPlayer?.originalRole;
-            gameWinner = winningPlayerOriginalRole; // Send 'prosecutor' or 'defender' for UI compatibility
-            console.log(`SERVER: Game winner determined: ${winningPlayer?.name} (original role: ${gameWinner}) with ${maxWins} wins`);
-          } else {
-            gameWinner = 'tie';
-            console.log(`SERVER: Game ends in tie`);
-          }
-          
-          // Immediately clean up all timers when game ends
-          console.log(`SERVER: Game ended - cleaning up room ${roomId}`);
-          cleanupRoomTimers(roomId);
-          
+            roundHistory: room.roundHistory,
+            // Add any other relevant state fields here
+          };
+
           // Mark the room as ended to prevent any further game actions
-          room.gameEnded = true;
-          
-          // Generate final comprehensive player data
-          const finalPlayersData = formatPlayerData(room);
-          
-          setTimeout(() => {
-            io.to(roomId).emit('game-end', { 
-              winner: gameWinner,
-              finalScores: room.scores, // Keep role-based scores for UI compatibility
-              playerScores: room.playerScores, // Add player-based scores
-              playerData: finalPlayersData, // NEW: Comprehensive final player data
-              roundHistory: room.roundHistory, // Complete round history
-              message: gameWinner === 'tie' ? 'The battle ends in a tie!' : `${gameWinner} wins the battle!`
-            });
-          }, 3000);
-        } else {
-          // Start next round with role switching logic
-          const currentCompletedRound = room.currentRound; // Store current round before incrementing
-          room.currentRound += 1;
-          
-          // Initialize next round readiness tracking
-          room.nextRoundReady = {};
-          room.players.forEach(player => {
-            room.nextRoundReady[player.id] = false;
-          });
-                    // Notify all clients about their initial ready state (false)
-          io.to(roomId).emit('next-round-ready-state-reset', {
-            readyStates: room.nextRoundReady
-          });
-          // Start next round timer (60 seconds)
-          startNextRoundTimer(roomId);
-          
-          // Start 1-minute auto-start timer (fallback)
-          const autoStartTimer = setTimeout(() => {
-            const currentRoom = gameRooms.get(roomId);
-            if (currentRoom && currentRoom.nextRoundReady) {
-              // Check if game has ended using the utility function
-              if (!isGameEnded(currentRoom)) {
-                console.log(`Auto-starting round ${currentRoom.currentRound} after 1 minute timeout`);
-                startNextRound(roomId);
-              } else {
-                console.log(`Preventing auto-start for room ${roomId} - game has already ended`);
-                cleanupRoomTimers(roomId);
-              }
-            }
-          }, 60000); // 1 minute
-          
-          // Store timer separately to avoid circular references in Socket.IO
-          autoStartTimers.set(roomId, autoStartTimer);
-          
-          // Determine if roles should switch based on the completed round
-          if (currentCompletedRound === 1) {
-            // Round 1 just completed: Switch roles for Round 2
-            console.log('Round 1 completed: Switching roles for Round 2');
-            
-            // Switch roles immediately after round complete
-            room.players.forEach(player => {
-              // Ensure originalRole is preserved
-              if (!player.originalRole) {
-                player.originalRole = player.role; // Store original role if somehow missing
-              }
-              // Switch both display role and current role (opposite of original role)
-              player.displayRole = player.originalRole === 'prosecutor' ? 'defender' : 'prosecutor';
-              player.role = player.originalRole === 'prosecutor' ? 'defender' : 'prosecutor';
-              console.log(`Player ${player.name}: originalRole=${player.originalRole}, displayRole=${player.displayRole}, role=${player.role}`);
-            });
-            
-            // Generate updated player data after role switch
-            const round2PlayersData = formatPlayerData(room);
-            
-            // Send updated player data to clients immediately with role switch message
-            io.to(roomId).emit('players-updated', {
-              round: room.currentRound,
-              scores: room.scores,
-              players: room.players,
-              playerData: round2PlayersData, // NEW: Comprehensive player data
-              message: 'Roles have been switched for Round 2!'
-            });
-            
-          } else if (currentCompletedRound === 2) {
-            // Round 2 just completed: Preparing for Round 3
-            console.log('Round 2 completed: Preparing for Round 3');
-            
-            // Check if it's a tie using player-based scores
-            const playerScores = Object.values(room.playerScores || {});
-            const isTie = playerScores.length === 2 && playerScores.every(score => score === 1);
-            
-            console.log(`SERVER: Round 2 completed, checking for tie. Player scores:`, room.playerScores, `Is tie: ${isTie}`);
-            
-            if (isTie) {
-              // It's a draw, let the better performer choose side
-              console.log('Round 3: Draw detected, allowing side choice');
-              
-              // Find the player with better average performance
-              let bestPlayerId = null;
-              let bestAverage = -1;
-              
-              for (const [playerId, performance] of Object.entries(room.playerPerformance)) {
-                const average = performance.totalScore / performance.rounds;
-                if (average > bestAverage) {
-                  bestAverage = average;
-                  bestPlayerId = playerId;
-                }
-              }
-              
-              if (bestPlayerId) {
-                const chooserPlayer = room.players.find(p => p.id === bestPlayerId);
-                console.log(`Player ${chooserPlayer.name} gets to choose side for round 3`);
-                
-                // Set room state to waiting for side choice
-                room.waitingForSideChoice = {
-                  playerId: bestPlayerId,
-                  playerName: chooserPlayer.name
-                };
-                
-                // Generate player data for Round 2 completion
-                const round2CompletePlayersData = formatPlayerData(room);
-                
-                // Send players-updated event with NO role switch message for Round 2 completion
-                io.to(roomId).emit('players-updated', {
-                  round: room.currentRound,
-                  scores: room.scores,
-                  players: room.players,
-                  playerData: round2CompletePlayersData, // NEW: Comprehensive player data
-                  message: '' // No message for Round 2 completion
-                });
-                
-                setTimeout(() => {
-                  const sideChoicePlayersData = formatPlayerData(room);
-                  io.to(roomId).emit('side-choice-needed', {
-                    round: room.currentRound,
-                    scores: room.scores,
-                    chooserPlayerId: bestPlayerId,
-                    chooserPlayerName: chooserPlayer.name,
-                    playerData: sideChoicePlayersData, // NEW: Comprehensive player data
-                    playerPerformance: room.playerPerformance
-                  });
-                }, 3000);
-              }
-            } else {
-              // Round 2 completed, not a tie - proceed to Round 3 with current roles
-              console.log('Round 3: Not a tie, proceeding with current roles');
-              
-              // Generate player data for Round 2 completion (no tie)
-              const round2NoTiePlayersData = formatPlayerData(room);
-              
-              // Send updated player data to clients with NO role switch message for Round 2 completion
-              io.to(roomId).emit('players-updated', {
-                round: room.currentRound,
-                scores: room.scores,
-                players: room.players,
-                playerData: round2NoTiePlayersData, // NEW: Comprehensive player data
-                message: '' // No message for Round 2 completion
-              });
-            }
-          } else {
-            // Other rounds (shouldn't happen in 3-round game, but just in case)
-            console.log(`Round ${currentCompletedRound} completed: No special handling needed`);
-            
-            // Generate player data for other rounds
-            const otherRoundPlayersData = formatPlayerData(room);
-            
-            // Send updated player data to clients (no message)
-            io.to(roomId).emit('players-updated', {
-              round: room.currentRound,
-              scores: room.scores,
-              players: room.players,
-              playerData: otherRoundPlayersData, // NEW: Comprehensive player data
-              message: '' // No message for other rounds
-            });
+          if (shouldEndGame) {
+            cleanupRoomTimers(roomId);
+            room.gameEnded = true;
           }
-        }
-      } else {
-        // Round not complete yet, start timer for next player's turn
-        startArgumentTimer(roomId, room.currentTurn);
+
+          // Emit the single game-state event
+          io.to(roomId).emit('game-state', gameState);
+        }, 500); // 500ms delay to ensure all clients are ready
       }
     }
   });
@@ -1288,12 +1143,12 @@ io.on('connection', (socket) => {
   socket.on('choose-side', (data) => {
     const { roomId, chosenSide } = data; // chosenSide: 'prosecutor' or 'defender'
     console.log('Side choice received for room:', roomId, 'side:', chosenSide, 'from socket:', socket.id);
-    
+
     const room = gameRooms.get(roomId);
     if (room && room.waitingForSideChoice && room.waitingForSideChoice.playerId === socket.id) {
       const chooserPlayer = room.players.find(p => p.id === socket.id);
       const otherPlayer = room.players.find(p => p.id !== socket.id);
-      
+
       if (chooserPlayer && otherPlayer) {
         // Ensure original roles are preserved
         if (!chooserPlayer.originalRole) {
@@ -1302,31 +1157,31 @@ io.on('connection', (socket) => {
         if (!otherPlayer.originalRole) {
           otherPlayer.originalRole = otherPlayer.role;
         }
-        
+
         // Assign display roles based on choice (keep original roles unchanged)
         chooserPlayer.displayRole = chosenSide;
         otherPlayer.displayRole = chosenSide === 'prosecutor' ? 'defender' : 'prosecutor';
-        
+
         // Also update the current role to match the chosen display role
         chooserPlayer.role = chosenSide;
         otherPlayer.role = chosenSide === 'prosecutor' ? 'defender' : 'prosecutor';
-        
+
         console.log(`Side choice complete:`);
         console.log(`${chooserPlayer.name}: originalRole=${chooserPlayer.originalRole}, displayRole=${chooserPlayer.displayRole}, role=${chooserPlayer.role}`);
         console.log(`${otherPlayer.name}: originalRole=${otherPlayer.originalRole}, displayRole=${otherPlayer.displayRole}, role=${otherPlayer.role}`);
-        
+
         // Clear the waiting state
         delete room.waitingForSideChoice;
-        
+
         // Clear readiness tracking for the new round
         delete room.nextRoundReady;
-        
+
         // Start the round
         room.currentTurn = 'prosecutor';
-        
+
         // Generate updated player data after role assignment
         const updatedPlayersData = formatPlayerData(room);
-        
+
         // Emit side choice complete first
         io.to(roomId).emit('side-choice-complete', {
           round: room.currentRound,
@@ -1336,7 +1191,7 @@ io.on('connection', (socket) => {
           chooserName: chooserPlayer.name,
           chosenSide: chosenSide
         });
-        
+
         // Then emit next round started to properly transition clients to arguing phase
         setTimeout(() => {
           const nextRoundPlayersData = formatPlayerData(room);
@@ -1346,7 +1201,7 @@ io.on('connection', (socket) => {
             players: room.players,
             playerData: nextRoundPlayersData // NEW: Comprehensive player data
           });
-          
+
           // Start timer for the new round
           setTimeout(() => {
             startArgumentTimer(roomId, 'prosecutor');
@@ -1360,57 +1215,57 @@ io.on('connection', (socket) => {
   socket.on('next-round-ready', (data) => {
     const { roomId } = data;
     console.log('Next round ready received for room:', roomId, 'from socket:', socket.id);
-    
+
     const room = gameRooms.get(roomId);
     if (!room || !room.nextRoundReady) {
       console.log('Room or nextRoundReady not found');
       return;
     }
-    
+
     const player = room.players.find(p => p.id === socket.id);
     if (!player) {
       console.log('Player not found in room');
       return;
     }
-    
+
     // Mark this player as ready
     room.nextRoundReady[socket.id] = true;
     console.log(`Player ${player.name} is now ready for round ${room.currentRound}`);
-    
+
     // Broadcast updated readiness to all players
     const readyCount = Object.values(room.nextRoundReady).filter(ready => ready).length;
     const totalPlayers = room.players.length;
-    
+
     io.to(roomId).emit('next-round-ready-update', {
       playerId: socket.id,
       playerName: player.name,
       readyCount: readyCount,
       totalPlayers: totalPlayers,
-            allReady: readyCount === totalPlayers,
+      allReady: readyCount === totalPlayers,
       readyStates: room.nextRoundReady // Send all player ready states
     });
-    
+
     // Check if both players are ready
     if (readyCount === totalPlayers) {
       console.log(`Both players ready for round ${room.currentRound}!`);
-      
+
       // Check if we're waiting for side choice - if so, don't start the round yet
       if (room.waitingForSideChoice) {
         console.log('Both players ready, but waiting for side choice. Not starting round yet.');
         return;
       }
-      
+
       console.log('Starting round...');
-      
+
       // Clear any auto-start timers since players are ready
       if (autoStartTimers.has(roomId)) {
         clearTimeout(autoStartTimers.get(roomId));
         autoStartTimers.delete(roomId);
       }
-      
+
       // Clear next round timer since players are ready
       stopNextRoundTimer(roomId);
-      
+
       // Start the next round after a brief delay
       setTimeout(() => {
         startNextRound(roomId);
@@ -1422,27 +1277,27 @@ io.on('connection', (socket) => {
   socket.on('interrupt-player', (data) => {
     const { roomId } = data;
     console.log('Interrupt event received for room:', roomId, 'from socket:', socket.id);
-    
+
     const room = gameRooms.get(roomId);
     if (room) {
       // Stop the timer
       stopArgumentTimer(roomId);
-      
+
       const previousTurn = room.currentTurn;
-      
+
       // Notify all players that an interrupt occurred (this will trigger client-side submission)
       io.to(roomId).emit('player-interrupted', {
         interruptedTurn: previousTurn,
         nextTurn: room.currentTurn === 'prosecutor' ? 'defender' : 'prosecutor'
       });
-      
+
       // Set a timeout to submit a fallback argument if no argument is received within 2 seconds
       setTimeout(() => {
         const currentRoom = gameRooms.get(roomId);
         if (currentRoom && currentRoom.currentTurn === previousTurn) {
           // Still the same turn, meaning no argument was submitted - use fallback
           console.log('No argument submitted after interrupt, using fallback');
-          
+
           const interruptedPlayer = currentRoom.players.find(p => p.role === previousTurn);
           if (interruptedPlayer) {
             const forcedArgument = {
@@ -1454,28 +1309,28 @@ io.on('connection', (socket) => {
               type: interruptedPlayer.role === 'prosecutor' ? 'attack' : 'defense',
               round: currentRoom.currentRound
             };
-            
+
             // Add forced argument to room
             if (!currentRoom.roundArguments) {
               currentRoom.roundArguments = [];
             }
             currentRoom.roundArguments.push(forcedArgument);
-            
+
             // Switch turns
             currentRoom.currentTurn = currentRoom.currentTurn === 'prosecutor' ? 'defender' : 'prosecutor';
-            
+
             // Broadcast the forced argument to all players
             io.to(roomId).emit('game-argument', {
               ...forcedArgument,
               round: currentRoom.currentRound,
               nextTurn: currentRoom.currentTurn
             });
-            
+
             // Check if round should end and continue game logic
             const currentRoundArgs = currentRoom.roundArguments.filter(arg => arg.round === currentRoom.currentRound);
             const prosecutorArgs = currentRoundArgs.filter(arg => arg.type === 'attack');
             const defenderArgs = currentRoundArgs.filter(arg => arg.type === 'defense');
-            
+
             if (prosecutorArgs.length < 3 || defenderArgs.length < 3) {
               // Round not complete yet, start timer for next player's turn
               console.log(`Starting timer for ${currentRoom.currentTurn} after fallback interrupt`);
@@ -1484,7 +1339,7 @@ io.on('connection', (socket) => {
           }
         }
       }, 2000); // 2 second grace period for client to submit their argument
-      
+
       console.log(`Interrupt signal sent for ${previousTurn} in room ${roomId}`);
     }
   });
@@ -1493,37 +1348,37 @@ io.on('connection', (socket) => {
   socket.on('request-timer-sync', (data) => {
     const { roomId } = data;
     const room = gameRooms.get(roomId);
-    
+
     if (!room) return;
-    
+
     // Check if game has ended - don't sync timers for ended games
     if (isGameEnded(room)) {
       console.log(`Timer sync requested for room ${roomId} but game has ended - ignoring`);
       return;
     }
-    
+
     console.log(`Timer sync requested for room ${roomId}`);
-    
+
     const roomTimerData = timerValues.get(roomId) || {};
-    
+
     // Send current timer states based on game phase and stored values
     if (room.gameState === 'case-reading' && caseReadingTimers.has(roomId)) {
       const timeLeft = roomTimerData.caseReadingTime || 120;
       socket.emit('case-reading-timer-update', { timeLeft });
       console.log(`Synced case reading timer: ${timeLeft}s`);
     }
-    
+
     if (roomTimers.has(roomId)) {
       const timeLeft = roomTimerData.argumentTime || 10;
       const phase = roomTimerData.phase || 1;
-      socket.emit('timer-update', { 
-        timeLeft, 
-        currentTurn: room.currentTurn, 
-        phase 
+      socket.emit('timer-update', {
+        timeLeft,
+        currentTurn: room.currentTurn,
+        phase
       });
       console.log(`Synced argument timer: ${timeLeft}s, phase: ${phase}`);
     }
-    
+
     if (nextRoundTimers.has(roomId)) {
       const timeLeft = roomTimerData.nextRoundTime || 60;
       socket.emit('next-round-timer-update', { timeLeft });
@@ -1534,31 +1389,31 @@ io.on('connection', (socket) => {
   // Handle disconnect
   socket.on('disconnect', () => {
     console.log('User disconnected:', socket.id);
-    
+
     // Remove player from any rooms
     for (const [roomId, room] of gameRooms.entries()) {
       const playerIndex = room.players.findIndex(p => p.id === socket.id);
       if (playerIndex !== -1) {
         room.players.splice(playerIndex, 1);
-        
+
         if (room.players.length === 0) {
           // Delete empty room and clean up all timers
           gameRooms.delete(roomId);
           stopArgumentTimer(roomId);
           stopCaseReadingTimer(roomId);
           stopNextRoundTimer(roomId);
-          
+
           // Clean up auto-start timer
           if (autoStartTimers.has(roomId)) {
             clearTimeout(autoStartTimers.get(roomId));
             autoStartTimers.delete(roomId);
           }
-          
+
           // Clean up timer values
           if (timerValues.has(roomId)) {
             timerValues.delete(roomId);
           }
-          
+
           console.log(`Room ${roomId} deleted - empty`);
         } else {
           // Notify remaining players
@@ -1576,13 +1431,13 @@ io.on('connection', (socket) => {
     const room = gameRooms.get(roomId);
     if (room) {
       console.log('Room found:', room.id, 'players:', room.players.map(p => p.name));
-      
+
       // Generate comprehensive player data if game has started
       const roomWithPlayerData = {
         ...room,
         playerData: formatPlayerData(room)
       };
-      
+
       socket.emit('room-info', roomWithPlayerData);
     } else {
       console.log('Room not found:', roomId);
