@@ -26,6 +26,7 @@ class Player {
     this.avatar = avatar;
     this.position = null; // 'left' or 'right'
     this.currentRole = null; // 'prosecutor' or 'defender'
+    this.lastRole = null;
     this.points = 0;
     this.ready = false;
     this.score = 0; // sum of argument scores
@@ -55,10 +56,8 @@ class GameRoom {
     this.caseDetails = null;
     this.players = [];
     this.turn = null; // player id whose turn it is
-    this.round = {
-      number: 1,
-      analysis: null
-    };
+    this.roundData = [];
+    this.round = 1;
     this.arguments = [];
     this.exchange = 1;
     this.argumentCount = 0;
@@ -175,6 +174,10 @@ class GameRoom {
         this.gameState = 'round-start';
         //this.startRound();
         break;
+      case 'round-over':
+        this.gameState = 'round-start';
+        //this.startRound();
+        break;
       case 'round-reading':
         this.gameState = 'round-start';
         //this.startRound();
@@ -217,13 +220,13 @@ class GameRoom {
     }
     console.log(`Player ${player.username} submitted argument: ${argument}`);
     // Add argument to player
-    player.addArgument(argument, 0, this.round.number, this.exchange);
+    player.addArgument(argument, 0, this.round, this.exchange);
     this.argumentCount++;
 
     this.arguments.push({
       argument: argument,
       score: 0, // Initial score is 0, will be updated later
-      round: this.round.number,
+      round: this.round,
       exchange: this.exchange,
       playerId: player.id,
       role: player.currentRole
@@ -237,7 +240,7 @@ class GameRoom {
     }
 
     // Check if round is complete (6 arguments total)
-    if (this.argumentCount >= 6) {
+    if (this.argumentCount % 6 === 0) {
       await this.endRound();
     } else {
       this.broadcastGameState();
@@ -248,12 +251,17 @@ class GameRoom {
 
   async endRound() {
     this.gameState = 'round-over';
+    this.exchange = 1;
+    this.round++;
     this.broadcastGameState();
 
     try {
       // Get AI analysis and scores
       const analysis = await this.getAIAnalysis();
-      this.round.analysis = analysis.analysis;
+      this.roundData.push({
+        number: this.round - 1,
+        analysis: analysis.analysis,
+      });
 
       // Calculate scores and determine winner
       let prosecutorScore = 0;
@@ -263,20 +271,20 @@ class GameRoom {
       const defender = this.getDefender();
 
       // Apply scores to arguments and sum them up
-      prosecutor.arguments.forEach((arg, index) => {
+      prosecutor.arguments.filter(arg => arg.round === this.round - 1).forEach((arg, index) => {
         const score = analysis.prosecutorScores[index] || 0;
         arg.score = score;
         prosecutorScore += score;
       });
 
-      defender.arguments.forEach((arg, index) => {
+      defender.arguments.filter(arg => arg.round === this.round - 1).forEach((arg, index) => {
         const score = analysis.defenderScores[index] || 0;
         arg.score = score;
         defenderScore += score;
       });
 
-      prosecutor.score = prosecutorScore;
-      defender.score = defenderScore;
+      prosecutor.score += prosecutorScore;
+      defender.score += defenderScore;
 
       // Determine round winner
       if (prosecutorScore > defenderScore) {
@@ -297,7 +305,7 @@ class GameRoom {
       } else {
         // Next round
         this.gameState = 'round-reading';
-        //this.prepareNextRound();
+        this.prepareNextRound();
       }
 
       this.broadcastGameState();
@@ -307,17 +315,19 @@ class GameRoom {
   }
 
   prepareNextRound() {
-    this.round.number++;
 
     // Switch roles for round 2
     this.players.forEach(player => {
-      player.currentRole = player.currentRole === 'prosecutor' ? 'defender' : 'prosecutor';
-      player.ready = false;
-      player.score = 0;
+      player.lastRole = player.currentRole;
     });
 
-    this.argumentCount = 0;
-    this.exchange = 1;
+    if (this.round === 2) {
+      this.players.forEach(player => {
+        player.currentRole = player.currentRole === 'prosecutor' ? 'defender' : 'prosecutor';
+        
+      });
+    }
+    this.turn = this.getProsecutor().id; // Reset turn to prosecutor
   }
 
   checkBothReady() {
@@ -345,7 +355,7 @@ class GameRoom {
       p.score = 0;
     });
 
-    this.round.number = 3;
+    //this.round.number = 3;
     this.gameState = 'tiebreaker-start';
     this.startRound();
     this.broadcastGameState();
@@ -376,6 +386,7 @@ class GameRoom {
         avatar: p.avatar,
         position: p.position,
         currentRole: p.currentRole,
+        lastRole: p.lastRole,
         points: p.points,
         ready: p.ready,
         score: p.score,
@@ -385,6 +396,7 @@ class GameRoom {
       arguments: this.arguments,
       turn: this.turn,
       round: this.round,
+      roundData: this.roundData,
       exchange: this.exchange,
       argumentCount: this.argumentCount,
       tiebreakerWinner: this.tiebreakerWinner ? this.tiebreakerWinner.id : null
@@ -419,6 +431,7 @@ class GameRoom {
         avatar: p.avatar,
         position: p.position,
         currentRole: p.currentRole,
+        lastRole: p.lastRole,
         points: p.points,
         ready: p.ready,
         score: p.score,
@@ -428,6 +441,7 @@ class GameRoom {
       arguments: this.arguments,
       turn: this.turn,
       round: this.round,
+      roundData: this.roundData,
       exchange: this.exchange,
       argumentCount: this.argumentCount,
       tiebreakerWinner: this.tiebreakerWinner ? this.tiebreakerWinner.id : null

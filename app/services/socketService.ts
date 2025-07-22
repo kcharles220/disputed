@@ -7,6 +7,7 @@ export interface Player {
   avatar: string;
   position?: 'left' | 'right';
   currentRole?: 'prosecutor' | 'defender' | null;
+  lastRole?: 'prosecutor' | 'defender' | null;
   points: number;
   ready: boolean;
   score: number;
@@ -20,7 +21,8 @@ export interface GameRoom {
   caseDetails: any;
   players: Player[];
   turn: string | null;
-  round: { number: number; analysis: any }[];
+  roundData: { number: number; analysis: any }[];
+  round: number;
   exchange: number;
   argumentCount: number;
   arguments: { argument: string; score: number, round: number, exchange: number, playerId: string, role: string }[];

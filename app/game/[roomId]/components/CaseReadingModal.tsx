@@ -96,17 +96,25 @@ export default function CaseReadingModal({
                                 </div>
 
                                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-6">
-                                    <div className="bg-red-100/90 rounded-lg p-4 border-l-4 border-red-500 shadow-sm">
-                                        <h4 className="font-bold text-red-800 mb-2 flex items-center gap-2">
-                                            ⚔️ Prosecution's Position:
+                                    <div className={`rounded-lg p-4 border-l-4 shadow-sm ${leftPlayer?.currentRole === 'prosecutor' ? 'bg-red-100/90 border-red-500' : 'bg-blue-100/90 border-blue-500'}`}>
+                                        <h4 className={`font-bold mb-2 flex items-center gap-2 ${leftPlayer?.currentRole === 'prosecutor' ? 'text-red-800' : 'text-blue-800'}`}>
+                                            {leftPlayer?.currentRole === 'prosecutor' ? '⚔️ Prosecution\'s Position:' : '🛡️ Defense\'s Position:'}
                                         </h4>
-                                        <p className="text-slate-700 text-sm">{gameState.caseDetails.prosecutionPosition}</p>
+                                        <p className="text-slate-700 text-sm">
+                                            {leftPlayer?.currentRole === 'prosecutor'
+                                                ? gameState.caseDetails.prosecutionPosition
+                                                : gameState.caseDetails.defensePosition}
+                                        </p>
                                     </div>
-                                    <div className="bg-blue-100/90 rounded-lg p-4 border-l-4 border-blue-500 shadow-sm">
-                                        <h4 className="font-bold text-blue-800 mb-2 flex items-center gap-2">
-                                            🛡️ Defense's Position:
+                                    <div className={`rounded-lg p-4 border-l-4 shadow-sm ${rightPlayer?.currentRole === 'prosecutor' ? 'bg-red-100/90 border-red-500' : 'bg-blue-100/90 border-blue-500'}`}>
+                                        <h4 className={`font-bold mb-2 flex items-center gap-2 ${rightPlayer?.currentRole === 'prosecutor' ? 'text-red-800' : 'text-blue-800'}`}>
+                                            {rightPlayer?.currentRole === 'prosecutor' ? '⚔️ Prosecution\'s Position:' : '🛡️ Defense\'s Position:'}
                                         </h4>
-                                        <p className="text-slate-700 text-sm">{gameState.caseDetails.defensePosition}</p>
+                                        <p className="text-slate-700 text-sm">
+                                            {rightPlayer?.currentRole === 'prosecutor'
+                                                ? gameState.caseDetails.prosecutionPosition
+                                                : gameState.caseDetails.defensePosition}
+                                        </p>
                                     </div>
                                 </div>
                             </div>
@@ -139,7 +147,7 @@ export default function CaseReadingModal({
                                                 </div>
                                                 <h3 className={`text-xl font-bold mb-2 ${leftPlayer?.currentRole === 'prosecutor' ? 'text-red-700' : 'text-blue-700'
                                                     }`}>
-                                                    {leftPlayer?.username}
+                                                    {leftPlayer?.currentRole?.toUpperCase()} 
                                                     {currentPlayer?.position === 'left' && (
                                                         <span className="ml-2 text-amber-600 text-lg font-bold">(YOU)</span>
                                                     )}
@@ -196,7 +204,7 @@ export default function CaseReadingModal({
                                                 </div>
                                                 <h3 className={`text-xl font-bold mb-2 ${rightPlayer?.currentRole === 'prosecutor' ? 'text-red-700' : 'text-blue-700'
                                                     }`}>
-                                                    {rightPlayer?.username}
+                                                    {rightPlayer?.currentRole?.toUpperCase()}
                                                     {currentPlayer?.position === 'right' && (
                                                         <span className="ml-2 text-amber-600 text-lg font-bold">(YOU)</span>
                                                     )}

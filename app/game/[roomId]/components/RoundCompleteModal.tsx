@@ -38,22 +38,12 @@ export default function RoundCompleteModal({
     
     const [winner, setWinner] = useState<Player | null>(null);
     const otherPlayer = gameState.players.find(player => player.id !== currentPlayer.id) || null;
-    const round = Array.isArray(gameState.round)
-        ? gameState.round[gameState.round.length - 1]
-        : gameState.round;
-    const currentRoundIndex = round.number;
-    const currentPlayerScore = currentPlayer.arguments
-        ?.filter(arg => arg.round === currentRoundIndex)
-        .reduce((sum, arg) => sum + (arg.score ?? 0), 0) ?? 0;
-    const leftPlayerScore = leftPlayer?.arguments
-        ?.filter(arg => arg.round === currentRoundIndex)
-        .reduce((sum, arg) => sum + (arg.score ?? 0), 0) ?? 0;
-    const rightPlayerScore = rightPlayer?.arguments
-        ?.filter(arg => arg.round === currentRoundIndex)
-        .reduce((sum, arg) => sum + (arg.score ?? 0), 0) ?? 0;
-    const otherPlayerScore = otherPlayer?.arguments
-        ?.filter(arg => arg.round === currentRoundIndex)
-        .reduce((sum, arg) => sum + (arg.score ?? 0), 0) ?? 0;
+    const round = Array.isArray(gameState.roundData)
+        ? gameState.roundData[gameState.round - 1]
+        : gameState.roundData;
+    const currentRoundIndex = gameState.round - 1;
+    const currentPlayerScore = currentPlayer.score;
+    const otherPlayerScore = otherPlayer?.score || 0;
 
     useEffect(() => {
         if (currentPlayerScore > otherPlayerScore) {
@@ -64,7 +54,7 @@ export default function RoundCompleteModal({
     }, [currentPlayerScore, otherPlayerScore, currentPlayer, otherPlayer]);
 
 
-    if (gameState.gameState !== 'round-over' && gameState.gameState !== 'game-end' && gameState.gameState !== 'round-reading') {
+    if (gameState.gameState !== 'round-over' && gameState.gameState !== 'game-end' && gameState.gameState !== 'round-reading' && gameState.gameState !== 'tiebreaker') {
         return null;
     }
     if (!gameState) {
@@ -89,15 +79,15 @@ export default function RoundCompleteModal({
                     <div className="text-center mb-8">
                         <div className="inline-flex items-center justify-center w-20 h-20 bg-gradient-to-br from-yellow-500/20 to-orange-600/20 backdrop-blur-sm rounded-full mb-4 border border-yellow-400/30">
                             <span className="text-4xl">
-                                {winner?.currentRole === 'prosecutor' ? '🔥' : '🛡️'}
+                                {winner?.lastRole === 'prosecutor' ? '🔥' : '🛡️'}
                             </span>
                         </div>
                         <h1 className="text-4xl font-bold mb-2 bg-gradient-to-r from-yellow-300 to-orange-400 bg-clip-text text-transparent drop-shadow-lg">
-                            Round {round.number} Complete!
+                            Round {currentRoundIndex} Complete!
                         </h1>
-                        <h2 className={`text-3xl font-bold mb-4 ${winner?.currentRole === 'prosecutor' ? 'text-red-300' : 'text-blue-300'
+                        <h2 className={`text-3xl font-bold mb-4 ${winner?.lastRole === 'prosecutor' ? 'text-red-300' : 'text-blue-300'
                             }`}>
-                            {winner?.currentRole === 'prosecutor' ? 'Prosecutor' : 'Defender'} Wins!
+                            {winner?.lastRole === 'prosecutor' ? 'Prosecutor' : 'Defender'} Wins!
                         </h2>
                         {/* Show role switch message if applicable */}
                         {round?.number === 2 && (
@@ -133,32 +123,32 @@ export default function RoundCompleteModal({
                                 {/* Left Player */}
                                 {leftPlayer && (
                                     <div className="relative overflow-hidden rounded-xl p-6 text-center">
-                                        <div className={`absolute inset-0 bg-gradient-to-br ${leftPlayer.currentRole === 'prosecutor'
+                                        <div className={`absolute inset-0 bg-gradient-to-br ${leftPlayer.lastRole === 'prosecutor'
                                                 ? 'from-red-500/25 via-orange-500/20 to-red-600/25'
                                                 : 'from-blue-500/25 via-cyan-500/20 to-blue-600/25'
-                                            } backdrop-blur-sm border ${leftPlayer.currentRole === 'prosecutor'
+                                            } backdrop-blur-sm border ${leftPlayer.lastRole === 'prosecutor'
                                                 ? 'border-red-400/40'
                                                 : 'border-blue-400/40'
                                             } shadow-lg rounded-xl`}></div>
                                         <div className="relative z-10">
-                                            <div className={`w-12 h-12 bg-gradient-to-br ${leftPlayer.currentRole === 'prosecutor'
+                                            <div className={`w-12 h-12 bg-gradient-to-br ${leftPlayer.lastRole === 'prosecutor'
                                                     ? 'from-red-500/40 to-orange-500/40'
                                                     : 'from-blue-500/40 to-cyan-500/40'
-                                                } backdrop-blur-sm rounded-full flex items-center justify-center mx-auto mb-3 border ${leftPlayer.currentRole === 'prosecutor'
+                                                } backdrop-blur-sm rounded-full flex items-center justify-center mx-auto mb-3 border ${leftPlayer.lastRole === 'prosecutor'
                                                     ? 'border-red-400/60'
                                                     : 'border-blue-400/60'
                                                 }`}>
                                                 <span className="text-xl">
-                                                    {leftPlayer.currentRole === 'prosecutor' ? '🔥' : '🛡️'}
+                                                    {leftPlayer.lastRole === 'prosecutor' ? '🔥' : '🛡️'}
                                                 </span>
                                             </div>
                                             <h4 className="font-bold text-white mb-2">
-                                                {leftPlayer.currentRole === 'prosecutor' ? 'Prosecutor' : 'Defender'} Score
+                                                {leftPlayer.lastRole === 'prosecutor' ? 'Prosecutor' : 'Defender'} Score
                                             </h4>
-                                            <span className={`text-3xl font-bold ${leftPlayer.currentRole === 'prosecutor' ? 'text-red-300' : 'text-blue-300'
+                                            <span className={`text-3xl font-bold ${leftPlayer.lastRole === 'prosecutor' ? 'text-red-300' : 'text-blue-300'
                                                 }`}>
                                                 {leftPlayer.arguments
-                                                    ?.filter(arg => arg.round === round.number)
+                                                    ?.filter(arg => arg.round === currentRoundIndex)
                                                     .reduce((sum, arg) => sum + (arg.score ?? 0), 0) ?? 0}
                                             </span>
                                             <div className="mt-2 text-white/80 text-lg">{leftPlayer.username}</div>
@@ -168,32 +158,32 @@ export default function RoundCompleteModal({
                                 {/* Right Player */}
                                 {rightPlayer && (
                                     <div className="relative overflow-hidden rounded-xl p-6 text-center">
-                                        <div className={`absolute inset-0 bg-gradient-to-br ${rightPlayer.currentRole === 'prosecutor'
+                                        <div className={`absolute inset-0 bg-gradient-to-br ${rightPlayer.lastRole === 'prosecutor'
                                                 ? 'from-red-500/25 via-orange-500/20 to-red-600/25'
                                                 : 'from-blue-500/25 via-cyan-500/20 to-blue-600/25'
-                                            } backdrop-blur-sm border ${rightPlayer.currentRole === 'prosecutor'
+                                            } backdrop-blur-sm border ${rightPlayer.lastRole === 'prosecutor'
                                                 ? 'border-red-400/40'
                                                 : 'border-blue-400/40'
                                             } shadow-lg rounded-xl`}></div>
                                         <div className="relative z-10">
-                                            <div className={`w-12 h-12 bg-gradient-to-br ${rightPlayer.currentRole === 'prosecutor'
+                                            <div className={`w-12 h-12 bg-gradient-to-br ${rightPlayer.lastRole === 'prosecutor'
                                                     ? 'from-red-500/40 to-orange-500/40'
                                                     : 'from-blue-500/40 to-cyan-500/40'
-                                                } backdrop-blur-sm rounded-full flex items-center justify-center mx-auto mb-3 border ${rightPlayer.currentRole === 'prosecutor'
+                                                } backdrop-blur-sm rounded-full flex items-center justify-center mx-auto mb-3 border ${rightPlayer.lastRole === 'prosecutor'
                                                     ? 'border-red-400/60'
                                                     : 'border-blue-400/60'
                                                 }`}>
                                                 <span className="text-xl">
-                                                    {rightPlayer.currentRole === 'prosecutor' ? '🔥' : '🛡️'}
+                                                    {rightPlayer.lastRole === 'prosecutor' ? '🔥' : '🛡️'}
                                                 </span>
                                             </div>
                                             <h4 className="font-bold text-white mb-2">
-                                                {rightPlayer.currentRole === 'prosecutor' ? 'Prosecutor' : 'Defender'} Score
+                                                {rightPlayer.lastRole === 'prosecutor' ? 'Prosecutor' : 'Defender'} Score
                                             </h4>
-                                            <span className={`text-3xl font-bold ${rightPlayer.currentRole === 'prosecutor' ? 'text-red-300' : 'text-blue-300'
+                                            <span className={`text-3xl font-bold ${rightPlayer.lastRole === 'prosecutor' ? 'text-red-300' : 'text-blue-300'
                                                 }`}>
                                                 {rightPlayer.arguments
-                                                    ?.filter(arg => arg.round === round.number)
+                                                    ?.filter(arg => arg.round === currentRoundIndex)
                                                     .reduce((sum, arg) => sum + (arg.score ?? 0), 0) ?? 0}
                                             </span>
                                             <div className="mt-2 text-white/80 text-lg">{rightPlayer.username}</div>
@@ -234,7 +224,7 @@ export default function RoundCompleteModal({
 
 
 
-                        if (gameState.gameState === 'round-over' || gameState.gameState === 'round-reading') {
+                        if (gameState.gameState === 'round-over' || gameState.gameState === 'round-reading' || gameState.gameState === 'tiebreaker') {
                             return (
                                 <>
                                     {/* Player Readiness Status */}
@@ -399,7 +389,6 @@ export default function RoundCompleteModal({
                                     </p>
                                     <button
                                         onClick={() => {
-                                            const winner = currentPlayer.points > (otherPlayer?.points ?? 0) ? currentPlayer.currentRole : otherPlayer?.currentRole;
                                             handleProceedToGameComplete();
                                         }}
                                         className="relative overflow-hidden px-8 py-4 font-bold rounded-xl transition-all duration-200 transform hover:scale-105 shadow-lg text-lg border border-yellow-400/50"

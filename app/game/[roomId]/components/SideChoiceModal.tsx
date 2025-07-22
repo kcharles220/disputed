@@ -20,20 +20,17 @@ export default function SideChoiceModal({
     showSideChoiceModal,
     setShowSideChoiceModal,
 }: SideChoiceModalProps) {
-    /*
-    console.log('SideChoiceModal render check:', {
-        gamePhase: gameState.gamePhase,
-        hasSideChoice: !!gameState.sideChoice,
-        chooserPlayerId: gameState.sideChoice?.chooserPlayerId,
-        currentPlayerId: currentPlayer?.id,
-        shouldRender: gameState.gamePhase === 'side-choice' && !!gameState.sideChoice
-    });
-    */
    
-    if (gameState.gamePhase !== 'side-choice' || !gameState.sideChoice) {
+       const handleSideChoice = () => { };
+
+    if (gameState.gameState !== 'side-choice' ) {
         return null;
     }
 
+const bestPlayer: Player | undefined = gameState.players.reduce(
+    (prev, curr) => (curr.score > prev.score ? curr : prev),
+    gameState.players[0]
+);
 
     return (
         <div className="fixed inset-0 bg-slate-900/80 backdrop-blur-lg flex items-center justify-center z-[100] p-4"
@@ -68,26 +65,26 @@ export default function SideChoiceModal({
                         <div className="relative z-10 p-6">
                             <h3 className="text-lg font-bold text-yellow-300 mb-3">🏆 Performance Leader Gets to Choose</h3>
                             <p className="text-white/90 mb-4">
-                                Based on individual argument scores, <span className="text-green-300 font-bold">{gameState.sideChoice.chooserPlayerName}</span> performed better and gets to choose their side for the final round!
+                                Based on individual argument scores, <span className="text-green-300 font-bold">{bestPlayer.username}</span> performed better and gets to choose their side for the final round!
                             </p>
                             
                             <div className="bg-gradient-to-br from-gray-800/60 to-gray-900/60 backdrop-blur-sm rounded-xl p-4 mb-4 border border-white/10">
                                 <h4 className="text-sm font-bold text-white/70 mb-2">Current Match Score</h4>
                                 <div className="flex justify-center items-center gap-6 mb-2">
-                                    <span className="text-red-300 font-bold text-xl">Prosecutor: {getProsecutorRoundWins()}</span>
+                                    <span className="text-red-300 font-bold text-xl">{leftPlayer?.username}: {leftPlayer?.points}</span>
                                     <span className="text-white/60">-</span>
-                                    <span className="text-blue-300 font-bold text-xl">Defender: {getDefenderRoundWins()}</span>
+                                    <span className="text-blue-300 font-bold text-xl">{rightPlayer?.username}: {rightPlayer?.points}</span>
                                 </div>
                                 <div className="flex justify-center items-center gap-6 text-sm text-white/60">
-                                    <span>Individual Total: {formatScore(getProsecutorScore())}</span>
+                                    <span>Individual Total: {leftPlayer?.score}</span>
                                     <span>-</span>
-                                    <span>Individual Total: {formatScore(getDefenderScore())}</span>
+                                    <span>Individual Total: {rightPlayer?.score}</span>
                                 </div>
                             </div>
                         </div>
                     </div>
 
-                {gameState.sideChoice.chooserPlayerId === currentPlayer?.id ? (
+                {bestPlayer.id === currentPlayer?.id ? (
                     <div className="space-y-4">
                         <h3 className="text-xl font-bold text-center text-white mb-4">Choose Your Side:</h3>
                         <div className="grid grid-cols-2 gap-4">
@@ -125,7 +122,7 @@ export default function SideChoiceModal({
                     <div className="text-center">
                         <h3 className="text-xl font-bold text-white mb-4">Waiting for Side Choice...</h3>
                         <p className="text-white/70 mb-4">
-                            <span className="text-green-300 font-bold">{gameState.sideChoice.chooserPlayerName}</span> is choosing their side for the final round.
+                            <span className="text-green-300 font-bold">{bestPlayer.username}</span> is choosing their side for the final round.
                         </p>
                         <div className="flex justify-center">
                             <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-yellow-300"></div>

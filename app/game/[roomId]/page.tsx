@@ -10,6 +10,7 @@ import SideChoiceModal from './components/SideChoiceModal';
 import GameCompleteModal from './components/GameCompleteModal';
 import { set } from 'zod';
 import { ar } from 'zod/locales';
+import CaseReviewModal from './components/CaseReviewModal';
 
 
 export default function GameBattle() {
@@ -45,6 +46,7 @@ export default function GameBattle() {
     const [showRoundCompleteModal, setShowRoundCompleteModal] = useState<boolean>(false);
     const [showCaseModal, setShowCaseModal] = useState<boolean>(false);
     const [showSideChoiceModal, setShowSideChoiceModal] = useState<boolean>(false);
+    const [showCaseReviewModal, setShowCaseReviewModal] = useState<boolean>(false);
 
     // Emit get-room-info once when possible
     useEffect(() => {
@@ -210,7 +212,17 @@ export default function GameBattle() {
                         rightPlayer={rightPlayer}
                     />
                 )}
-
+                {/* Case Review Modal */}
+                {currentPlayer && gameState && (
+                    <CaseReviewModal
+                        showCaseReviewModal={showCaseReviewModal}
+                        setShowCaseReviewModal={setShowCaseReviewModal}
+                        gameState={gameState}
+                        currentPlayer={currentPlayer}
+                        leftPlayer={leftPlayer}
+                        rightPlayer={rightPlayer}
+                    />
+                )}
                 {/* Round Complete Modal */}
                 {currentPlayer && gameState && (
                     <RoundCompleteModal
@@ -288,7 +300,7 @@ export default function GameBattle() {
                                             {/* Text */}
                                             <div className="flex-1">
                                                 <h3 className={`text-2xl font-bold ${leftPlayer?.currentRole === 'prosecutor' ? 'text-red-300' : 'text-blue-300'} mb-1`}>
-                                                    {leftPlayer?.username} {leftPlayer?.id === currentPlayer?.id && (
+                                                    {leftPlayer?.currentRole?.toUpperCase()} {leftPlayer?.id === currentPlayer?.id && (
                                                         <span className="mx-2 text-yellow-300 text-lg font-semibold">(YOU)</span>
                                                     )}
                                                 </h3>
@@ -348,8 +360,8 @@ export default function GameBattle() {
                                         Dispute!
                                     </h1>
                                     <div className="flex flex-col items-center gap-2 text-base text-white/80 mb-4">
-                                        <span className="font-semibold">Round {gameState.round[gameState.round.length - 1]?.number}/3</span>
-                                        {gameState.round[gameState.round.length - 1]?.number === 2 && (
+                                        <span className="font-semibold">Round {gameState.round}/3</span>
+                                        {gameState.round === 2 && (
                                             <span className="text-yellow-300 text-sm font-bold animate-pulse">🔄 ROLES SWITCHED!</span>
                                         )}
                                         <span>Turn: {(() => {
@@ -365,7 +377,7 @@ export default function GameBattle() {
                                     </div>
                                     <div className="space-y-2">
                                         <button
-                                            onClick={() => setShowCaseModal(true)}
+                                            onClick={() => setShowCaseReviewModal(true)}
                                             className="px-6 py-3 bg-gradient-to-r from-gray-600/80 to-gray-700/80 hover:from-gray-500/80 hover:to-gray-600/80 text-white rounded-xl transition-all duration-200 text-sm border border-white/20 backdrop-blur-sm transform hover:scale-105 shadow-lg"
                                         >
                                             📋 Review Case
@@ -439,7 +451,7 @@ export default function GameBattle() {
                                                 <h3 className={`text-2xl font-bold ${rightPlayer?.currentRole === 'prosecutor' ? 'text-red-300' : 'text-blue-300'} mb-1`}>
                                                     {currentPlayer?.position === 'right' && (
                                                         <span className="mx-2 text-yellow-300 text-lg font-semibold">(YOU)</span>
-                                                    )} {rightPlayer?.username}
+                                                    )} {rightPlayer?.currentRole?.toUpperCase()}
                                                 </h3>
                                                 <p className="text-white/90 font-medium text-lg">{rightPlayer?.username}</p>
                                                 <div className="text-sm text-white/60 mt-1">
@@ -484,7 +496,7 @@ export default function GameBattle() {
                                             </div>
                                             <div className="mb-4 text-base text-white/70">
                                                 {(() => {
-                                                    const remaining = 3 - (currentPlayer?.arguments?.length ?? 0);
+                                                    const remaining = 3 - (currentPlayer?.arguments?.filter((arg) => arg.round === gameState.round)?.length ?? 0);
                                                     return `You have ${remaining} argument${remaining !== 1 ? 's' : ''} remaining this round.`;
                                                 })()}
                                             </div>
@@ -553,7 +565,7 @@ export default function GameBattle() {
                                 <div className="flex items-center justify-between mb-6">
                                     <h2 className="text-2xl font-bold text-white">📜 Log</h2>
                                     <div className="text-base text-white/70">
-                                        Round {gameState.round[gameState.round.length - 1]?.number} Progress: {gameState.exchange}/3 exchanges
+                                        Round {gameState.round} Progress: {gameState.exchange}/3 exchanges
                                     </div>
                                 </div>
                                 <div className="space-y-6 max-h-[600px] overflow-y-auto">
@@ -566,7 +578,7 @@ export default function GameBattle() {
                                             </p>
                                         </div>
                                     ) : (
-                                        gameState.arguments.map((argument, index) => {
+                                        gameState.arguments.filter((arg) => arg.round === gameState.round)?.map((argument, index) => {
                                             const exchangeNumber = argument.exchange;
 
                                             return (
