@@ -3,6 +3,7 @@ const http = require('http');
 const socketIo = require('socket.io');
 const cors = require('cors');
 const { pl } = require('zod/locales');
+const { set } = require('zod');
 
 const app = express();
 const server = http.createServer(app);
@@ -196,7 +197,7 @@ class GameRoom {
       case 'ready-to-start':
         setTimeout(() => {
           this.proceed();
-        }, 8000);
+        }, 1000);
         break;
     }
   }
@@ -258,10 +259,7 @@ class GameRoom {
     try {
       // Get AI analysis and scores
       const analysis = await this.getAIAnalysis();
-      this.roundData.push({
-        number: this.round - 1,
-        analysis: analysis.analysis,
-      });
+      
 
       // Calculate scores and determine winner
       let prosecutorScore = 0;
@@ -289,10 +287,18 @@ class GameRoom {
       // Determine round winner
       if (prosecutorScore > defenderScore) {
         prosecutor.points++;
+       
       } else if (defenderScore > prosecutorScore) {
         defender.points++;
       }
-
+      this.roundData.push({
+        number: this.round - 1,
+        analysis: analysis.analysis,
+        winner: prosecutorScore > defenderScore ? prosecutor.username : defender.username,
+        role: prosecutorScore > defenderScore ? prosecutor.currentRole : defender.currentRole,
+        prosecutorScore : prosecutorScore,
+        defenderScore : defenderScore
+      });
       // Check game end conditions
       if (prosecutor.points === 2 || defender.points === 2) {
         this.gameState = 'game-over';
@@ -339,25 +345,22 @@ class GameRoom {
   }
 
   chooseSideForTiebreaker(playerId, chosenRole) {
-    if (this.gameState !== 'side-choice' || !this.tiebreakerWinner || this.tiebreakerWinner.id !== playerId) {
-      return false;
-    }
-
-    // Assign chosen role to tiebreaker winner
-    this.tiebreakerWinner.currentRole = chosenRole;
-    const otherPlayer = this.getOtherPlayer(playerId);
-    otherPlayer.currentRole = chosenRole === 'prosecutor' ? 'defender' : 'prosecutor';
-
-    // Reset for tiebreaker
-    this.players.forEach(p => {
-      p.ready = false;
-      p.arguments = [];
-      p.score = 0;
+    console.log(`Player ${playerId} chose side: ${chosenRole}`);
+    const notChosenRole = chosenRole === 'prosecutor' ? 'prosecutor' : 'defender';
+    this.players.forEach(player => {
+      player.lastRole = player.currentRole;
+    });
+     this.players.forEach(player => {
+      if (player.socketId === playerId) {
+        player.currentRole = chosenRole; // Assign chosen role to tiebreaker winner
+      } else {
+        player.currentRole = notChosenRole; 
+      }
     });
 
     //this.round.number = 3;
     this.gameState = 'tiebreaker-start';
-    this.startRound();
+    //this.startRound();
     this.broadcastGameState();
 
     return true;
@@ -507,10 +510,10 @@ io.on('connection', (socket) => {
     }
   });
 
-  socket.on('chooseSide', ({ roomId, role }) => {
+  socket.on('chooseSide', ({ roomId, playerId, role }) => {
     const game = games.get(roomId);
     if (game) {
-      const success = game.chooseSideForTiebreaker(socket.id, role);
+      const success = game.chooseSideForTiebreaker(playerId, role);
       if (!success) {
         socket.emit('error', { message: 'Invalid side choice' });
       }
@@ -560,6 +563,7 @@ io.on('connection', (socket) => {
       console.log(`Room ${roomId} not found for socket ${socket.id}`);
     }
   });
+
 
   // Proceed event: client requests to proceed the game (no data needed)
   socket.on('proceed', (roomId) => {

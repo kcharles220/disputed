@@ -93,9 +93,9 @@ export default function GameLobby() {
   };
 
   const startGame = () => {
-    if (room && room.gameState === 'waiting') {
+   /* if (room && room.gameState === 'waiting') {
       socketService.proceed(room.roomId);
-    }
+    }*/
   };
 
 const startCoinFlip = () => {
@@ -113,7 +113,6 @@ const startCoinFlip = () => {
         console.log('Redirecting to URL:', gameUrl);
         
         router.push(gameUrl);
-        setShowCoinFlip(false);
       }, 3000);
     }, 2000);
   };

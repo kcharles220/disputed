@@ -1,6 +1,6 @@
 'use client';
 
-import { GameRoom, Player } from '../../../services/socketService';
+import { GameRoom, Player, socketService } from '../../../services/socketService';
 
 
 interface SideChoiceModalProps {
@@ -20,8 +20,10 @@ export default function SideChoiceModal({
     showSideChoiceModal,
     setShowSideChoiceModal,
 }: SideChoiceModalProps) {
-   
-       const handleSideChoice = () => { };
+
+       const handleSideChoice = (side: string) => {
+           socketService.chooseSide(gameState.roomId, currentPlayer.id, side);
+       };
 
     if (gameState.gameState !== 'side-choice' ) {
         return null;

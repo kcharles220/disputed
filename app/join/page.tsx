@@ -19,6 +19,7 @@ export default function JoinGame() {
   const [isClient, setIsClient] = useState(false);
   const [placeholderName, setPlaceholderName] = useState('');
   const { user: currentUser, isLoading: isLoadingUser, refetchUser } = useUser();
+  const [ready, setReady] = useState(false);
 
   const avatarOptions = ['⚖️', '👨‍💼', '👩‍💼', '👨‍⚖️', '👩‍⚖️', '🎭', '⚔️', '🏛️', '📚', '🗣️', '💼', '🎯'];
   const guestNameSuggestions = [
@@ -31,7 +32,14 @@ export default function JoinGame() {
     <div className={`animate-pulse bg-gray-200 rounded ${className || 'h-4 w-16'}`}></div>
   );
 
+useEffect(() => {
+    if (currentUser?.avatar) {
+      setSelectedAvatar(currentUser.avatar);
+      setReady(true); // Set ready to true when avatar is available
+    }
 
+
+  }, [currentUser?.avatar]);
   useEffect(() => {
     setIsClient(true);
     setPlaceholderName(guestNameSuggestions[Math.floor(Math.random() * guestNameSuggestions.length)]);
@@ -333,7 +341,13 @@ export default function JoinGame() {
                     : 'hover:scale-110 cursor-pointer'
                 }`}
               >
-                {selectedAvatar}
+                {(!ready && status !== 'unauthenticated') ? (
+                  <LoadingSkeleton className="h-8 w-8 bg-white/20" />
+
+                ) : (
+                  selectedAvatar
+
+                )}
               </button>
               
               {session && (
@@ -399,9 +413,9 @@ export default function JoinGame() {
           <div className="text-center">
             <button 
               onClick={handleJoinGame}
-              disabled={isJoining}
+              disabled={isJoining || (!ready && status !== 'unauthenticated')}
               className={`w-full py-4 text-xl font-bold rounded-xl transition-all duration-200 shadow-lg cursor-pointer transform ${
-                isJoining 
+                isJoining  || (!ready && status !== 'unauthenticated')
                   ? 'bg-gray-400 text-gray-600 cursor-not-allowed' 
                   : 'bg-gradient-to-r from-purple-600 to-blue-700 text-white hover:from-purple-700 hover:to-blue-800 hover:scale-[1.02] active:scale-[0.98]'
               }`}

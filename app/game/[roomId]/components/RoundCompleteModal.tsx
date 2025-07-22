@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { GameRoom, Player, socketService } from '../../../services/socketService';
+import { set } from 'zod';
 
 
 
@@ -12,7 +13,7 @@ interface RoundCompleteModalProps {
     currentPlayer: Player;
     leftPlayer: Player | null;
     rightPlayer: Player | null;
-
+    setShowGameCompleteModal: (show: boolean) => void;
 }
 
 export default function RoundCompleteModal({
@@ -21,20 +22,27 @@ export default function RoundCompleteModal({
     leftPlayer,
     rightPlayer,
     showRoundCompleteModal,
-    setShowRoundCompleteModal
+    setShowRoundCompleteModal,
+    setShowGameCompleteModal
 }: RoundCompleteModalProps) {
     // Placeholder definitions for missing variables and functions
     const nextRoundAutoStartTime = 30;
     const formatTime = (t: any) => t;
+        const [seen, setSeen] = useState(false);
+
     const toggleReady = () => {
-    
-            if (gameState) {
+            if (gameState ) {
                   const newReadyState = !currentPlayer?.ready;
                   console.log('Toggling ready for room:', gameState.roomId, 'Sending ready:', newReadyState);
                   socketService.toggleReady(gameState.roomId, newReadyState);
                 }
         };
-    const handleProceedToGameComplete = () => { };
+    const handleProceedToGameComplete = () => { 
+        setSeen(true)
+                setShowGameCompleteModal(true);
+
+        setShowRoundCompleteModal(false);
+    };
     
     const [winner, setWinner] = useState<Player | null>(null);
     const otherPlayer = gameState.players.find(player => player.id !== currentPlayer.id) || null;
@@ -53,8 +61,10 @@ export default function RoundCompleteModal({
         }
     }, [currentPlayerScore, otherPlayerScore, currentPlayer, otherPlayer]);
 
-
-    if (gameState.gameState !== 'round-over' && gameState.gameState !== 'game-end' && gameState.gameState !== 'round-reading' && gameState.gameState !== 'tiebreaker') {
+if (seen === true) {
+    return null;
+}
+    if (gameState.gameState !== 'round-over' && gameState.gameState !== 'game-over' && gameState.gameState !== 'round-reading' && gameState.gameState !== 'tiebreaker' && seen === false) {
         return null;
     }
     if (!gameState) {
@@ -198,8 +208,8 @@ export default function RoundCompleteModal({
                     {(() => {
 
 
-                        // If game has ended (server sent game-end event), always show "View Final Results"
-                        if (gameState.gameState === 'game-end') {
+                        // If game has ended (server sent game-over event), always show "View Final Results"
+                        if (gameState.gameState === 'game-over') {
                             return (
                                 <div className="text-center">
                                     <div className="w-20 h-20 bg-gradient-to-br from-yellow-500/20 to-orange-600/20 backdrop-blur-sm rounded-full mx-auto mb-6 flex items-center justify-center border border-yellow-400/30">

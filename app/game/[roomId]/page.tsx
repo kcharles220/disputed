@@ -29,7 +29,7 @@ export default function GameBattle() {
         setCurrentArgument('');
     };
     const canInterrupt = false;
-    const handleInterrupt = () => {};
+    const handleInterrupt = () => { };
 
 
     const searchParams = useSearchParams();
@@ -48,38 +48,8 @@ export default function GameBattle() {
     const [showSideChoiceModal, setShowSideChoiceModal] = useState<boolean>(false);
     const [showCaseReviewModal, setShowCaseReviewModal] = useState<boolean>(false);
 
-    // Emit get-room-info once when possible
-    useEffect(() => {
-        const socket = socketService.getSocket();
-        if (socket && roomId) {
-            socket.emit('get-room-info', { roomId });
-        }
-    }, []);
 
-    // Retrieve room data from localStorage if available
-    useEffect(() => {
-        if (typeof window !== 'undefined') {
-            let storedRoomData = localStorage.getItem('currentRoomData');
-            if (storedRoomData) {
-                try {
-                    const parsedRoom = JSON.parse(storedRoomData);
-                    setGameState(parsedRoom);
-                    const socketId = socketService.getSocket()?.id;
 
-                    const player = parsedRoom.players.find((p: any) => p.socketId === socketId);
-                    setCurrentPlayer(player || null);
-                    setNonCurrentPlayer(parsedRoom.players.find((p: any) => p.socketId !== socketId) || null);
-                    setLeftPlayer(parsedRoom.players.find((p: any) => p.position === 'left') || null);
-                    setRightPlayer(parsedRoom.players.find((p: any) => p.position === 'right') || null);
-                    console.log('Loaded room data from localStorage:', parsedRoom);
-                } catch (e) {
-                    console.warn('Failed to parse room data from localStorage:', e);
-                }
-                // Optionally clear after use to avoid stale data
-                localStorage.removeItem('currentRoomData');
-            }
-        }
-    }, []);
 
 
     useEffect(() => {
@@ -100,10 +70,20 @@ export default function GameBattle() {
             setRightPlayer(newGameState.players.find((p: any) => p.position === 'right') || null);
         };
         socket.on('gameStateUpdate', handleGameStateUpdate);
+        console.log('Socket connected:', socket.id);
+
+        // Emit request-room-info only after listener is registered
+        const roomId = typeof window !== 'undefined' ? window.location.pathname.split('/').pop() : null;
+        if (socket && roomId) {
+            console.log('Emitting request-room-info with roomId:', roomId);
+            socketService.requestRoomInfo(roomId);
+        }
 
         return () => {
             socket.off('gameStateUpdate', handleGameStateUpdate);
         };
+
+
     }, []);
 
     useEffect(() => {
@@ -140,7 +120,18 @@ export default function GameBattle() {
                 setShowSideChoiceModal(false);
         }
     }, [gameState]);
-
+    if (!gameState) {
+        // Loading animation while waiting for gameState
+        return (
+            <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-slate-900 via-gray-900 to-slate-900">
+                <div className="flex flex-col items-center">
+                    <div className="animate-spin rounded-full h-24 w-24 border-t-4 border-b-4 border-yellow-400 mb-8"></div>
+                    <div className="text-2xl text-white font-bold">Loading game...</div>
+                    <div className="text-white/70 mt-2">Please wait while we connect to the game room.</div>
+                </div>
+            </div>
+        );
+    }
     return (
 
         <div className="min-h-screen bg-gradient-to-br from-slate-900 via-gray-900 to-slate-900 relative overflow-hidden">
@@ -232,6 +223,7 @@ export default function GameBattle() {
                         rightPlayer={rightPlayer}
                         showRoundCompleteModal={showRoundCompleteModal}
                         setShowRoundCompleteModal={setShowRoundCompleteModal}
+                        setShowGameCompleteModal={setShowGameCompleteModal}
                     />
                 )}
 
@@ -590,7 +582,7 @@ export default function GameBattle() {
                                                             </div>
                                                         </div>
                                                     )}
-                                                    
+
                                                     <div className="relative overflow-hidden rounded-xl">
                                                         {/* Glass morphism background for argument */}
                                                         <div className={`absolute inset-0 ${argument.role === 'prosecutor'

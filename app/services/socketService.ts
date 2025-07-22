@@ -21,7 +21,7 @@ export interface GameRoom {
   caseDetails: any;
   players: Player[];
   turn: string | null;
-  roundData: { number: number; analysis: any }[];
+  roundData: { number: number; analysis: any, winner: string, role: string, prosecutorScore: number, defenderScore: number }[];
   round: number;
   exchange: number;
   argumentCount: number;
@@ -196,6 +196,12 @@ class SocketService {
     });
   }
 
+  requestRoomInfo(roomId: string) {
+    if (this.socket) {
+      this.socket.emit('get-room-info', roomId);
+    }
+  }
+
   // Event listeners
   onRoomUpdated(callback: (room: GameRoom) => void) {
     if (this.socket) {
@@ -284,7 +290,12 @@ class SocketService {
       this.socket.emit('submit-argument', { roomId, argument });
     }
   }
-
+  // Submit argument
+  chooseSide(roomId: string, playerId: string, side: string) {
+    if (this.socket) {
+      this.socket.emit('chooseSide', { roomId, playerId, side });
+    }
+  }
   getSocket() {
     return this.socket;
   }

@@ -5,6 +5,7 @@ import { useRouter, useSearchParams } from 'next/navigation';
 import { useSession, signOut } from 'next-auth/react';
 import { socketService, PlayerData } from './services/socketService';
 import { useUser } from './lib/UserContext';
+import { stat } from 'fs';
 
 export default function Home() {
   const router = useRouter();
@@ -15,11 +16,12 @@ export default function Home() {
   const [playerName, setPlayerName] = useState('');
   const [isCreatingGame, setIsCreatingGame] = useState(false);
   const [error, setError] = useState('');
+  const [ready, setReady] = useState(false);
   // Removed local isLoadingUser and hasLoadedUser state; use context only
 
   const avatarOptions = ['⚖️', '👨‍💼', '👩‍💼', '👨‍⚖️', '👩‍⚖️', '🎭', '⚔️', '🏛️', '📚', '🗣️', '💼', '🎯'];
   const guestNameSuggestions = [
-    'LegalEagle2024', 'CourtCrusher', 'LawyerLegend', 'JusticeWarrior', 
+    'LegalEagle2024', 'CourtCrusher', 'LawyerLegend', 'JusticeWarrior',
     'ArgumentAce', 'DebateDefender', 'CaseCracker', 'VerdictVanguard'
   ];
 
@@ -32,7 +34,7 @@ export default function Home() {
   const [placeholderName, setPlaceholderName] = useState('');
   const [isClient, setIsClient] = useState(false);
   const [showHowToPlay, setShowHowToPlay] = useState(false);
-  
+
 
   // Set the placeholder name only on the client side after hydration
   useEffect(() => {
@@ -40,7 +42,7 @@ export default function Home() {
     setPlaceholderName(guestNameSuggestions[Math.floor(Math.random() * guestNameSuggestions.length)]);
   }, []);
 
-  
+
 
   // Fetch user data when session changes
   // No need for local user loading state, context handles it
@@ -49,7 +51,10 @@ export default function Home() {
   useEffect(() => {
     if (currentUser?.avatar) {
       setSelectedAvatar(currentUser.avatar);
+      setReady(true); // Set ready to true when avatar is available
     }
+
+
   }, [currentUser?.avatar]);
 
   const handleCreateGame = async () => {
@@ -61,7 +66,7 @@ export default function Home() {
       await socketService.connect();
 
       const finalName = session?.user?.username || session?.user?.name || playerName.trim() || placeholderName;
-      
+
       const playerData: PlayerData = {
         name: finalName,
         avatar: currentUser?.avatar || selectedAvatar,
@@ -99,7 +104,7 @@ export default function Home() {
 
       // Create room
       const { roomId } = await socketService.createRoom(playerData);
-      
+
       // Navigate to lobby with just room ID
       router.push(`/lobby?room=${roomId}`);
     } catch (err) {
@@ -112,6 +117,8 @@ export default function Home() {
   };
 
   const handleJoinGame = () => {
+    
+
     router.push('/join');
   };
 
@@ -122,7 +129,7 @@ export default function Home() {
         <div className="absolute top-1/4 left-1/4 w-72 h-72 bg-blue-500/20 rounded-full blur-3xl animate-pulse"></div>
         <div className="absolute bottom-1/4 right-1/4 w-72 h-72 bg-purple-500/20 rounded-full blur-3xl animate-pulse delay-1000"></div>
         <div className="absolute top-3/4 left-3/4 w-72 h-72 bg-indigo-500/20 rounded-full blur-3xl animate-pulse delay-2000"></div>
-        
+
         {/* Additional floating orbs */}
         <div className="absolute top-1/2 left-1/6 w-48 h-48 bg-cyan-500/15 rounded-full blur-2xl animate-float"></div>
         <div className="absolute bottom-1/3 right-1/6 w-56 h-56 bg-violet-500/15 rounded-full blur-2xl animate-float-delayed"></div>
@@ -158,7 +165,7 @@ export default function Home() {
               <div className="absolute inset-0 bg-gradient-to-br from-purple-500/10 via-transparent to-blue-500/10"></div>
               <div className="absolute -top-10 -right-10 w-32 h-32 bg-white/5 rounded-full blur-xl"></div>
               <div className="absolute -bottom-6 -left-6 w-24 h-24 bg-purple-500/10 rounded-full blur-lg"></div>
-              
+
               {/* Content */}
               <div className="relative z-10">
                 {/* Header with Avatar and Basic Info */}
@@ -184,7 +191,7 @@ export default function Home() {
                       </svg>
                     </div>
                   </div>
-                  
+
                   <div className="flex-1">
                     <div className="font-bold text-xl text-white mb-1">
                       {currentUser?.username || session.user?.username || session.user?.name}
@@ -253,7 +260,7 @@ export default function Home() {
                         <span className="text-sm font-medium">View Stats</span>
                       </div>
                     </button>
-                    
+
                     <button
                       onClick={() => router.push('/leaderboard')}
                       className="group relative px-4 py-3 bg-gradient-to-r from-purple-600 to-purple-700 text-white font-semibold rounded-xl hover:from-purple-700 hover:to-purple-800 transition-all duration-300 cursor-pointer shadow-lg hover:shadow-xl transform hover:scale-[1.02] overflow-hidden"
@@ -264,7 +271,7 @@ export default function Home() {
                       </div>
                     </button>
                   </div>
-                  
+
                   <button
                     onClick={() => signOut({ callbackUrl: '/' })}
                     className="group w-full px-4 py-3 bg-gradient-to-r from-red-600/80 to-red-700/80 text-white font-semibold rounded-xl hover:from-red-700 hover:to-red-800 transition-all duration-300 cursor-pointer shadow-lg hover:shadow-xl transform hover:scale-[1.02] backdrop-blur-sm border border-red-500/30 overflow-hidden"
@@ -299,7 +306,7 @@ export default function Home() {
       {/* Main Container */}
       <div className="flex items-center justify-center min-h-screen p-6 relative z-10">
         <div className="bg-white/95 backdrop-blur-xl rounded-2xl shadow-2xl p-10 max-w-lg w-full border border-white/30">
-          
+
           {/* Clean Title with Subtle Animation */}
           <div className="text-center mb-6">
             <h1 className="text-6xl font-black mb-4 bg-gradient-to-r from-slate-800 via-blue-800 to-slate-800 bg-clip-text text-transparent animate-gentle-pulse">
@@ -316,36 +323,41 @@ export default function Home() {
 
           {/* Avatar and Name Section */}
           <div className="flex items-center gap-6 mb-10">
-            
+
             {/* Avatar Selection Circle */}
             <div className="relative flex-shrink-0">
               <button
                 onClick={() => !session && setShowAvatarPicker(!showAvatarPicker)}
                 disabled={!!session}
-                className={`w-20 h-20 bg-gradient-to-br from-red-100 to-indigo-100 rounded-full flex items-center justify-center text-3xl transition-all duration-200 shadow-lg border-3 border-white/40 ${
-                  session 
-                    ? 'cursor-not-allowed opacity-70' 
-                    : 'hover:scale-110 cursor-pointer'
-                }`}
+                className={`w-20 h-20 bg-gradient-to-br from-red-100 to-indigo-100 rounded-full flex items-center justify-center text-3xl transition-all duration-200 shadow-lg border-3 border-white/40 ${session
+                  ? 'cursor-not-allowed opacity-70'
+                  : 'hover:scale-110 cursor-pointer'
+                  }`}
               >
-                {selectedAvatar}
+                {(!ready && status !== 'unauthenticated') ? (
+                  <LoadingSkeleton className="h-8 w-8 bg-white/20" />
+
+                ) : (
+                  selectedAvatar
+
+                )}
               </button>
-              
+
               {session && (
                 <p className="absolute -bottom-8 left-1/2 transform -translate-x-1/2 text-xs text-gray-500 whitespace-nowrap">
                   Avatar from profile
                 </p>
               )}
-              
+
               {/* Avatar Picker Dropdown - Properly positioned */}
               {showAvatarPicker && (
                 <>
                   {/* Click outside to close */}
-                  <div 
-                    className="fixed inset-0 z-20" 
+                  <div
+                    className="fixed inset-0 z-20"
                     onClick={() => setShowAvatarPicker(false)}
                   />
-                  
+
                   {/* Dropdown positioned above the button to avoid overflow */}
                   <div className="absolute bottom-24 left-1/2 transform -translate-x-1/2 bg-white/95 backdrop-blur-xl rounded-xl shadow-2xl p-4 grid grid-cols-4 gap-3 z-30 border border-white/30 min-w-[240px]">
                     {avatarOptions.map((avatar, idx) => (
@@ -355,11 +367,10 @@ export default function Home() {
                           setSelectedAvatar(avatar);
                           setShowAvatarPicker(false);
                         }}
-                        className={`w-12 h-12 rounded-lg flex items-center justify-center text-2xl transition-all duration-150 cursor-pointer border-2 ${
-                          selectedAvatar === avatar 
-                            ? 'bg-blue-100 border-blue-500 scale-110 shadow-md' 
-                            : 'border-gray-200 hover:border-blue-300 hover:bg-blue-50 hover:scale-105'
-                        }`}
+                        className={`w-12 h-12 rounded-lg flex items-center justify-center text-2xl transition-all duration-150 cursor-pointer border-2 ${selectedAvatar === avatar
+                          ? 'bg-blue-100 border-blue-500 scale-110 shadow-md'
+                          : 'border-gray-200 hover:border-blue-300 hover:bg-blue-50 hover:scale-105'
+                          }`}
                       >
                         {avatar}
                       </button>
@@ -384,14 +395,13 @@ export default function Home() {
 
           {/* Enhanced Game Action Buttons */}
           <div className="space-y-4">
-            <button 
+            <button
               onClick={handleCreateGame}
-              disabled={isCreatingGame}
-              className={`group relative overflow-hidden w-full py-4 text-xl font-bold rounded-xl transition-all duration-300 shadow-lg cursor-pointer transform border-2 ${
-                isCreatingGame 
-                  ? 'bg-gray-400 text-gray-600 cursor-not-allowed border-gray-300' 
-                  : 'bg-gradient-to-r from-blue-600 to-indigo-700 text-white hover:from-blue-700 hover:to-indigo-800 hover:scale-[1.02] active:scale-[0.98] border-blue-500/30 hover:shadow-blue-500/25 hover:shadow-xl'
-              }`}
+              disabled={isCreatingGame || (!ready && status !== 'unauthenticated')}
+              className={`group relative overflow-hidden w-full py-4 text-xl font-bold rounded-xl transition-all duration-300 shadow-lg cursor-pointer transform border-2 ${isCreatingGame || (!ready && status !== 'unauthenticated')
+                ? 'bg-gray-400 text-gray-600 cursor-not-allowed border-gray-300'
+                : 'bg-gradient-to-r from-blue-600 to-indigo-700 text-white hover:from-blue-700 hover:to-indigo-800 hover:scale-[1.02] active:scale-[0.98] border-blue-500/30 hover:shadow-blue-500/25 hover:shadow-xl'
+                }`}
             >
               <div className="absolute inset-0 bg-gradient-to-r from-white/0 via-white/20 to-white/0 transform -skew-x-12 -translate-x-full group-hover:translate-x-full transition-transform duration-700"></div>
               <span className="relative flex items-center justify-center gap-2">
@@ -399,8 +409,8 @@ export default function Home() {
                 {isCreatingGame ? 'CREATING...' : 'CREATE GAME'}
               </span>
             </button>
-            
-            <button 
+
+            <button
               onClick={handleJoinGame}
               className="group relative overflow-hidden w-full py-4 bg-gradient-to-r from-purple-600 to-pink-600 text-white text-xl font-bold rounded-xl hover:from-purple-700 hover:to-pink-700 transition-all duration-300 shadow-lg cursor-pointer transform hover:scale-[1.02] active:scale-[0.98] border-2 border-purple-500/30 hover:shadow-purple-500/25 hover:shadow-xl"
             >
@@ -417,11 +427,11 @@ export default function Home() {
 
       {/* How to Play Modal */}
       {showHowToPlay && (
-        <div 
+        <div
           className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center p-4 z-50"
           onClick={() => setShowHowToPlay(false)}
         >
-          <div 
+          <div
             className="bg-white/95 backdrop-blur-xl rounded-2xl shadow-2xl p-8 max-w-2xl w-full max-h-[80vh] overflow-y-auto border border-white/30 relative"
             onClick={(e) => e.stopPropagation()}
           >
@@ -449,7 +459,7 @@ export default function Home() {
                   Game Overview
                 </h3>
                 <p className="text-gray-700 leading-relaxed">
-                  DISPUTED! is a best-of-3 competitive debate game where players receive the same legal case but argue from different perspectives. 
+                  DISPUTED! is a best-of-3 competitive debate game where players receive the same legal case but argue from different perspectives.
                   Players alternate roles across rounds, with AI judging each round. If tied after 2 rounds, the best performer chooses their role for the decisive 3rd round!
                 </p>
               </div>
