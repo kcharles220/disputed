@@ -15,6 +15,7 @@ export default function GameLobby() {
   const [showCoinFlip, setShowCoinFlip] = useState(false);
   const [coinResult, setCoinResult] = useState<'red' | 'blue' | null>(null);
   const [flipAnimation, setFlipAnimation] = useState(false);
+  const [flipped, setFlipped] = useState(false);
 
   useEffect(() => {
     const roomId = searchParams.get('room');
@@ -41,9 +42,6 @@ export default function GameLobby() {
           const socketId = socketService.getSocket()?.id;
           const player = gameState.players.find(p => p.socketId === socketId);
           setCurrentPlayer(player || null);
-          if (player) {
-            setIsReady(player.ready);
-          }
         });
 
         socketService.onJoinError((error) => {
@@ -94,70 +92,32 @@ export default function GameLobby() {
     router.push('/');
   };
 
-  const startCoinFlip = () => {
+  const startGame = () => {
+    if (room && room.gameState === 'waiting') {
+      socketService.proceed(room.roomId);
+    }
+  };
+
+const startCoinFlip = () => {
     setShowCoinFlip(true);
     setFlipAnimation(true);
     setCoinResult(null);
-    
     // Simulate coin flip after 2 seconds
     setTimeout(() => {
-      const result = Math.random() < 0.5 ? 'red' : 'blue';
+      const result = currentPlayer?.currentRole === 'prosecutor' ? 'red' : 'blue';
       setCoinResult(result);
       setFlipAnimation(false);
-      
       // Hide coin flip after showing result for 3 seconds
       setTimeout(() => {
+        const gameUrl = room ? `/game/${room.roomId}` : '/game';
+        console.log('Redirecting to URL:', gameUrl);
+        
+        router.push(gameUrl);
         setShowCoinFlip(false);
-        // For now, don't redirect to game page since it doesn't exist yet
-        console.log('Game would start now with role:', result);
       }, 3000);
     }, 2000);
   };
 
-  const startCoinFlipWithRole = (role: 'prosecutor' | 'defender', roomIdParam?: string) => {
-    console.log('Starting coin flip with role:', role, 'Current room:', room);
-    
-    // Use passed room ID or fall back to current room state
-    const currentRoomId = roomIdParam || room?.roomId;
-    console.log('Using room ID:', currentRoomId);
-    
-    if (!currentRoomId) {
-      console.error('No room ID available for redirect');
-      return;
-    }
-    
-    setShowCoinFlip(true);
-    setFlipAnimation(true);
-    setCoinResult(null);
-    
-    // Simulate coin flip after 2 seconds
-    setTimeout(() => {
-      const result = role === 'prosecutor' ? 'red' : 'blue';
-      setCoinResult(result);
-      setFlipAnimation(false);
-      
-      // Hide coin flip and redirect to game after showing result for 3 seconds
-      setTimeout(() => {
-        setShowCoinFlip(false);
-        console.log('Redirecting to game with role:', role);
-        console.log('Using room ID:', currentRoomId);
-        console.log('Type of currentRoomId:', typeof currentRoomId);
-        console.log('Room ID is valid:', !!currentRoomId && currentRoomId !== 'undefined');
-        
-        // Store room ID in localStorage as backup
-        if (currentRoomId && typeof window !== 'undefined') {
-          localStorage.setItem('currentRoomId', currentRoomId);
-          console.log('Stored room ID in localStorage:', currentRoomId);
-        }
-        
-        const gameUrl = `/game/${currentRoomId}`;
-        console.log('Redirecting to URL:', gameUrl);
-        console.log('About to call router.push with:', gameUrl);
-        router.push(gameUrl);
-        console.log('router.push called');
-      }, 3000);
-    }, 2000);
-  };
 
   if (error) {
     return (
@@ -182,6 +142,21 @@ export default function GameLobby() {
         <div className="text-white text-2xl">Loading...</div>
       </div>
     );
+  }
+
+  // Show preparing message if game is starting
+  if (room.gameState === 'starting-game') {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-blue-400 to-indigo-600 opcacity-10">
+        <div className="text-white text-2xl font-bold">Preparing your game...</div>
+      </div>
+    );
+  }
+
+  // Start coin flip automatically if gameState is 'ready-to-start'
+  if (room.gameState === 'ready-to-start' && !flipped) {
+    setFlipped(true);
+    startCoinFlip();
   }
 
   // Always display current player on the left and opponent on the right
@@ -380,7 +355,7 @@ export default function GameLobby() {
               <div className="mt-6 p-6 bg-purple-600/20 backdrop-blur-sm border border-purple-400/30 rounded-lg">
                 <p className="text-purple-200 font-medium mb-4 text-lg">🎭 Both debaters are ready!</p>
                 <button
-                  onClick={startCoinFlip}
+                  onClick={startGame}
                   className="px-8 py-4 bg-gradient-to-r from-indigo-600/70 to-purple-600/70 backdrop-blur-sm text-white rounded-lg font-medium hover:from-indigo-500/70 hover:to-purple-500/70 transition-all duration-200 cursor-pointer shadow-lg transform hover:scale-105 border border-indigo-400/30 text-lg"
                 >
                   🎯 Begin Philosophical Duel

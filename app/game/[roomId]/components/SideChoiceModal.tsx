@@ -1,36 +1,24 @@
 'use client';
 
-import { Player } from '../../../services/socketService';
+import { GameRoom, Player } from '../../../services/socketService';
 
-interface GameState {
-    gamePhase: 'case-reading' | 'arguing' | 'round-complete' | 'finished' | 'side-choice';
-    sideChoice?: {
-        chooserPlayerId: string;
-        chooserPlayerName: string;
-        playerPerformance: any;
-    };
-}
 
 interface SideChoiceModalProps {
-    gameState: GameState;
+    gameState: GameRoom;
     currentPlayer: Player;
-    handleSideChoice: (side: 'prosecutor' | 'defender') => void;
-    getProsecutorRoundWins: () => number;
-    getDefenderRoundWins: () => number;
-    getProsecutorScore: () => number;
-    getDefenderScore: () => number;
-    formatScore: (score: number) => string;
+    leftPlayer: Player | null;
+    rightPlayer: Player | null;
+    showSideChoiceModal: boolean;
+    setShowSideChoiceModal: (show: boolean) => void;
 }
 
 export default function SideChoiceModal({
     gameState,
     currentPlayer,
-    handleSideChoice,
-    getProsecutorRoundWins,
-    getDefenderRoundWins,
-    getProsecutorScore,
-    getDefenderScore,
-    formatScore
+    leftPlayer,
+    rightPlayer,
+    showSideChoiceModal,
+    setShowSideChoiceModal,
 }: SideChoiceModalProps) {
     /*
     console.log('SideChoiceModal render check:', {

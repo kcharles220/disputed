@@ -10,8 +10,8 @@ export interface Player {
   points: number;
   ready: boolean;
   score: number;
-  arguments: { argument: string; score: number }[];
   socketId?: string;
+  arguments?: { argument: string; score: number, round: number, exchange: number }[];
 }
 
 export interface GameRoom {
@@ -20,9 +20,10 @@ export interface GameRoom {
   caseDetails: any;
   players: Player[];
   turn: string | null;
-  round: { number: number; analysis: any };
+  round: { number: number; analysis: any }[];
   exchange: number;
   argumentCount: number;
+  arguments: { argument: string; score: number, round: number, exchange: number, playerId: string, role: string }[];
   tiebreakerWinner: string | null;
 }
 
@@ -66,7 +67,7 @@ export interface PlayerData {
 
 class SocketService {
   // Listen for game state updates
-  
+
   private socket: Socket | null = null;
   private readonly serverUrl = 'http://localhost:3001';
 
@@ -88,12 +89,12 @@ class SocketService {
         timeout: 10000,
         transports: ['websocket', 'polling']
       });
-      
+
       this.socket.on('connect', () => {
         console.log('Connected to server:', this.socket?.id);
         resolve(this.socket!);
       });
-      
+
       this.socket.on('connect_error', (error) => {
         console.error('Connection error:', error);
         reject(error);
@@ -124,11 +125,11 @@ class SocketService {
       }
 
       this.socket.emit('create-room', playerData);
-      
+
       this.socket.once('room-created', (data) => {
         resolve(data);
       });
-      
+
       // Handle potential errors
       setTimeout(() => {
         reject(new Error('Room creation timeout'));
@@ -145,22 +146,27 @@ class SocketService {
       }
 
       this.socket.emit('join-room', { roomId, playerData });
-      
+
       this.socket.once('gameStateUpdate', (room: GameRoom) => {
         resolve(room);
       });
-      
+
       this.socket.once('join-error', (error) => {
         reject(new Error(error.message));
       });
-      
+
       // Handle timeout
       setTimeout(() => {
         reject(new Error('Join room timeout'));
       }, 5000);
     });
   }
-
+  // Proceed to the next phase of the game
+  proceed(roomId: string) {
+    if (this.socket) {
+      this.socket.emit('proceed', roomId);
+    }
+  }
   // Toggle player ready status
   toggleReady(roomId: string, ready: boolean) {
     if (this.socket) {
@@ -177,11 +183,11 @@ class SocketService {
       }
 
       this.socket.emit('get-room-info', roomId);
-      
+
       this.socket.once('room-info', (room: GameRoom) => {
         resolve(room);
       });
-      
+
       this.socket.once('room-not-found', () => {
         reject(new Error('Room not found'));
       });

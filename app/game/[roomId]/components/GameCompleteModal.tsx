@@ -2,84 +2,26 @@
 
 import { GameRoom, Player } from '../../../services/socketService';
 
-interface GameArgument {
-    id: string;
-    playerId: string;
-    playerName: string;
-    content: string;
-    timestamp: Date;
-    type: 'attack' | 'defense';
-    round?: number;
-    score?: number;
-}
 
-interface GameState {
-    case: {
-        id: number;
-        title: string;
-        description: string;
-        context: string;
-        prosecutorSide: string;
-        defenderSide: string;
-    } | null;
-    arguments: GameArgument[];
-    allRoundArguments: GameArgument[]; // Store all arguments from all rounds
-    currentTurn: 'prosecutor' | 'defender';
-    currentRound: number;
-    maxRounds: number;
-    scores: { prosecutor: number; defender: number }; // Role-based round wins for display
-    playerScores: { [playerId: string]: number }; // Player-based round wins for tracking
-    individualScores: { [playerId: string]: number }; // Track scores by player ID
-    gamePhase: 'case-reading' | 'arguing' | 'round-complete' | 'finished' | 'side-choice';
-    winner?: string;
-    roundResult?: {
-        round: number;
-        winner: 'prosecutor' | 'defender';
-        analysis: string;
-        prosecutorScore: number;
-        defenderScore: number;
-        argumentScores?: { argumentId: string; score: number }[]; // Individual argument scores
-    };
-    roundHistory: {
-        round: number;
-        winner: 'prosecutor' | 'defender';
-        analysis: string;
-        prosecutorScore: number;
-        defenderScore: number;
-        arguments: GameArgument[];
-        argumentScores?: { argumentId: string; score: number }[];
-    }[];
-    sideChoice?: {
-        chooserPlayerId: string;
-        chooserPlayerName: string;
-        playerPerformance: any;
-    };
-}
 
 interface GameCompleteModalProps {
-    gameState: GameState;
-    room: GameRoom;
-    showFullBattleLog: boolean;
-    setShowFullBattleLog: (show: boolean) => void;
-    router: any;
-    formatScore: (score: number) => string;
-    getProsecutorScore: () => number;
-    getDefenderScore: () => number;
-    showModal: boolean;
+    gameState: GameRoom;
+    currentPlayer: Player | null;
+    leftPlayer: Player | null;
+    rightPlayer: Player | null;
+    showGameCompleteModal: boolean;
+    setShowGameCompleteModal: (show: boolean) => void;
 }
 
 export default function GameCompleteModal({
     gameState,
-    room,
-    showFullBattleLog,
-    setShowFullBattleLog,
-    router,
-    formatScore,
-    getProsecutorScore,
-    getDefenderScore,
-    showModal
+    currentPlayer,
+    leftPlayer,
+    rightPlayer,
+    showGameCompleteModal,
+    setShowGameCompleteModal
 }: GameCompleteModalProps) {
-    if (!showModal) {
+    if (!showGameCompleteModal) {
         return null;
     }
     console.log('Game complete state:', gameState);

@@ -2,6 +2,7 @@ const express = require('express');
 const http = require('http');
 const socketIo = require('socket.io');
 const cors = require('cors');
+const { pl } = require('zod/locales');
 
 const app = express();
 const server = http.createServer(app);
@@ -38,8 +39,8 @@ class Player {
     this.arguments = [];
   }
 
-  addArgument(argument, score = 0) {
-    this.arguments.push({ argument, score });
+  addArgument(argument, score = 0, round, exchange) {
+    this.arguments.push({ argument, score, round, exchange });
   }
 }
 
@@ -58,6 +59,7 @@ class GameRoom {
       number: 1,
       analysis: null
     };
+    this.arguments = [];
     this.exchange = 1;
     this.argumentCount = 0;
     this.tiebreakerWinner = null; // player with higher score in case of 1-1
@@ -72,7 +74,7 @@ class GameRoom {
         player.position = 'left';
       } else {
         player.position = 'right';
-        
+
       }
     }
   }
@@ -83,8 +85,8 @@ class GameRoom {
       this.caseDetails = await this.getCaseDetailsFromAI();
 
       // Randomly assign roles via coinflip
-      const coinFlip = Math.random() < 0.5;
-      if (coinFlip) {
+      const coinFlip = Math.floor(Math.random() * 2); // 0 or 1, 50/50
+      if (coinFlip === 0) {
         this.players[0].currentRole = 'prosecutor';
         this.players[1].currentRole = 'defender';
       } else {
@@ -95,9 +97,9 @@ class GameRoom {
       // Set initial turn to prosecutor
       this.turn = this.getProsecutor().id;
 
-      
+      this.players.forEach(p => p.ready = false); // Reset ready states
 
-      this.broadcastGameState();
+      this.proceed(); // Proceed to next game state
     } catch (error) {
       console.error('Error initializing game:', error);
     }
@@ -148,35 +150,51 @@ class GameRoom {
     if (player) {
       player.ready = ready;
       this.broadcastGameState();
-      console.log(this.getGameData());
-      this.checkBothReady();
     }
+    this.checkBothReady();
   }
 
-  checkBothReady() {
+  proceed() {
     // Only proceed if there are exactly 2 players
     if (this.players.length !== 2) return;
 
-    const bothReady = this.players[0].ready && this.players[1].ready;
 
-    if (bothReady) {
-      switch (this.gameState) {
-        case 'waiting':
-          this.gameState = 'case-reading'; 
-          this.initializeGame();
-          break;
-        case 'case-reading':
-          this.gameState = 'game-start';
-          this.startRound();
-          break;
-        case 'round-reading':
-          this.gameState = 'round-start';
-          this.startRound();
-          break;
-        case 'tiebreaker':
-          this.gameState = 'side-choice';
-          break;
-      }
+
+    switch (this.gameState) {
+      case 'waiting':
+        this.gameState = 'starting-game';
+        this.initializeGame();
+        break;
+      case 'starting-game':
+        this.gameState = 'ready-to-start';
+        break;
+      case 'ready-to-start':
+        this.gameState = 'case-reading';
+        break;
+      case 'case-reading':
+        this.gameState = 'round-start';
+        //this.startRound();
+        break;
+      case 'round-reading':
+        this.gameState = 'round-start';
+        //this.startRound();
+        break;
+      case 'tiebreaker':
+        this.gameState = 'side-choice';
+        break;
+
+    }
+    console.log(`Game state changed to: ${this.gameState}`);
+    //set both players to not ready
+    this.players.forEach(p => p.ready = false);
+    this.broadcastGameState();
+
+    switch (this.gameState) {
+      case 'ready-to-start':
+        setTimeout(() => {
+          this.proceed();
+        }, 8000);
+        break;
     }
   }
 
@@ -192,18 +210,26 @@ class GameRoom {
     this.turn = this.getProsecutor().id;
   }
 
-  async submitArgument(playerId, argument) {
-    const player = this.getPlayerById(playerId);
-    if (!player || this.turn !== playerId) {
+  async submitArgument(socketId, argument) {
+    const player = this.getPlayerBySocketId(socketId);
+    if (!player || this.turn !== player.id) {
       return false;
     }
-
+    console.log(`Player ${player.username} submitted argument: ${argument}`);
     // Add argument to player
-    player.addArgument(argument);
+    player.addArgument(argument, 0, this.round.number, this.exchange);
     this.argumentCount++;
 
+    this.arguments.push({
+      argument: argument,
+      score: 0, // Initial score is 0, will be updated later
+      round: this.round.number,
+      exchange: this.exchange,
+      playerId: player.id,
+      role: player.currentRole
+    });
     // Switch turn to other player
-    this.turn = this.getOtherPlayer(playerId).id;
+    this.turn = this.getOtherPlayer(player.id).id;
 
     // Check if exchange is complete (2 arguments)
     if (this.argumentCount % 2 === 0) {
@@ -222,11 +248,12 @@ class GameRoom {
 
   async endRound() {
     this.gameState = 'round-over';
+    this.broadcastGameState();
 
     try {
       // Get AI analysis and scores
       const analysis = await this.getAIAnalysis();
-      this.round.analysis = analysis;
+      this.round.analysis = analysis.analysis;
 
       // Calculate scores and determine winner
       let prosecutorScore = 0;
@@ -270,7 +297,7 @@ class GameRoom {
       } else {
         // Next round
         this.gameState = 'round-reading';
-        this.prepareNextRound();
+        //this.prepareNextRound();
       }
 
       this.broadcastGameState();
@@ -286,12 +313,19 @@ class GameRoom {
     this.players.forEach(player => {
       player.currentRole = player.currentRole === 'prosecutor' ? 'defender' : 'prosecutor';
       player.ready = false;
-      player.arguments = [];
       player.score = 0;
     });
 
     this.argumentCount = 0;
     this.exchange = 1;
+  }
+
+  checkBothReady() {
+    const bothReady = this.players.every(p => p.ready);
+
+    if (bothReady) {
+      this.proceed();
+    }
   }
 
   chooseSideForTiebreaker(playerId, chosenRole) {
@@ -348,13 +382,13 @@ class GameRoom {
         arguments: p.arguments,
         socketId: p.socketId
       })),
+      arguments: this.arguments,
       turn: this.turn,
       round: this.round,
       exchange: this.exchange,
       argumentCount: this.argumentCount,
       tiebreakerWinner: this.tiebreakerWinner ? this.tiebreakerWinner.id : null
     };
-    console.log('Broadcasting game state:', JSON.stringify(gameData, null, 2));
 
     io.to(this.roomId).emit('gameStateUpdate', gameData);
     // Log all socket ids in the room for debugging
@@ -363,10 +397,16 @@ class GameRoom {
       console.log(`Emitting to sockets in room ${this.roomId}:`, Array.from(clients));
     } else {
       console.log(`No sockets found in room ${this.roomId}`);
+      //delete room
+      games.delete(this.roomId);
+      if (!games.has(this.roomId)) {
+        console.log(`Room ${this.roomId} successfully deleted.`);
+      }
+      console.log(`All rooms:`, Array.from(games.keys()));
     }
 
-    console.log(`update to roomId ${this.roomId} sent`);
-    
+    console.log(`updated roomId ${this.roomId}!`);
+
   }
   getGameData() {
     return {
@@ -385,6 +425,7 @@ class GameRoom {
         arguments: p.arguments,
         socketId: p.socketId
       })),
+      arguments: this.arguments,
       turn: this.turn,
       round: this.round,
       exchange: this.exchange,
@@ -437,7 +478,6 @@ io.on('connection', (socket) => {
 
   socket.on('setReady', ({ roomId, ready }) => {
     const game = games.get(roomId);
-    console.log(`Player ${socket.id} set ready: ${ready}`);
     if (game) {
       game.setPlayerReady(socket.id, ready);
     }
@@ -465,14 +505,19 @@ io.on('connection', (socket) => {
 
   socket.on('disconnect', () => {
     console.log('User disconnected:', socket.id);
+
     // Handle player disconnection - could pause game or end it
     games.forEach((game, roomId) => {
-      const playerIndex = game.players.findIndex(p => p.id === socket.id);
+      const playerIndex = game.players.findIndex(p => p.socketId === socket.id);
       if (playerIndex !== -1) {
         // Could implement reconnection logic or game pause here
         console.log(`Player left game ${roomId}`);
+        game.players.splice(playerIndex, 1); // Remove player from game
+        game.broadcastGameState();
+
       }
     });
+
   });
 
   socket.on('create-room', async (playerData) => {
@@ -496,9 +541,20 @@ io.on('connection', (socket) => {
     const game = games.get(roomId);
 
     if (game) {
-      socket.emit('room-info', game.getGameData());
+      game.broadcastGameState();
     } else {
-      socket.emit('room-not-found');
+      console.log(`Room ${roomId} not found for socket ${socket.id}`);
+    }
+  });
+
+  // Proceed event: client requests to proceed the game (no data needed)
+  socket.on('proceed', (roomId) => {
+    const game = games.get(roomId);
+
+    if (game) {
+      game.proceed();
+    } else {
+      console.log(`Proceed called but no game found for socket ${socket.id}`);
     }
   });
 });
