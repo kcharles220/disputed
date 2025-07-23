@@ -46,13 +46,10 @@ export default function RoundCompleteModal({
     
     const [winner, setWinner] = useState<Player | null>(null);
     const otherPlayer = gameState.players.find(player => player.id !== currentPlayer.id) || null;
-    const round = Array.isArray(gameState.roundData)
-        ? gameState.roundData[gameState.round - 1]
-        : gameState.roundData;
+    const round = gameState.roundData.find(r => r.number === gameState.round - 1);
     const currentRoundIndex = gameState.round - 1;
     const currentPlayerScore = currentPlayer.score;
     const otherPlayerScore = otherPlayer?.score || 0;
-
     useEffect(() => {
         if (currentPlayerScore > otherPlayerScore) {
             setWinner(currentPlayer);
@@ -100,7 +97,7 @@ if (seen === true) {
                             {winner?.lastRole === 'prosecutor' ? 'Prosecutor' : 'Defender'} Wins!
                         </h2>
                         {/* Show role switch message if applicable */}
-                        {round?.number === 2 && (
+                        {currentRoundIndex === 1 && (
                             <div className="relative overflow-hidden rounded-xl p-4 mt-4">
                                 <div className="absolute inset-0 bg-gradient-to-br from-yellow-500/20 via-yellow-400/10 to-orange-500/15 backdrop-blur-sm border border-yellow-400/30 shadow-lg"></div>
                                 <div className="relative z-10 text-yellow-300 font-semibold text-lg">
@@ -157,9 +154,11 @@ if (seen === true) {
                                             </h4>
                                             <span className={`text-3xl font-bold ${leftPlayer.lastRole === 'prosecutor' ? 'text-red-300' : 'text-blue-300'
                                                 }`}>
-                                                {leftPlayer.arguments
-                                                    ?.filter(arg => arg.round === currentRoundIndex)
-                                                    .reduce((sum, arg) => sum + (arg.score ?? 0), 0) ?? 0}
+                                                { leftPlayer.lastRole === 'prosecutor' ?
+                                                    round?.prosecutorScore
+                                                :
+                                                    round?.defenderScore
+                                                }
                                             </span>
                                             <div className="mt-2 text-white/80 text-lg">{leftPlayer.username}</div>
                                         </div>
@@ -192,9 +191,11 @@ if (seen === true) {
                                             </h4>
                                             <span className={`text-3xl font-bold ${rightPlayer.lastRole === 'prosecutor' ? 'text-red-300' : 'text-blue-300'
                                                 }`}>
-                                                {rightPlayer.arguments
-                                                    ?.filter(arg => arg.round === currentRoundIndex)
-                                                    .reduce((sum, arg) => sum + (arg.score ?? 0), 0) ?? 0}
+                                                { rightPlayer.lastRole === 'prosecutor' ?
+                                                    round?.prosecutorScore
+                                                :
+                                                    round?.defenderScore
+                                                }
                                             </span>
                                             <div className="mt-2 text-white/80 text-lg">{rightPlayer.username}</div>
                                         </div>

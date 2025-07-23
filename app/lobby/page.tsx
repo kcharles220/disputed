@@ -19,7 +19,7 @@ export default function GameLobby() {
 
   useEffect(() => {
     const roomId = searchParams.get('room');
-    
+
     if (!roomId) {
       router.push('/');
       return;
@@ -32,7 +32,7 @@ export default function GameLobby() {
           console.log('Socket not connected, redirecting to join page...');
           router.push(`/join?room=${roomId}`);
           return;
-        }else{console.log('Socket already connected:', socketService.getSocket()?.id);}
+        } else { console.log('Socket already connected:', socketService.getSocket()?.id); }
 
         // Listen for gameStateUpdate and update room state
         socketService.onGameStateUpdate((gameState) => {
@@ -93,12 +93,12 @@ export default function GameLobby() {
   };
 
   const startGame = () => {
-   /* if (room && room.gameState === 'waiting') {
-      socketService.proceed(room.roomId);
-    }*/
+    /* if (room && room.gameState === 'waiting') {
+       socketService.proceed(room.roomId);
+     }*/
   };
 
-const startCoinFlip = () => {
+  const startCoinFlip = () => {
     setShowCoinFlip(true);
     setFlipAnimation(true);
     setCoinResult(null);
@@ -111,7 +111,7 @@ const startCoinFlip = () => {
       setTimeout(() => {
         const gameUrl = room ? `/game/${room.roomId}` : '/game';
         console.log('Redirecting to URL:', gameUrl);
-        
+
         router.push(gameUrl);
       }, 3000);
     }, 2000);
@@ -124,7 +124,7 @@ const startCoinFlip = () => {
         <div className="bg-white/95 backdrop-blur-xl rounded-2xl shadow-2xl p-10 max-w-md w-full border border-white/30 text-center">
           <h1 className="text-2xl font-bold text-red-600 mb-4">Error</h1>
           <p className="text-gray-700 mb-6">{error}</p>
-          <button 
+          <button
             onClick={() => router.push('/')}
             className="px-6 py-3 bg-red-600 text-white rounded-lg font-medium hover:bg-red-700 transition-all duration-200"
           >
@@ -146,8 +146,57 @@ const startCoinFlip = () => {
   // Show preparing message if game is starting
   if (room.gameState === 'starting-game') {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-blue-400 to-indigo-600 opcacity-10">
-        <div className="text-white text-2xl font-bold">Preparing your game...</div>
+      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-slate-900 via-indigo-900 to-purple-900 relative overflow-hidden">
+        <div className="relative z-10 flex flex-col items-center gap-8">
+          {/* Animated robot */}
+          <div className="flex flex-col items-center">
+            <div className="animate-bounce-slow">
+              <span className="text-7xl drop-shadow-lg">🤖</span>
+            </div>
+            {/* Animated text */}
+          <div className="text-white text-2xl font-bold flex items-center gap-3">
+            <span className="animate-fade-in">Generating a random case</span>
+          </div>
+            {/* Animated gears */}
+            <div className="flex gap-2 mt-2">
+              <span className="inline-block animate-spin-slow text-indigo-300 text-2xl">⚙️</span>
+              <span className="inline-block animate-spin-reverse text-purple-300 text-xl">⚙️</span>
+              <span className="inline-block animate-spin-slow text-blue-300 text-lg">⚙️</span>
+            </div>
+          </div>
+          
+        </div>
+        {/* Custom keyframes */}
+        <style jsx>{`
+          @keyframes bounce-slow {
+        0%, 100% { transform: translateY(0);}
+        50% { transform: translateY(-24px);}
+          }
+          .animate-bounce-slow {
+        animation: bounce-slow 2s infinite;
+          }
+          @keyframes spin-slow {
+        0% { transform: rotate(0deg);}
+        100% { transform: rotate(360deg);}
+          }
+          .animate-spin-slow {
+        animation: spin-slow 3s linear infinite;
+          }
+          @keyframes spin-reverse {
+        0% { transform: rotate(0deg);}
+        100% { transform: rotate(-360deg);}
+          }
+          .animate-spin-reverse {
+        animation: spin-reverse 4s linear infinite;
+          }
+          @keyframes fade-in {
+        0% { opacity: 0;}
+        100% { opacity: 1;}
+          }
+          .animate-fade-in {
+        animation: fade-in 1.2s ease-in;
+          }
+        `}</style>
       </div>
     );
   }
@@ -181,7 +230,7 @@ const startCoinFlip = () => {
 
       {/* Content overlay */}
       <div className="relative z-10 min-h-screen flex flex-col items-center justify-center p-8">
-        
+
         {/* Room title and status */}
         <div className="text-center mb-12">
           <h1 className="text-5xl font-bold text-transparent bg-gradient-to-r from-blue-300 via-purple-300 to-indigo-300 bg-clip-text mb-2 drop-shadow-lg">
@@ -211,9 +260,8 @@ const startCoinFlip = () => {
             </div>
             <h3 className="text-xl font-bold text-blue-100 drop-shadow-sm">{leftPlayer?.username || 'You'}</h3>
             <div className="mt-2">
-              <div className={`w-40 mx-auto px-4 py-2 rounded-full text-sm font-medium backdrop-blur-sm border shadow-lg transition-colors duration-200 ${
-                leftPlayer?.ready ? 'bg-green-500/70 text-white border-green-300/50' : 'bg-blue-500/70 text-white border-blue-300/50'
-              }`}>
+              <div className={`w-40 mx-auto px-4 py-2 rounded-full text-sm font-medium backdrop-blur-sm border shadow-lg transition-colors duration-200 ${leftPlayer?.ready ? 'bg-green-500/70 text-white border-green-300/50' : 'bg-blue-500/70 text-white border-blue-300/50'
+                }`}>
                 <div className="text-center">
                   {leftPlayer?.ready ? '✓ Ready to Debate' : '📝 Preparing...'}
                 </div>
@@ -239,9 +287,8 @@ const startCoinFlip = () => {
                 </div>
                 <h3 className="text-xl font-bold text-purple-100 drop-shadow-sm">{rightPlayer.username}</h3>
                 <div className="mt-2">
-                  <div className={`w-40 mx-auto px-4 py-2 rounded-full text-sm font-medium backdrop-blur-sm border shadow-lg transition-colors duration-200 ${
-                    rightPlayer.ready ? 'bg-green-500/70 text-white border-green-300/50' : 'bg-purple-500/70 text-white border-purple-300/50'
-                  }`}>
+                  <div className={`w-40 mx-auto px-4 py-2 rounded-full text-sm font-medium backdrop-blur-sm border shadow-lg transition-colors duration-200 ${rightPlayer.ready ? 'bg-green-500/70 text-white border-green-300/50' : 'bg-purple-500/70 text-white border-purple-300/50'
+                    }`}>
                     <div className="text-center">
                       {rightPlayer.ready ? '✓ Ready to Debate' : '📝 Preparing...'}
                     </div>
@@ -269,7 +316,7 @@ const startCoinFlip = () => {
         {/* Game info and controls */}
         <div className="mt-16 text-center">
           <div className="bg-black/30 backdrop-blur-xl rounded-2xl p-8 shadow-2xl border border-blue-300/20">
-          
+
             <p className="text-blue-200 mb-4 font-medium">Debate Chamber Code:</p>
             <div className="flex items-center justify-center gap-3 mb-6">
               <div className="bg-indigo-900/60 backdrop-blur-sm rounded-lg px-6 py-3 font-mono text-xl font-bold text-blue-200 border border-indigo-400/30 shadow-lg">
@@ -297,14 +344,14 @@ const startCoinFlip = () => {
                   className="p-3 bg-blue-600/70 hover:bg-blue-500/70 text-white backdrop-blur-sm rounded-lg transition-all duration-200 cursor-pointer shadow-lg group border border-blue-400/40 transform hover:scale-105"
                   title="Copy debate chamber link"
                 >
-                  <svg 
-                    width="24" 
-                    height="24" 
-                    viewBox="0 0 24 24" 
-                    fill="none" 
-                    stroke="currentColor" 
-                    strokeWidth="2" 
-                    strokeLinecap="round" 
+                  <svg
+                    width="24"
+                    height="24"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="2"
+                    strokeLinecap="round"
                     strokeLinejoin="round"
                     className="group-hover:scale-110 transition-transform duration-200"
                   >
@@ -323,33 +370,32 @@ const startCoinFlip = () => {
                 )}
               </div>
             </div>
-            
+
             {/* Ready button */}
             <div className="flex gap-4 justify-center">
-              <button 
+              <button
                 onClick={handleLeaveRoom}
                 className="px-8 py-4 bg-red-600/70 backdrop-blur-sm text-white rounded-lg font-medium hover:bg-red-500/70 transition-all duration-200 cursor-pointer shadow-lg border border-red-400/40 transform hover:scale-105"
               >
                 🚪 Leave Chamber
               </button>
               <div className="w-48">
-                <button 
+                <button
                   onClick={handleToggleReady}
-                  className={`w-full px-8 py-4 rounded-lg font-medium transition-all duration-200 cursor-pointer shadow-lg backdrop-blur-sm border transform hover:scale-105 ${
-                    isReady 
-                      ? 'bg-blue-600/70 text-white hover:bg-blue-500/70 border-blue-400/40' 
+                  className={`w-full px-8 py-4 rounded-lg font-medium transition-all duration-200 cursor-pointer shadow-lg backdrop-blur-sm border transform hover:scale-105 ${isReady
+                      ? 'bg-blue-600/70 text-white hover:bg-blue-500/70 border-blue-400/40'
                       : 'bg-green-600/70 text-white hover:bg-green-500/70 border-green-400/40'
-                  }`}
+                    }`}
                 >
                   <div className="text-center">
                     {isReady ? '📝 Revise Arguments' : '✓ Ready to Debate'}
                   </div>
                 </button>
               </div>
-              
-              
+
+
             </div>
-            
+
             {room.players.length === 2 && room.players.every(p => p.ready) && !showCoinFlip && (
               <div className="mt-6 p-6 bg-purple-600/20 backdrop-blur-sm border border-purple-400/30 rounded-lg">
                 <p className="text-purple-200 font-medium mb-4 text-lg">🎭 Both debaters are ready!</p>
@@ -374,24 +420,22 @@ const startCoinFlip = () => {
             <div className="absolute top-1/3 left-1/3 w-96 h-96 bg-indigo-500/20 rounded-full blur-3xl animate-pulse"></div>
             <div className="absolute bottom-1/3 right-1/3 w-96 h-96 bg-purple-500/15 rounded-full blur-3xl animate-pulse delay-1000"></div>
           </div>
-          
+
           <div className="relative bg-black/40 backdrop-blur-xl rounded-3xl shadow-2xl p-12 max-w-lg w-full border border-blue-300/30 text-center">
             <h2 className="text-4xl font-bold text-transparent bg-gradient-to-r from-blue-300 via-purple-300 to-indigo-300 bg-clip-text mb-2 drop-shadow-lg">
               ⚖️ Role Assignment ⚖️
             </h2>
             <p className="text-blue-200 mb-10 font-medium">The scales of justice determine your position</p>
-            
+
             {/* Coin Animation */}
             <div className="flex justify-center mb-10">
               <div className="relative">
-                <div 
-                  className={`w-40 h-40 rounded-full flex items-center justify-center text-6xl font-bold transition-all duration-500 shadow-2xl ${
-                    flipAnimation ? 'animate-spin' : ''
-                  } ${
-                    coinResult === 'red' ? 'bg-gradient-to-br from-red-500/80 to-red-700/80 text-white border-4 border-red-300/50' :
-                    coinResult === 'blue' ? 'bg-gradient-to-br from-blue-500/80 to-blue-700/80 text-white border-4 border-blue-300/50' :
-                    'bg-gradient-to-br from-indigo-500/60 to-purple-600/60 text-blue-100 border-4 border-indigo-300/50'
-                  } backdrop-blur-sm`}
+                <div
+                  className={`w-40 h-40 rounded-full flex items-center justify-center text-6xl font-bold transition-all duration-500 shadow-2xl ${flipAnimation ? 'animate-spin' : ''
+                    } ${coinResult === 'red' ? 'bg-gradient-to-br from-red-500/80 to-red-700/80 text-white border-4 border-red-300/50' :
+                      coinResult === 'blue' ? 'bg-gradient-to-br from-blue-500/80 to-blue-700/80 text-white border-4 border-blue-300/50' :
+                        'bg-gradient-to-br from-indigo-500/60 to-purple-600/60 text-blue-100 border-4 border-indigo-300/50'
+                    } backdrop-blur-sm`}
                   style={{
                     animationDuration: flipAnimation ? '0.1s' : '0.5s'
                   }}
@@ -399,11 +443,10 @@ const startCoinFlip = () => {
                   {flipAnimation ? '⚖️' : coinResult === 'red' ? '⚔️' : coinResult === 'blue' ? '🛡️' : '⚖️'}
                 </div>
                 {/* Glow effect */}
-                <div className={`absolute inset-0 rounded-full blur-xl ${
-                  coinResult === 'red' ? 'bg-red-500/30' :
-                  coinResult === 'blue' ? 'bg-blue-500/30' :
-                  'bg-indigo-500/20'
-                } animate-pulse`}></div>
+                <div className={`absolute inset-0 rounded-full blur-xl ${coinResult === 'red' ? 'bg-red-500/30' :
+                    coinResult === 'blue' ? 'bg-blue-500/30' :
+                      'bg-indigo-500/20'
+                  } animate-pulse`}></div>
               </div>
             </div>
 

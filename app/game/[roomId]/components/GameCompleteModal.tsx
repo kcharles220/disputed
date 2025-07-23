@@ -229,7 +229,7 @@ export default function GameCompleteModal({
                                 <div className="space-y-8">
                                     {/* Display completed rounds from history */}
                                     {gameState.roundData.map((round, roundIndex) => (
-                                        <div key={`round-history-${round.number}`} className="space-y-6">
+                                        <div key={`round-history-${roundIndex}`} className="space-y-6">
                                             {/* Round Header */}
                                             <div className="relative overflow-hidden rounded-xl p-4">
                                                 {/* Glass morphism background */}

@@ -1,15 +1,18 @@
+require('dotenv').config();
+
 const express = require('express');
 const http = require('http');
 const socketIo = require('socket.io');
 const cors = require('cors');
 const { pl } = require('zod/locales');
 const { set } = require('zod');
+const AI_API_KEY = process.env.AI_API_KEY;
 
 const app = express();
 const server = http.createServer(app);
 const io = socketIo(server, {
   cors: {
-    origin: "http://localhost:3001", // Adjust for your Next.js app
+    origin: "http://localhost:3001",
     methods: ["GET", "POST"]
   }
 });
@@ -107,13 +110,103 @@ class GameRoom {
   }
 
   async getCaseDetailsFromAI() {
-    const prompt = `Generate a random fictional court case in JSON format with the following structure:
+    const themes = [
+      "philosophy", "technology", "food", "animals", "sports", "history",
+      "absurdity", "future", "mythology", "music"
+    ];
 
-{ "title": "string", "description": "string (short, not more than 2 sentences)", "prosecutionPosition": "string (just the label, e.g. 'State', 'People', or a name)", "defensePosition": "string (just the label, e.g. a name or group)" }
+    const twists = [
+      "in a parallel universe",
+      "in the distant future",
+      "in the prehistoric past",
+      "where animals can talk",
+      "in a world run by robots",
+      "on a giant floating turtle",
+      "where magic is illegal",
+      "involving a famous historical figure",
+      "in a world where dreams can be used as evidence",
+      "where time travel is common",
+      "where emotions are taxed",
+      "inside a simulation",
+      "where AI has civil rights",
+      "on a reality TV show",
+      "in zero gravity courtrooms",
+      "in a society that worships cheese",
+      "during an interplanetary trial",
+      "in a courtroom made of jelly"
+    ];
 
-The case should be funny, interesting, philosophical, absurd or possibly real. The description should be concise and not too long. Do not include any explanation or extra text—just return the JSON object.`;
+    const formats = [
+      "news report",
+      "transcript from the trial",
+      "police report summary",
+      "personal blog post summary of the trial",
+      "Wikipedia-style summary",
+      "classified government file",
+      "social media post thread",
+      "children’s story version of the trial"
+    ];
 
-    const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=AIzaSyBZrEu1qK1xTfxSWwVPx3mrW7ifbs2MEMY`, {
+    const conflictTypes = [
+      "property dispute",
+      "moral disagreement",
+      "intellectual rights battle",
+      "identity confusion case",
+      "time travel paradox dispute",
+      "species discrimination lawsuit",
+      "phantom ownership case",
+      "custody battle over an idea",
+      "allegation of emotional sabotage",
+      "trial over the meaning of a word",
+      "dispute over dreams",
+      "lawsuit over artistic interpretation",
+      "meta-legal case where the law itself is on trial"
+    ];
+
+    const tones = [
+      "dramatic",
+      "satirical",
+      "wholesome",
+      "noir-style",
+      "overly serious for a silly case",
+      "epic fantasy tone",
+      "mockumentary vibe",
+      "Shakespearean",
+      "cyberpunk tone"
+    ];
+
+
+    const randomTheme = themes[Math.floor(Math.random() * themes.length)];
+    const randomTwist = twists[Math.floor(Math.random() * twists.length)];
+    const randomFormat = formats[Math.floor(Math.random() * formats.length)];
+    const randomConflictType = conflictTypes[Math.floor(Math.random() * conflictTypes.length)];
+    const randomTone = tones[Math.floor(Math.random() * tones.length)];
+
+    const prompt = `
+Generate a completely original and unique fictional court case in JSON format with the following structure:
+
+{ 
+  "title": "string" (just a title, no sides, e.g. 'The Case of the 5th Street'), 
+  "description": "string" (short, not more than 5 sentences, use clear language), 
+  "prosecutionPosition": "string (just the label, e.g. 'State', 'People', or a name)", 
+  "defensePosition": "string (just the label, e.g. a name or group)" 
+}
+
+The case must be themed around: **${randomTheme}**, and should involve a conflict such as: **${randomConflictType}**, ${randomTwist}.
+Format the description like a **${randomFormat}**, and write it in a **${randomTone}** tone.
+
+**IMPORTANT:** 
+- The case must be concrete, specific, and easy to argue for both sides.
+- Avoid poetic, archaic, or abstract language—use modern, clear, and direct wording.
+- Clearly state what the defendant is accused of, what the evidence is, and what each side’s main argument is.
+- The case should be understandable to someone with no knowledge of the setting.
+- Make sure the case is arguable and has clear sides for prosecution and defense.
+
+Be as creative, absurd, and unpredictable as possible, but always keep the facts clear and debatable. Do NOT repeat previous examples. 
+Return only the JSON object, no extra text.
+`;
+
+    const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${AI_API_KEY}`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
@@ -129,8 +222,6 @@ The case should be funny, interesting, philosophical, absurd or possibly real. T
 
     const data = await response.json();
     const text = data.candidates?.[0]?.content?.parts?.[0]?.text;
-    console.log("Gemini raw text:", text);
-
     try {
       // Remove Markdown code fences if present
       const cleanedText = text
@@ -139,7 +230,7 @@ The case should be funny, interesting, philosophical, absurd or possibly real. T
         .trim();
 
       const fetchedCase = JSON.parse(cleanedText);
-      console.log("Parsed case:", fetchedCase);
+      console.log("Generated case:", fetchedCase);
       return fetchedCase;
     } catch (e) {
       console.error('Failed to parse Gemini response:', text);
@@ -276,11 +367,16 @@ The case should be funny, interesting, philosophical, absurd or possibly real. T
     this.gameState = 'round-over';
     this.exchange = 1;
     this.round++;
+
+    this.players.forEach(player => {
+      player.lastRole = player.currentRole;
+    });
+
     this.broadcastGameState();
 
     try {
       // Get AI analysis and scores
-      const analysis = await this.getAIAnalysis();
+      const analysis = await this.getAIAnalysis(this);
 
 
       // Calculate scores and determine winner
@@ -305,7 +401,11 @@ The case should be funny, interesting, philosophical, absurd or possibly real. T
 
       prosecutor.score += prosecutorScore;
       defender.score += defenderScore;
-
+      // Fix floating-point precision
+      prosecutor.score = Math.round((prosecutor.score + Number.EPSILON) * 10) / 10;
+      defender.score = Math.round((defender.score + Number.EPSILON) * 10) / 10;
+      prosecutorScore = Math.round((prosecutorScore + Number.EPSILON) * 10) / 10;
+      defenderScore = Math.round((defenderScore + Number.EPSILON) * 10) / 10;
       // Determine round winner
       if (prosecutorScore > defenderScore) {
         prosecutor.points++;
@@ -344,10 +444,6 @@ The case should be funny, interesting, philosophical, absurd or possibly real. T
 
   prepareNextRound() {
 
-    // Switch roles for round 2
-    this.players.forEach(player => {
-      player.lastRole = player.currentRole;
-    });
 
     if (this.round === 2) {
       this.players.forEach(player => {
@@ -387,29 +483,93 @@ The case should be funny, interesting, philosophical, absurd or possibly real. T
     return true;
   }
 
-  async getAIAnalysis() {
-    // Mock AI analysis - replace with actual AI integration
-    const prosecutorScores = Array(3).fill(0).map(() => Math.floor(Math.random() * 11)); // 0-10
-    const defenderScores = Array(3).fill(0).map(() => Math.floor(Math.random() * 11)); // 0-10
-    //update argument scores
-    let pindex = 0;
-    let dindex = 0;
-    this.arguments.filter(arg => arg.round === this.round - 1).forEach((arg, index) => {
-      if (arg.role === 'prosecutor') {
-        arg.score = prosecutorScores[pindex];
-        pindex++;
+  async getAIAnalysis(context) {
 
-      } else {
-        arg.score = defenderScores[dindex];
-        dindex++;
-      }
+    const caseDetails = context.caseDetails;
+    const presentedArguments = context.arguments.filter(arg => arg.round === context.round - 1);
+    const prompt = `
+    this is a fictional court case analysis task. You will be given a case description and arguments presented by both sides in a courtroom setting. Your task is to analyze the arguments and provide scores for each argument based on their strength, relevance, and persuasiveness.
+
+    Be extremely strict, rational, and critical in your scoring. Do not be generous or empathetic. If an argument is weak, irrelevant, or poorly constructed, give it a low score without hesitation. Only arguments that are truly excellent should receive high scores.
+
+    The case details are as follows:
+    case title: ${caseDetails.title},
+    case description: ${caseDetails.description},
+    prosecution position: ${caseDetails.prosecutionPosition},
+    defense position: ${caseDetails.defensePosition},
+
+    argument1 (prosecutor): ${presentedArguments[0]?.argument || "No argument"},
+    argument2 (defender): ${presentedArguments[1]?.argument || "No argument"},
+    argument3 (prosecutor): ${presentedArguments[2]?.argument || "No argument"},
+    argument4 (defender): ${presentedArguments[3]?.argument || "No argument"},
+    argument5 (prosecutor): ${presentedArguments[4]?.argument || "No argument"},
+    argument6 (defender): ${presentedArguments[5]?.argument || "No argument"},
+
+    Your task is to analyze these arguments and provide a JSON response with the following structure:
+    {
+      "argument1Score": number, // Score for argument 1 (prosecutor)
+      "argument2Score": number, // Score for argument 2 (defender)
+      "argument3Score": number, // Score for argument 3 (prosecutor)
+      "argument4Score": number, // Score for argument 4 (defender)
+      "argument5Score": number, // Score for argument 5 (prosecutor)
+      "argument6Score": number, // Score for argument 6 (defender)
+      "analysis": string // Your analysis of the argumentation
+    }
+    Be as rational, precise, critical, strict and rigid as possible in your scoring.
+    Each score should be a number between 0 and 10 (with decimals if needed), where 0 is the equivalent of No Argument.
+    The analysis should be a short (not more than 100 words) explanation of your reasoning behind the scores, discussing the strengths and weaknesses of each side (prosecution and defense).
+    Do not include any additional text or explanations outside of the JSON response!
+    `;
+    console.log("AI Prompt:", prompt);
+    const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${AI_API_KEY}`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        contents: [
+          {
+            parts: [
+              { text: prompt }
+            ]
+          }
+        ]
+      })
     });
-    
-    return {
-      prosecutorScores,
-      defenderScores,
-      analysis: "Mock analysis of the arguments presented in this round."
-    };
+
+    const data = await response.json();
+    const text = data.candidates?.[0]?.content?.parts?.[0]?.text;
+    try {
+      // Remove Markdown code fences if present
+      const cleanedText = text
+        .replace(/```json\s*/i, '')
+        .replace(/```/g, '')
+        .trim();
+
+      const aiAnswer = JSON.parse(cleanedText);
+      console.log("AI Answer:", aiAnswer);
+      const analysis = aiAnswer.analysis || "No analysis provided";
+      const prosecutorScores = [aiAnswer.argument1Score, aiAnswer.argument3Score, aiAnswer.argument5Score];
+      const defenderScores = [aiAnswer.argument2Score, aiAnswer.argument4Score, aiAnswer.argument6Score];
+      let pindex = 0;
+      let dindex = 0;
+      this.arguments.filter(arg => arg.round === this.round - 1).forEach((arg, index) => {
+        if (arg.role === 'prosecutor') {
+          arg.score = prosecutorScores[pindex];
+          pindex++;
+
+        } else {
+          arg.score = defenderScores[dindex];
+          dindex++;
+        }
+      });
+      return {
+        prosecutorScores,
+        defenderScores,
+        analysis
+      };
+    } catch (e) {
+      console.error('Failed to parse Gemini response:', text);
+      throw e;
+    }
   }
 
   broadcastGameState() {
@@ -441,7 +601,7 @@ The case should be funny, interesting, philosophical, absurd or possibly real. T
     };
 
     io.to(this.roomId).emit('gameStateUpdate', gameData);
-   
+
 
     console.log(`updated roomId ${this.roomId}!`);
 
@@ -535,7 +695,7 @@ io.on('connection', (socket) => {
   });
 
   socket.on('chooseSide', ({ roomId, role }) => {
-          console.log(roomId, role);
+    console.log(roomId, role);
 
     const game = games.get(roomId);
     if (game) {
@@ -555,9 +715,9 @@ io.on('connection', (socket) => {
       if (playerIndex !== -1) {
         // Could implement reconnection logic or game pause here
         if (game.gameState === 'waiting') {
-          game.players.splice(playerIndex, 1); 
-        }else {
-          game.players[playerIndex].connected = false; 
+          game.players.splice(playerIndex, 1);
+        } else {
+          game.players[playerIndex].connected = false;
         }
         console.log(`Player left game ${roomId}`);
 
