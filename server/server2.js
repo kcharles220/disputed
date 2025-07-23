@@ -107,23 +107,44 @@ class GameRoom {
   }
 
   async getCaseDetailsFromAI() {
-    // Mock AI response - replace with actual AI integration
-    const cases = [
-      {
-        title: "State vs Thompson",
-        description: "A case involving charges of robbery against defendant Thompson. The prosecution argues that Thompson committed armed robbery at a convenience store on Main Street. The defense maintains Thompson's innocence and questions the reliability of witness testimony.",
-        prosecutionPosition: "State",
-        defensePosition: "Thompson"
-      },
-      {
-        title: "People vs Johnson",
-        description: "A fraud case where Johnson is accused of embezzling funds from his employer. The prosecution claims systematic financial misconduct over two years. The defense argues the evidence is circumstantial and points to accounting errors.",
-        prosecutionPosition: "People",
-        defensePosition: "Johnson"
-      }
-    ];
+    const prompt = `Generate a random fictional court case in JSON format with the following structure:
 
-    return cases[Math.floor(Math.random() * cases.length)];
+{ "title": "string", "description": "string (short, not more than 2 sentences)", "prosecutionPosition": "string (just the label, e.g. 'State', 'People', or a name)", "defensePosition": "string (just the label, e.g. a name or group)" }
+
+The case should be funny, interesting, philosophical, absurd or possibly real. The description should be concise and not too long. Do not include any explanation or extra text—just return the JSON object.`;
+
+    const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=AIzaSyBZrEu1qK1xTfxSWwVPx3mrW7ifbs2MEMY`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        contents: [
+          {
+            parts: [
+              { text: prompt }
+            ]
+          }
+        ]
+      })
+    });
+
+    const data = await response.json();
+    const text = data.candidates?.[0]?.content?.parts?.[0]?.text;
+    console.log("Gemini raw text:", text);
+
+    try {
+      // Remove Markdown code fences if present
+      const cleanedText = text
+        .replace(/```json\s*/i, '')
+        .replace(/```/g, '')
+        .trim();
+
+      const fetchedCase = JSON.parse(cleanedText);
+      console.log("Parsed case:", fetchedCase);
+      return fetchedCase;
+    } catch (e) {
+      console.error('Failed to parse Gemini response:', text);
+      throw e;
+    }
   }
 
   getProsecutor() {
