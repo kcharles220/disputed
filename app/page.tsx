@@ -117,7 +117,7 @@ export default function Home() {
   };
 
   const handleJoinGame = () => {
-    
+
 
     router.push('/join');
   };
@@ -412,7 +412,12 @@ export default function Home() {
 
             <button
               onClick={handleJoinGame}
-              className="group relative overflow-hidden w-full py-4 bg-gradient-to-r from-purple-600 to-pink-600 text-white text-xl font-bold rounded-xl hover:from-purple-700 hover:to-pink-700 transition-all duration-300 shadow-lg cursor-pointer transform hover:scale-[1.02] active:scale-[0.98] border-2 border-purple-500/30 hover:shadow-purple-500/25 hover:shadow-xl"
+              disabled={(!ready && status !== 'unauthenticated')}
+
+              className={`group relative overflow-hidden w-full py-4 text-xl font-bold rounded-xl ${(!ready && status !== 'unauthenticated')
+                ? 'bg-gray-400 text-gray-600 cursor-not-allowed border-gray-300'
+                : 'text-white bg-gradient-to-r from-purple-600 to-pink-600  hover:from-purple-700 hover:to-pink-700 transition-all duration-300 shadow-lg cursor-pointer transform hover:scale-[1.02] active:scale-[0.98] border-2 border-purple-500/30 hover:shadow-purple-500/25 hover:shadow-xl'
+                }`}
             >
               <div className="absolute inset-0 bg-gradient-to-r from-white/0 via-white/20 to-white/0 transform -skew-x-12 -translate-x-full group-hover:translate-x-full transition-transform duration-700"></div>
               <span className="relative flex items-center justify-center gap-2">

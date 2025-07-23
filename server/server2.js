@@ -33,6 +33,7 @@ class Player {
     this.score = 0; // sum of argument scores
     this.arguments = []; // {argument: string, score: number}
     this.socketId = socketId; // Use id as socketId for simplicity  
+    this.connected = true;
   }
 
   reset() {
@@ -41,8 +42,8 @@ class Player {
     this.arguments = [];
   }
 
-  addArgument(argument, score = 0, round, exchange) {
-    this.arguments.push({ argument, score, round, exchange });
+  addArgument(argument, score = 0, round, exchange, role) {
+    this.arguments.push({ argument, score, round, exchange, role });
   }
 }
 
@@ -221,7 +222,7 @@ class GameRoom {
     }
     console.log(`Player ${player.username} submitted argument: ${argument}`);
     // Add argument to player
-    player.addArgument(argument, 0, this.round, this.exchange);
+    player.addArgument(argument, 0, this.round, this.exchange, player.currentRole);
     this.argumentCount++;
 
     this.arguments.push({
@@ -259,7 +260,7 @@ class GameRoom {
     try {
       // Get AI analysis and scores
       const analysis = await this.getAIAnalysis();
-      
+
 
       // Calculate scores and determine winner
       let prosecutorScore = 0;
@@ -287,7 +288,7 @@ class GameRoom {
       // Determine round winner
       if (prosecutorScore > defenderScore) {
         prosecutor.points++;
-       
+
       } else if (defenderScore > prosecutorScore) {
         defender.points++;
       }
@@ -296,8 +297,8 @@ class GameRoom {
         analysis: analysis.analysis,
         winner: prosecutorScore > defenderScore ? prosecutor.username : defender.username,
         role: prosecutorScore > defenderScore ? prosecutor.currentRole : defender.currentRole,
-        prosecutorScore : prosecutorScore,
-        defenderScore : defenderScore
+        prosecutorScore: prosecutorScore,
+        defenderScore: defenderScore
       });
       // Check game end conditions
       if (prosecutor.points === 2 || defender.points === 2) {
@@ -330,7 +331,7 @@ class GameRoom {
     if (this.round === 2) {
       this.players.forEach(player => {
         player.currentRole = player.currentRole === 'prosecutor' ? 'defender' : 'prosecutor';
-        
+
       });
     }
     this.turn = this.getProsecutor().id; // Reset turn to prosecutor
@@ -344,22 +345,21 @@ class GameRoom {
     }
   }
 
-  chooseSideForTiebreaker(playerId, chosenRole) {
-    console.log(`Player ${playerId} chose side: ${chosenRole}`);
-    const notChosenRole = chosenRole === 'prosecutor' ? 'prosecutor' : 'defender';
+  chooseSideForTiebreaker(socketId, chosenRole) {
+    const notChosenRole = chosenRole === 'prosecutor' ? 'defender' : 'prosecutor';
     this.players.forEach(player => {
       player.lastRole = player.currentRole;
     });
-     this.players.forEach(player => {
-      if (player.socketId === playerId) {
+    this.players.forEach(player => {
+      if (player.socketId === socketId) {
         player.currentRole = chosenRole; // Assign chosen role to tiebreaker winner
       } else {
-        player.currentRole = notChosenRole; 
+        player.currentRole = notChosenRole;
       }
     });
 
     //this.round.number = 3;
-    this.gameState = 'tiebreaker-start';
+    this.gameState = 'round-start';
     //this.startRound();
     this.broadcastGameState();
 
@@ -370,7 +370,20 @@ class GameRoom {
     // Mock AI analysis - replace with actual AI integration
     const prosecutorScores = Array(3).fill(0).map(() => Math.floor(Math.random() * 11)); // 0-10
     const defenderScores = Array(3).fill(0).map(() => Math.floor(Math.random() * 11)); // 0-10
+    //update argument scores
+    let pindex = 0;
+    let dindex = 0;
+    this.arguments.filter(arg => arg.round === this.round - 1).forEach((arg, index) => {
+      if (arg.role === 'prosecutor') {
+        arg.score = prosecutorScores[pindex];
+        pindex++;
 
+      } else {
+        arg.score = defenderScores[dindex];
+        dindex++;
+      }
+    });
+    
     return {
       prosecutorScores,
       defenderScores,
@@ -394,7 +407,8 @@ class GameRoom {
         ready: p.ready,
         score: p.score,
         arguments: p.arguments,
-        socketId: p.socketId
+        socketId: p.socketId,
+        connected: p.connected
       })),
       arguments: this.arguments,
       turn: this.turn,
@@ -406,19 +420,7 @@ class GameRoom {
     };
 
     io.to(this.roomId).emit('gameStateUpdate', gameData);
-    // Log all socket ids in the room for debugging
-    const clients = io.sockets.adapter.rooms.get(this.roomId);
-    if (clients) {
-      console.log(`Emitting to sockets in room ${this.roomId}:`, Array.from(clients));
-    } else {
-      console.log(`No sockets found in room ${this.roomId}`);
-      //delete room
-      games.delete(this.roomId);
-      if (!games.has(this.roomId)) {
-        console.log(`Room ${this.roomId} successfully deleted.`);
-      }
-      console.log(`All rooms:`, Array.from(games.keys()));
-    }
+   
 
     console.log(`updated roomId ${this.roomId}!`);
 
@@ -439,7 +441,8 @@ class GameRoom {
         ready: p.ready,
         score: p.score,
         arguments: p.arguments,
-        socketId: p.socketId
+        socketId: p.socketId,
+        connected: p.connected
       })),
       arguments: this.arguments,
       turn: this.turn,
@@ -510,10 +513,12 @@ io.on('connection', (socket) => {
     }
   });
 
-  socket.on('chooseSide', ({ roomId, playerId, role }) => {
+  socket.on('chooseSide', ({ roomId, role }) => {
+          console.log(roomId, role);
+
     const game = games.get(roomId);
     if (game) {
-      const success = game.chooseSideForTiebreaker(playerId, role);
+      const success = game.chooseSideForTiebreaker(socket.id, role);
       if (!success) {
         socket.emit('error', { message: 'Invalid side choice' });
       }
@@ -528,10 +533,18 @@ io.on('connection', (socket) => {
       const playerIndex = game.players.findIndex(p => p.socketId === socket.id);
       if (playerIndex !== -1) {
         // Could implement reconnection logic or game pause here
+        if (game.gameState === 'waiting') {
+          game.players.splice(playerIndex, 1); 
+        }else {
+          game.players[playerIndex].connected = false; 
+        }
         console.log(`Player left game ${roomId}`);
-        game.players.splice(playerIndex, 1); // Remove player from game
-        game.broadcastGameState();
 
+        game.broadcastGameState();
+        if (game.players.every(p => !p.connected)) {
+          games.delete(roomId);
+          console.log(`Room ${roomId} deleted after all players disconnected.`);
+        }
       }
     });
 
@@ -580,6 +593,16 @@ io.on('connection', (socket) => {
 // REST endpoints for health check
 app.get('/health', (req, res) => {
   res.json({ status: 'Server is running', activeGames: games.size });
+});
+
+// === Debug endpoint to list all active game rooms and their data ===
+app.get('/debug/games/full', (req, res) => {
+  const allGames = {};
+  games.forEach((game, roomId) => {
+    // Use getGameData() if you want a clean, serializable version
+    allGames[roomId] = game.getGameData ? game.getGameData() : game;
+  });
+  res.json(allGames);
 });
 
 const PORT = process.env.PORT || 3001;

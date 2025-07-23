@@ -12,7 +12,8 @@ export interface Player {
   ready: boolean;
   score: number;
   socketId?: string;
-  arguments?: { argument: string; score: number, round: number, exchange: number }[];
+  arguments?: { argument: string; score: number, round: number, exchange: number, role: string }[];
+  connected?: boolean;
 }
 
 export interface GameRoom {
@@ -291,9 +292,9 @@ class SocketService {
     }
   }
   // Submit argument
-  chooseSide(roomId: string, playerId: string, side: string) {
+  chooseSide(roomId: string, side: string) {
     if (this.socket) {
-      this.socket.emit('chooseSide', { roomId, playerId, side });
+      this.socket.emit('chooseSide', { roomId, side });
     }
   }
   getSocket() {
