@@ -1,5 +1,15 @@
 require('dotenv').config();
 
+const { MongoClient } = require('mongodb');
+const mongoClient = new MongoClient(process.env.MONGODB_URI);let mongoDb;
+mongoClient.connect().then(client => {
+  mongoDb = client.db(); // Use default DB from URI
+  console.log('Connected to MongoDB');
+}).catch(err => {
+  console.error('MongoDB connection error:', err);
+});
+
+
 const express = require('express');
 const http = require('http');
 const socketIo = require('socket.io');
@@ -82,25 +92,46 @@ class GameRoom {
       }
     }
   }
-  updateUserStats() {
-    // Ensure stats fields exist
-    this.players.forEach(player => {
-      if (typeof player.gamesPlayed !== 'number') player.gamesPlayed = 0;
-      if (typeof player.gamesWon !== 'number') player.gamesWon = 0;
-    });
+  async updateUserStats() {
+    if (!mongoDb) {
+      console.error('MongoDB not connected!');
+      return;
+    }
+    const users = mongoDb.collection('users');
 
-    // Increment gamesPlayed for both players
-    this.players.forEach(player => {
-      player.gamesPlayed += 1;
-    });
-
-    // Determine winner(s)
-    const maxPoints = Math.max(...this.players.map(p => p.points));
-    this.players.forEach(player => {
-      if (player.points === maxPoints && maxPoints > 0) {
-        player.gamesWon += 1;
-      }
-    });
+    for (const player of this.players) {
+      await users.updateOne(
+        { username: player.username },
+        {
+          $set: {
+            gamesPlayed: (player.gamesPlayed || 0) + 1,
+            gamesWon: (player.gamesWon || 0) + (player.points === 2 ? 1 : 0),
+            gamesLost: (player.gamesLost || 0) + (player.points < 2 ? 1 : 0),
+            rating: (player.rating || 0) + (player.points === 2 ? 10 : player.points === 1 ? 5 : 0),//TODO: implement rating system
+            winPercentage: ((player.gamesWon || 0) + (player.points === 2 ? 1 : 0)) / ((player.gamesPlayed || 0) + 1),
+            averageArgumentScore: ((player.averageArgumentScore || 0) * (player.totalArguments || 0) + player.arguments.length) / ((player.totalArguments || 0) + this.arguments.length),
+            bestArgumentScore: Math.max(player.bestArgumentScore || 0, ...player.arguments.map(arg => arg.score)),
+            worstArgumentScore: Math.min(player.worstArgumentScore || 10, ...player.arguments.map(arg => arg.score)),
+            totalArguments: (player.totalArguments || 0) + player.arguments.length,
+            totalRoundsPlayed: (player.totalRoundsPlayed || 0) + (this.round),
+            totalRoundsWon: (player.totalRoundsWon || 0) + (player.points),
+            totalRoundsLost: (player.totalRoundsLost || 0) + (this.round - player.points),
+            averageGameDuration: (player.averageGameDuration || 0), //TODO: implement game duration tracking
+            longestWinStreak: Math.max(player.longestWinStreak || 0, player.currentWinStreak + 1 || 0),
+            currentWinStreak: player.points === 2 ? (player.currentWinStreak || 0) + 1 : 0,
+            prosecutorRoundsPlayed: (player.prosecutorRoundsPlayed || 0) + (player.currentRole === 'prosecutor' ? 1 : 0),
+            prosecutorRoundsWon: (player.prosecutorRoundsWon || 0) + (player.currentRole === 'prosecutor' && player.points === 2 ? 1 : 0),
+            prosecutorPointsWon: (player.prosecutorPointsWon || 0) + (player.currentRole === 'prosecutor' ? player.score : 0),
+            prosecutorAverageScore: ((player.prosecutorAverageScore || 0) * (player.prosecutorRoundsPlayed || 0) + player.score) / ((player.prosecutorRoundsPlayed || 0) + 1),
+            defenderRoundsPlayed: (player.defenderRoundsPlayed || 0) + (player.currentRole === 'defender' ? 1 : 0),
+            defenderRoundsWon: (player.defenderRoundsWon || 0) + (player.currentRole === 'defender' && player.points === 2 ? 1 : 0),
+            defenderPointsWon: (player.defenderPointsWon || 0) + (player.currentRole === 'defender' ? player.score : 0),
+            defenderAverageScore: ((player.defenderAverageScore || 0) * (player.defenderRoundsPlayed || 0) + player.score) / ((player.defenderRoundsPlayed || 0) + 1),
+            preferredRole: Math.max(player.defenderAverageScore || 0, player.prosecutorAverageScore || 0) === (player.defenderAverageScore || 0) ? 'defender' : 'prosecutor', 
+          }
+        }
+      );
+    }
   }
 
   async initializeGame() {
@@ -444,7 +475,7 @@ Return only the JSON object, no extra text.
       // Check game end conditions
       if (prosecutor.points === 2 || defender.points === 2) {
         this.gameState = 'game-over';
-        this.updateUserStats();
+        await this.updateUserStats();
       } else if (prosecutor.points === 1 && defender.points === 1) {
         // Tiebreaker needed
         this.gameState = 'tiebreaker';
