@@ -282,7 +282,7 @@ export default function GameCompleteModal({
                                                                                     {argument.role === 'prosecutor' ? '🔥' : '🛡️'}
                                                                                 </span>
                                                                                 <span className={`font-semibold ${argument.role === 'prosecutor' ? 'text-red-300' : 'text-blue-300'}`}>
-                                                                                    {argument.playerId === leftPlayer?.id ? leftPlayer?.username : rightPlayer?.username}
+                                                                                    {argument.socketId === leftPlayer?.socketId ? leftPlayer?.username : rightPlayer?.username}
                                                                                 </span>
                                                                             </div>
                                                                             <div className="flex items-center gap-4">

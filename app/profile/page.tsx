@@ -267,7 +267,7 @@ export default function ProfilePage() {
                   </div>
                   {!isEditing && (
                     <div className="text-gray-600">
-                      <div className="font-medium">{user?.username || user?.name}</div>
+                      <div className="font-medium">{user?.username}</div>
                       <div className="text-sm">Legal Battle Champion</div>
                     </div>
                   )}
@@ -307,7 +307,7 @@ export default function ProfilePage() {
                   />
                 ) : (
                   <div className="p-3 bg-gray-100 rounded-xl text-gray-800 font-medium">
-                    {user?.username || user?.name}
+                    {user?.username}
                   </div>
                 )}
               </div>

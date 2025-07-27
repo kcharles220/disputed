@@ -211,8 +211,8 @@ export default function GameLobby() {
   let leftPlayer: Player | null = null;
   let rightPlayer: Player | null = null;
   if (currentPlayer) {
-    leftPlayer = currentPlayer;
-    rightPlayer = room.players.find(p => p.id !== currentPlayer.id) || null;
+    leftPlayer = room.players.find(p => p.position === 'left') || null;
+    rightPlayer = room.players.find(p => p.position === 'right') || null;
   } else if (room.players.length > 0) {
     leftPlayer = room.players[0];
     rightPlayer = room.players[1] || null;

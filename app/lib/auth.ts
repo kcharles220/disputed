@@ -2,7 +2,7 @@ import { AuthOptions } from 'next-auth'
 import CredentialsProvider from 'next-auth/providers/credentials'
 import GoogleProvider from 'next-auth/providers/google'
 import { MongoDBAdapter } from '@auth/mongodb-adapter'
-import { MongoClient } from 'mongodb'
+import { MongoClient, ObjectId } from 'mongodb'
 import bcrypt from 'bcryptjs'
 import { ExtendedProfile } from '@/types/next-auth'
 
@@ -263,6 +263,26 @@ export const authOptions: AuthOptions = {
     },
     async session({ session, token }) {
       if (token) {
+        // Check if user exists in the database
+        try {
+          const client = new MongoClient(process.env.MONGODB_URI!)
+          await client.connect()
+          const users = client.db().collection('users')
+          // Use id or email to find the user
+          const user = await users.findOne({ _id: new ObjectId(token.id as string) })
+          await client.close()
+
+          if (!user) {
+            // User does not exist, clear user data from session
+            session.user = {} as typeof session.user
+            return session;
+          }
+        } catch (err) {
+          console.error('Session user existence check failed:', err)
+          session.user = {} as typeof session.user
+          return session
+        }
+
         session.user.id = token.id as string
         session.user.username = token.username as string
         (session.user as any).avatar = token.avatar as string

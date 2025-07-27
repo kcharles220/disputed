@@ -45,7 +45,7 @@ export default function RoundCompleteModal({
     };
 
     const [winner, setWinner] = useState<Player | null>(null);
-    const otherPlayer = gameState.players.find(player => player.id !== currentPlayer.id) || null;
+    const otherPlayer = gameState.players.find(player => player.socketId !== currentPlayer.socketId) || null;
     const round = gameState.roundData.find(r => r.number === gameState.round - 1);
     const currentRoundIndex = gameState.round - 1;
     const currentPlayerScore = currentPlayer.score;

@@ -1,7 +1,8 @@
 require('dotenv').config();
 
 const { MongoClient } = require('mongodb');
-const mongoClient = new MongoClient(process.env.MONGODB_URI);let mongoDb;
+const mongoClient = new MongoClient(process.env.MONGODB_URI);
+let mongoDb;
 mongoClient.connect().then(client => {
   mongoDb = client.db(); // Use default DB from URI
   console.log('Connected to MongoDB');
@@ -92,6 +93,7 @@ class GameRoom {
       }
     }
   }
+
   async updateUserStats() {
     if (!mongoDb) {
       console.error('MongoDB not connected!');
@@ -100,34 +102,101 @@ class GameRoom {
     const users = mongoDb.collection('users');
 
     for (const player of this.players) {
+      if (!player.id) {continue;}
+      // Fetch the current user document
+      const user = await users.findOne({ id: player.id });
+      if (!user) {
+        console.log(`User not found for player ${player.username}`);
+        continue;
+      }
+
+      // Defensive fallback for undefined fields
+      const gamesPlayed = user.gamesPlayed || 0;
+      const gamesWon = user.gamesWon || 0;
+      const gamesLost = user.gamesLost || 0;
+      const rating = user.rating || 0;
+      const averageArgumentScore = user.averageArgumentScore || 0;
+      const bestArgumentScore = user.bestArgumentScore || 0;
+      const worstArgumentScore = user.worstArgumentScore !== undefined ? user.worstArgumentScore : 10;
+      const totalArguments = user.totalArguments || 0;
+      const totalRoundsPlayed = user.totalRoundsPlayed || 0;
+      const totalRoundsWon = user.totalRoundsWon || 0;
+      const totalRoundsLost = user.totalRoundsLost || 0;
+      const averageGameDuration = user.averageGameDuration || 0;
+      const longestWinStreak = user.longestWinStreak || 0;
+      const currentWinStreak = user.currentWinStreak || 0;
+      const prosecutorRoundsPlayed = user.prosecutorRoundsPlayed || 0;
+      const prosecutorRoundsWon = user.prosecutorRoundsWon || 0;
+      const prosecutorPointsWon = user.prosecutorPointsWon || 0;
+      const prosecutorAverageScore = user.prosecutorAverageScore || 0;
+      const defenderRoundsPlayed = user.defenderRoundsPlayed || 0;
+      const defenderRoundsWon = user.defenderRoundsWon || 0;
+      const defenderPointsWon = user.defenderPointsWon || 0;
+      const defenderAverageScore = user.defenderAverageScore || 0;
+
+      // Calculate new stats
+      const newGamesPlayed = gamesPlayed + 1;
+      const newGamesWon = gamesWon + (player.points === 2 ? 1 : 0);
+      const newGamesLost = gamesLost + (player.points < 2 ? 1 : 0);
+      const newRating = rating + (player.points === 2 ? 10 : player.points === 1 ? 5 : 0); // TODO: implement rating system
+      const newWinPercentage = (newGamesWon / newGamesPlayed) * 100;
+      const newTotalArguments = totalArguments + player.arguments.length;
+      const playerAvgArgScore = player.arguments.length > 0 ? (player.score / player.arguments.length) : 0;
+      const newAverageArgumentScore = newTotalArguments > 0
+        ? ((averageArgumentScore * totalArguments) + (player.score)) / newTotalArguments
+        : playerAvgArgScore;
+      const newBestArgumentScore = Math.max(bestArgumentScore, ...player.arguments.map(arg => arg.score));
+      const newWorstArgumentScore = Math.min(worstArgumentScore, ...player.arguments.map(arg => arg.score));
+      const newTotalRoundsPlayed = totalRoundsPlayed + (this.round - 1);
+      const newTotalRoundsWon = totalRoundsWon + player.points;
+      const newTotalRoundsLost = totalRoundsLost + ((this.round - 1) - player.points);
+      // averageGameDuration left as TODO
+      const newCurrentWinStreak = player.points === 2 ? currentWinStreak + 1 : 0;
+      const newLongestWinStreak = Math.max(longestWinStreak, newCurrentWinStreak);
+      const isProsecutor = player.currentRole === 'prosecutor';
+      const isDefender = player.currentRole === 'defender';
+      const newProsecutorRoundsPlayed = prosecutorRoundsPlayed + (isProsecutor ? 1 : 0);
+      const newProsecutorRoundsWon = prosecutorRoundsWon + (isProsecutor && player.points === 2 ? 1 : 0);
+      const newProsecutorPointsWon = prosecutorPointsWon + (isProsecutor ? player.score : 0);
+      const newProsecutorAverageScore = newProsecutorRoundsPlayed > 0
+        ? ((prosecutorAverageScore * prosecutorRoundsPlayed) + (isProsecutor ? player.score : 0)) / newProsecutorRoundsPlayed
+        : 0;
+      const newDefenderRoundsPlayed = defenderRoundsPlayed + (isDefender ? 1 : 0);
+      const newDefenderRoundsWon = defenderRoundsWon + (isDefender && player.points === 2 ? 1 : 0);
+      const newDefenderPointsWon = defenderPointsWon + (isDefender ? player.score : 0);
+      const newDefenderAverageScore = newDefenderRoundsPlayed > 0
+        ? ((defenderAverageScore * defenderRoundsPlayed) + (isDefender ? player.score : 0)) / newDefenderRoundsPlayed
+        : 0;
+      const newPreferredRole = newDefenderAverageScore >= newProsecutorAverageScore ? 'defender' : 'prosecutor';
+
       await users.updateOne(
         { username: player.username },
         {
           $set: {
-            gamesPlayed: (player.gamesPlayed || 0) + 1,
-            gamesWon: (player.gamesWon || 0) + (player.points === 2 ? 1 : 0),
-            gamesLost: (player.gamesLost || 0) + (player.points < 2 ? 1 : 0),
-            rating: (player.rating || 0) + (player.points === 2 ? 10 : player.points === 1 ? 5 : 0),//TODO: implement rating system
-            winPercentage: ((player.gamesWon || 0) + (player.points === 2 ? 1 : 0)) / ((player.gamesPlayed || 0) + 1),
-            averageArgumentScore: ((player.averageArgumentScore || 0) * (player.totalArguments || 0) + player.arguments.length) / ((player.totalArguments || 0) + this.arguments.length),
-            bestArgumentScore: Math.max(player.bestArgumentScore || 0, ...player.arguments.map(arg => arg.score)),
-            worstArgumentScore: Math.min(player.worstArgumentScore || 10, ...player.arguments.map(arg => arg.score)),
-            totalArguments: (player.totalArguments || 0) + player.arguments.length,
-            totalRoundsPlayed: (player.totalRoundsPlayed || 0) + (this.round),
-            totalRoundsWon: (player.totalRoundsWon || 0) + (player.points),
-            totalRoundsLost: (player.totalRoundsLost || 0) + (this.round - player.points),
-            averageGameDuration: (player.averageGameDuration || 0), //TODO: implement game duration tracking
-            longestWinStreak: Math.max(player.longestWinStreak || 0, player.currentWinStreak + 1 || 0),
-            currentWinStreak: player.points === 2 ? (player.currentWinStreak || 0) + 1 : 0,
-            prosecutorRoundsPlayed: (player.prosecutorRoundsPlayed || 0) + (player.currentRole === 'prosecutor' ? 1 : 0),
-            prosecutorRoundsWon: (player.prosecutorRoundsWon || 0) + (player.currentRole === 'prosecutor' && player.points === 2 ? 1 : 0),
-            prosecutorPointsWon: (player.prosecutorPointsWon || 0) + (player.currentRole === 'prosecutor' ? player.score : 0),
-            prosecutorAverageScore: ((player.prosecutorAverageScore || 0) * (player.prosecutorRoundsPlayed || 0) + player.score) / ((player.prosecutorRoundsPlayed || 0) + 1),
-            defenderRoundsPlayed: (player.defenderRoundsPlayed || 0) + (player.currentRole === 'defender' ? 1 : 0),
-            defenderRoundsWon: (player.defenderRoundsWon || 0) + (player.currentRole === 'defender' && player.points === 2 ? 1 : 0),
-            defenderPointsWon: (player.defenderPointsWon || 0) + (player.currentRole === 'defender' ? player.score : 0),
-            defenderAverageScore: ((player.defenderAverageScore || 0) * (player.defenderRoundsPlayed || 0) + player.score) / ((player.defenderRoundsPlayed || 0) + 1),
-            preferredRole: Math.max(player.defenderAverageScore || 0, player.prosecutorAverageScore || 0) === (player.defenderAverageScore || 0) ? 'defender' : 'prosecutor', 
+            gamesPlayed: newGamesPlayed,
+            gamesWon: newGamesWon,
+            gamesLost: newGamesLost,
+            rating: newRating,
+            winPercentage: newWinPercentage,
+            averageArgumentScore: newAverageArgumentScore,
+            bestArgumentScore: newBestArgumentScore,
+            worstArgumentScore: newWorstArgumentScore,
+            totalArguments: newTotalArguments,
+            totalRoundsPlayed: newTotalRoundsPlayed,
+            totalRoundsWon: newTotalRoundsWon,
+            totalRoundsLost: newTotalRoundsLost,
+            averageGameDuration: averageGameDuration, // TODO: implement game duration tracking
+            longestWinStreak: newLongestWinStreak,
+            currentWinStreak: newCurrentWinStreak,
+            prosecutorRoundsPlayed: newProsecutorRoundsPlayed,
+            prosecutorRoundsWon: newProsecutorRoundsWon,
+            prosecutorPointsWon: newProsecutorPointsWon,
+            prosecutorAverageScore: newProsecutorAverageScore,
+            defenderRoundsPlayed: newDefenderRoundsPlayed,
+            defenderRoundsWon: newDefenderRoundsWon,
+            defenderPointsWon: newDefenderPointsWon,
+            defenderAverageScore: newDefenderAverageScore,
+            preferredRole: newPreferredRole
           }
         }
       );
@@ -150,7 +219,7 @@ class GameRoom {
       }
 
       // Set initial turn to prosecutor
-      this.turn = this.getProsecutor().id;
+      this.turn = this.getProsecutor().socketId;
 
       this.players.forEach(p => p.ready = false); // Reset ready states
 
@@ -303,8 +372,8 @@ Return only the JSON object, no extra text.
   getPlayerBySocketId(id) {
     return this.players.find(p => p.socketId === id);
   }
-  getOtherPlayer(playerId) {
-    return this.players.find(p => p.id !== playerId);
+  getOtherPlayer(socketId) {
+    return this.players.find(p => p.socketId !== socketId);
   }
 
   setPlayerReady(playerId, ready) {
@@ -337,15 +406,15 @@ Return only the JSON object, no extra text.
         break;
       case 'case-reading':
         this.gameState = 'round-start';
-        //this.startRound();
+        this.startRound();
         break;
       case 'round-over':
         this.gameState = 'round-start';
-        //this.startRound();
+        this.startRound();
         break;
       case 'round-reading':
         this.gameState = 'round-start';
-        //this.startRound();
+        this.startRound();
         break;
       case 'tiebreaker':
         this.gameState = 'side-choice';
@@ -370,17 +439,16 @@ Return only the JSON object, no extra text.
     // Reset player ready states
     this.players.forEach(p => p.ready = false);
 
-    // Reset argument tracking
-    this.argumentCount = 0;
     this.exchange = 1;
 
     // Set turn to prosecutor
-    this.turn = this.getProsecutor().id;
+    this.turn = this.getProsecutor().socketId;
+    console.log(`Starting round ${this.round} in room ${this.roomId}, initial turn: ${this.turn} = ${this.getProsecutor().username} with socket id ${this.getProsecutor().socketId}`);
   }
 
   async submitArgument(socketId, argument) {
     const player = this.getPlayerBySocketId(socketId);
-    if (!player || this.turn !== player.id) {
+    if (!player || this.turn !== player.socketId) {
       return false;
     }
     console.log(`Player ${player.username} submitted argument: ${argument}`);
@@ -393,11 +461,11 @@ Return only the JSON object, no extra text.
       score: 0, // Initial score is 0, will be updated later
       round: this.round,
       exchange: this.exchange,
-      playerId: player.id,
+      socketId: player.socketId,
       role: player.currentRole
     });
     // Switch turn to other player
-    this.turn = this.getOtherPlayer(player.id).id;
+    this.turn = this.getOtherPlayer(player.socketId).socketId;
 
     // Check if exchange is complete (2 arguments)
     if (this.argumentCount % 2 === 0) {
@@ -512,7 +580,7 @@ Return only the JSON object, no extra text.
 
       });
     }
-    this.turn = this.getProsecutor().id; // Reset turn to prosecutor
+    this.turn = this.getProsecutor().socketId; // Reset turn to prosecutor
   }
 
   checkBothReady() {
@@ -538,7 +606,7 @@ Return only the JSON object, no extra text.
 
     //this.round.number = 3;
     this.gameState = 'round-start';
-    //this.startRound();
+    this.startRound();
     this.broadcastGameState();
 
     return true;
@@ -663,7 +731,7 @@ Return only the JSON object, no extra text.
       roundData: this.roundData,
       exchange: this.exchange,
       argumentCount: this.argumentCount,
-      tiebreakerWinner: this.tiebreakerWinner ? this.tiebreakerWinner.id : null
+      tiebreakerWinner: this.tiebreakerWinner ? this.tiebreakerWinner.socketId : null
     };
 
     io.to(this.roomId).emit('gameStateUpdate', gameData);
@@ -697,7 +765,7 @@ Return only the JSON object, no extra text.
       roundData: this.roundData,
       exchange: this.exchange,
       argumentCount: this.argumentCount,
-      tiebreakerWinner: this.tiebreakerWinner ? this.tiebreakerWinner.id : null
+      tiebreakerWinner: this.tiebreakerWinner ? this.tiebreakerWinner.socketId : null
     };
   }
 }
@@ -737,7 +805,6 @@ io.on('connection', (socket) => {
       return;
     }
     socket.join(roomId);
-
     game.addPlayer(new Player(playerData.userId, playerData.name, playerData.avatar, socket.id));
 
     game.broadcastGameState();
@@ -786,8 +853,10 @@ io.on('connection', (socket) => {
           game.players[playerIndex].connected = false;
         }
         console.log(`Player left game ${roomId}`);
+        if (game.gameState !== 'game-over') {
+          game.broadcastGameState();
 
-        game.broadcastGameState();
+        }
         if (game.players.every(p => !p.connected)) {
           games.delete(roomId);
           console.log(`Room ${roomId} deleted after all players disconnected.`);

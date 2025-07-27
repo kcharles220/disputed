@@ -261,7 +261,7 @@ export default function GameBattle() {
 
 
                                 return (
-                                    <div className={`w-[35%] relative overflow-hidden transition-all duration-300 h-36 ${leftPlayer?.id === currentPlayer?.id
+                                    <div className={`w-[35%] relative overflow-hidden transition-all duration-300 h-36 ${leftPlayer?.socketId === currentPlayer?.socketId
                                         ? 'transform scale-105'
                                         : 'opacity-80'
                                         }`}>
@@ -269,7 +269,7 @@ export default function GameBattle() {
                                         <div className={`absolute inset-0 bg-gradient-to-br ${leftPlayer?.currentRole === 'prosecutor'
                                             ? 'from-red-500/20 via-red-400/10 to-orange-500/20'
                                             : 'from-blue-500/20 via-blue-400/10 to-indigo-500/20'
-                                            } backdrop-blur-xl rounded-2xl border ${leftPlayer?.id === currentPlayer?.id
+                                            } backdrop-blur-xl rounded-2xl border ${leftPlayer?.socketId === currentPlayer?.socketId
                                                 ? (leftPlayer?.currentRole === 'prosecutor' ? 'border-red-400/50 shadow-red-500/25' : 'border-blue-400/50 shadow-blue-500/25')
                                                 : (leftPlayer?.currentRole === 'prosecutor' ? 'border-red-500/30' : 'border-blue-500/30')
                                             } shadow-2xl`}></div>
@@ -292,7 +292,7 @@ export default function GameBattle() {
                                             {/* Text */}
                                             <div className="flex-1">
                                                 <h3 className={`text-2xl font-bold ${leftPlayer?.currentRole === 'prosecutor' ? 'text-red-300' : 'text-blue-300'} mb-1`}>
-                                                    {leftPlayer?.currentRole?.toUpperCase()} {leftPlayer?.id === currentPlayer?.id && (
+                                                    {leftPlayer?.currentRole?.toUpperCase()} {leftPlayer?.socketId === currentPlayer?.socketId && (
                                                         <span className="mx-2 text-yellow-300 text-lg font-semibold">(YOU)</span>
                                                     )}
                                                 </h3>
@@ -303,7 +303,7 @@ export default function GameBattle() {
                                             </div>
 
                                             {/* Timer for current turn */}
-                                            {gameState.turn === leftPlayer?.id && gameState.gameState === 'round-start' && (
+                                            {gameState.turn === leftPlayer?.socketId && gameState.gameState === 'round-start' && (
                                                 <div className={`text-2xl font-bold flex-shrink-0 ${timerPhase === 1
                                                     ? (timeLeft <= 3 ? 'text-red-300 animate-pulse' : 'text-green-300')
                                                     : 'text-orange-300 animate-pulse'
@@ -316,7 +316,7 @@ export default function GameBattle() {
                                             )}
 
                                             {/* Dot indicator */}
-                                            {gameState.turn === leftPlayer?.id && gameState.gameState === 'round-start' && (
+                                            {gameState.turn === leftPlayer?.socketId && gameState.gameState === 'round-start' && (
                                                 <div className={`w-5 h-5 ${leftPlayer?.currentRole === 'prosecutor' ? 'bg-red-400' : 'bg-blue-400'} rounded-full animate-pulse flex-shrink-0 shadow-lg`}></div>
                                             )}
                                         </div>
@@ -357,10 +357,10 @@ export default function GameBattle() {
                                             <span className="text-yellow-300 text-sm font-bold animate-pulse">🔄 ROLES SWITCHED!</span>
                                         )}
                                         <span>Turn: {(() => {
-                                            if ((gameState.players.find(p => p.id === gameState.turn)?.currentRole === 'prosecutor')) {
-                                                return `🔥 ${gameState.players.find(p => p.id === gameState.turn)?.username || 'Prosecutor'}`;
+                                            if ((gameState.players.find(p => p.socketId === gameState.turn)?.currentRole === 'prosecutor')) {
+                                                return `🔥 ${gameState.players.find(p => p.socketId === gameState.turn)?.username || 'Prosecutor'}`;
                                             } else {
-                                                return `🛡️ ${gameState.players.find(p => p.id === gameState.turn)?.username || 'Defender'}`;
+                                                return `🛡️ ${gameState.players.find(p => p.socketId === gameState.turn)?.username || 'Defender'}`;
                                             }
                                         })()}</span>
                                         <span>
@@ -401,7 +401,7 @@ export default function GameBattle() {
 
 
                                 return (
-                                    <div className={`w-[35%] relative overflow-hidden transition-all duration-300 h-36 ${currentPlayer?.id === rightPlayer?.id
+                                    <div className={`w-[35%] relative overflow-hidden transition-all duration-300 h-36 ${currentPlayer?.socketId === rightPlayer?.socketId
                                         ? 'transform scale-105'
                                         : 'opacity-80'
                                         }`}>
@@ -421,12 +421,12 @@ export default function GameBattle() {
                                         {/* Content */}
                                         <div className="relative z-10 p-6 flex items-center gap-6 h-full">
                                             {/* Dot indicator */}
-                                            {gameState.turn === rightPlayer?.id && gameState.gameState === 'round-start' && (
+                                            {gameState.turn === rightPlayer?.socketId && gameState.gameState === 'round-start' && (
                                                 <div className={`w-5 h-5 ${rightPlayer?.currentRole === 'prosecutor' ? 'bg-red-400' : 'bg-blue-400'} rounded-full animate-pulse flex-shrink-0 shadow-lg`}></div>
                                             )}
 
                                             {/* Timer */}
-                                            {gameState.turn === rightPlayer?.id && gameState.gameState === 'round-start' && (
+                                            {gameState.turn === rightPlayer?.socketId && gameState.gameState === 'round-start' && (
                                                 <div className={`text-2xl font-bold flex-shrink-0 ${timerPhase === 1
                                                     ? (timeLeft <= 3 ? 'text-red-300 animate-pulse' : 'text-green-300')
                                                     : 'text-orange-300 animate-pulse'
@@ -475,7 +475,7 @@ export default function GameBattle() {
 
                                 {/* Content */}
                                 <div className="relative z-10 p-8">
-                                    {gameState.turn === currentPlayer?.id ? (
+                                    {gameState.turn === currentPlayer?.socketId ? (
                                         <div>
                                             <div className="flex items-center justify-between mb-4">
                                                 <h3 className={`text-xl font-bold ${timerPhase === 2 ? 'text-red-300 animate-pulse' : 'text-yellow-300'}`}>
@@ -601,7 +601,7 @@ export default function GameBattle() {
                                                                 </span>
                                                                 <span className={`font-semibold text-lg ${argument.role === 'prosecutor' ? 'text-red-300' : 'text-blue-300'
                                                                     }`}>
-                                                                    {gameState.players.find(player => player.id === argument.playerId)?.username} ({argument.role === 'prosecutor' ? 'Prosecutor' : 'Defender'})
+                                                                    {gameState.players.find(player => player.socketId === argument.socketId)?.username} ({argument.role === 'prosecutor' ? 'Prosecutor' : 'Defender'})
                                                                 </span>
                                                                 <span className="text-sm text-white/50 ml-auto">
                                                                     Argument #{index + 1}

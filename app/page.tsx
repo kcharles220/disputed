@@ -44,10 +44,14 @@ export default function Home() {
 
 
 
-  // Fetch user data when session changes
-  // No need for local user loading state, context handles it
+  useEffect(() => {
+    console.log('status:', status);
+    console.log('Session:', session?.user );
+    if (status === 'authenticated' && JSON.stringify(session?.user) === "{}") {
+      signOut({ callbackUrl: '/' });
+    }
+  }, [session, status]);
 
-  // Update selectedAvatar when currentUser data loads
   useEffect(() => {
     if (currentUser?.avatar) {
       setSelectedAvatar(currentUser.avatar);

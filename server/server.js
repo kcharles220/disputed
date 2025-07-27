@@ -69,7 +69,7 @@ function formatPlayerData(room) {
 
     playersData[playerId] = {
       id: playerId,
-      name: player.name,
+      username: player.username,
       avatar: player.avatar,
       current_role: player.displayRole || player.role,
       original_role: player.originalRole || player.role,

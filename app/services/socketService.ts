@@ -26,7 +26,7 @@ export interface GameRoom {
   round: number;
   exchange: number;
   argumentCount: number;
-  arguments: { argument: string; score: number, round: number, exchange: number, playerId: string, role: string }[];
+  arguments: { argument: string; score: number, round: number, exchange: number, socketId: string, role: string }[];
   tiebreakerWinner: string | null;
 }
 
