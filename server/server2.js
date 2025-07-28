@@ -17,6 +17,7 @@ const socketIo = require('socket.io');
 const cors = require('cors');
 const { pl } = require('zod/locales');
 const { set } = require('zod');
+const { ObjectId } = require('mongodb');
 const AI_API_KEY = process.env.AI_API_KEY;
 
 const app = express();
@@ -104,7 +105,7 @@ class GameRoom {
     for (const player of this.players) {
       if (!player.id) {continue;}
       // Fetch the current user document
-      const user = await users.findOne({ id: player.id });
+      const user = await users.findOne({ _id: new ObjectId(player.id) });
       if (!user) {
         console.log(`User not found for player ${player.username}`);
         continue;
@@ -173,30 +174,30 @@ class GameRoom {
         { username: player.username },
         {
           $set: {
-            gamesPlayed: newGamesPlayed,
-            gamesWon: newGamesWon,
-            gamesLost: newGamesLost,
-            rating: newRating,
-            winPercentage: newWinPercentage,
-            averageArgumentScore: newAverageArgumentScore,
-            bestArgumentScore: newBestArgumentScore,
-            worstArgumentScore: newWorstArgumentScore,
-            totalArguments: newTotalArguments,
-            totalRoundsPlayed: newTotalRoundsPlayed,
-            totalRoundsWon: newTotalRoundsWon,
-            totalRoundsLost: newTotalRoundsLost,
-            averageGameDuration: averageGameDuration, // TODO: implement game duration tracking
-            longestWinStreak: newLongestWinStreak,
-            currentWinStreak: newCurrentWinStreak,
-            prosecutorRoundsPlayed: newProsecutorRoundsPlayed,
-            prosecutorRoundsWon: newProsecutorRoundsWon,
-            prosecutorPointsWon: newProsecutorPointsWon,
-            prosecutorAverageScore: newProsecutorAverageScore,
-            defenderRoundsPlayed: newDefenderRoundsPlayed,
-            defenderRoundsWon: newDefenderRoundsWon,
-            defenderPointsWon: newDefenderPointsWon,
-            defenderAverageScore: newDefenderAverageScore,
-            preferredRole: newPreferredRole
+        gamesPlayed: newGamesPlayed,
+        gamesWon: newGamesWon,
+        gamesLost: newGamesLost,
+        rating: newRating,
+        winPercentage: newWinPercentage,
+        averageArgumentScore: Math.round(newAverageArgumentScore * 10) / 10,
+        bestArgumentScore: newBestArgumentScore,
+        worstArgumentScore: newWorstArgumentScore,
+        totalArguments: newTotalArguments,
+        totalRoundsPlayed: newTotalRoundsPlayed,
+        totalRoundsWon: newTotalRoundsWon,
+        totalRoundsLost: newTotalRoundsLost,
+        averageGameDuration: averageGameDuration, // TODO: implement game duration tracking
+        longestWinStreak: newLongestWinStreak,
+        currentWinStreak: newCurrentWinStreak,
+        prosecutorRoundsPlayed: newProsecutorRoundsPlayed,
+        prosecutorRoundsWon: newProsecutorRoundsWon,
+        prosecutorPointsWon: newProsecutorPointsWon,
+        prosecutorAverageScore: Math.round(newProsecutorAverageScore * 10) / 10,
+        defenderRoundsPlayed: newDefenderRoundsPlayed,
+        defenderRoundsWon: newDefenderRoundsWon,
+        defenderPointsWon: newDefenderPointsWon,
+        defenderAverageScore: Math.round(newDefenderAverageScore * 10) / 10,
+        preferredRole: newPreferredRole
           }
         }
       );
