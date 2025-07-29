@@ -15,26 +15,11 @@ import CaseReviewModal from './components/CaseReviewModal';
 
 export default function GameBattle() {
     // Placeholder definitions for missing variables and functions
-    const timerPhase: number = 1;
-    const timeLeft = 30;
+    const argumentRef = useRef<string>('');
     const [currentArgument, setCurrentArgument] = useState<string>('');
-    const handleSubmitArgument = () => {
-        const socket = socketService.getSocket();
-        if (socket && roomId && currentArgument.trim()) {
-            socket.emit('submitArgument', {
-                roomId,
-                argument: currentArgument
-            });
-        }
-        setCurrentArgument('');
-    };
-    const canInterrupt = false;
-    const handleInterrupt = () => { };
-
-
     const searchParams = useSearchParams();
     const router = useRouter();
-    const roomId = typeof window !== 'undefined' ? window.location.pathname.split('/').pop() : null;
+    const roomIdRef = useRef<string | null>(null);
     const [gameState, setGameState] = useState<GameRoom | null>(null);
     const [currentPlayer, setCurrentPlayer] = useState<Player | null>(null);
     const [nonCurrentPlayer, setNonCurrentPlayer] = useState<Player | null>(null);
@@ -48,13 +33,66 @@ export default function GameBattle() {
     const [showSideChoiceModal, setShowSideChoiceModal] = useState<boolean>(false);
     const [showCaseReviewModal, setShowCaseReviewModal] = useState<boolean>(false);
 
+    const [timeLeft, setTimeLeft] = useState<number>(0);
+    const [timerPhase, setTimerPhase] = useState<number>(1);
+    const [canInterrupt, setCanInterrupt] = useState<boolean>(false);
 
+    const handleInterrupt = () => {
+        const socket = socketService.getSocket();
+                const roomId = roomIdRef.current;
 
+        if (socket && roomId) {
+            console.log('Interrupting argument submission');
+            socket.emit('forceSubmitArgument', { roomId });
+        }
+    };
 
+    useEffect(() => {
+        // Set roomIdRef on mount
+        if (typeof window !== 'undefined') {
+            const id = window.location.pathname.split('/').pop();
+            roomIdRef.current = id ?? null;
+        }
+    }, []);
+    const handleSubmitArgument = () => {
+        const roomId = roomIdRef.current;
+
+        const socket = socketService.getSocket();
+        let argumentToSend = argumentRef.current.trim();
+        console.log('trying to submit argument, roomID and socket:', argumentToSend, roomId, socket?.id);
+        if (!argumentToSend) {
+            argumentToSend = '[No argument provided]';
+        }
+        if (socket && roomId && argumentToSend) {
+            console.log('Submitting argument:', argumentToSend);
+
+            socket.emit('submitArgument', {
+                roomId,
+                argument: argumentToSend
+            });
+        }
+        setCurrentArgument('');
+        argumentRef.current = '';
+
+    };
 
     useEffect(() => {
         const socket = socketService.getSocket();
         if (!socket) return;
+
+        // Listen for timerUpdate from server
+        const handleTimerUpdate = (timer: { timerValue: number; timerRemaining: number; timerRunning: boolean }) => {
+            setTimeLeft(timer.timerRemaining);
+            if (timer.timerRunning && timer.timerValue / 2 > timer.timerRemaining) {
+                setTimerPhase(2);
+                setCanInterrupt(true);
+            } else if (timer.timerValue === timer.timerRemaining) {
+                setTimerPhase(1);
+            }
+
+
+        };
+        socket.on('timerUpdate', handleTimerUpdate);
 
         // Listen for gameStateUpdate from server
         const handleGameStateUpdate = (newGameState: GameRoom) => {
@@ -70,6 +108,7 @@ export default function GameBattle() {
             setRightPlayer(newGameState.players.find((p: any) => p.position === 'right') || null);
         };
         socket.on('gameStateUpdate', handleGameStateUpdate);
+        socket.on('forceSubmitArgument', handleSubmitArgument);
         console.log('Socket connected:', socket.id);
 
         // Emit request-room-info only after listener is registered
@@ -80,7 +119,9 @@ export default function GameBattle() {
         }
 
         return () => {
+            socket.off('timerUpdate', handleTimerUpdate);
             socket.off('gameStateUpdate', handleGameStateUpdate);
+            socket.off('forceSubmitArgument');
         };
 
 
@@ -495,7 +536,10 @@ export default function GameBattle() {
                                             <div className="relative">
                                                 <textarea
                                                     value={currentArgument}
-                                                    onChange={(e) => setCurrentArgument(e.target.value)}
+                                                    onChange={(e) => {
+                                                        setCurrentArgument(e.target.value);
+                                                        argumentRef.current = e.target.value;
+                                                    }}
                                                     placeholder={`Write your ${currentPlayer && currentPlayer.currentRole === 'prosecutor' ? 'attack' : 'defense'} argument here...`}
                                                     className={`w-full h-40 bg-gradient-to-br from-gray-800/80 to-gray-900/80 backdrop-blur-sm rounded-xl p-6 text-white placeholder-white/50 resize-none focus:outline-none text-lg transition-all duration-300 border ${timerPhase === 2
                                                         ? 'border-red-400/60 shadow-red-500/20 animate-pulse focus:border-red-300'

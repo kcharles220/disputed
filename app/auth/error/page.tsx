@@ -1,5 +1,6 @@
 'use client'
 
+import { Suspense } from 'react'
 import { useSearchParams } from 'next/navigation'
 import Link from 'next/link'
 
@@ -19,7 +20,7 @@ const errorMessages: Record<string, string> = {
   SessionRequired: 'Please sign in to access this page.',
 }
 
-export default function AuthError() {
+function AuthErrorInner() {
   const searchParams = useSearchParams()
   const error = searchParams.get('error') || 'Default'
 
@@ -105,5 +106,13 @@ export default function AuthError() {
         </div>
       </div>
     </div>
+  )
+}
+
+export default function AuthErrorPage() {
+  return (
+    <Suspense fallback={<div>Loading...</div>}>
+      <AuthErrorInner />
+    </Suspense>
   )
 }

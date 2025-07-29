@@ -1,12 +1,13 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { Suspense, useState, useEffect } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { useSession, signOut } from 'next-auth/react';
 import { socketService, PlayerData } from '../services/socketService';
 import { useUser } from '../lib/UserContext';
 
-export default function JoinGame() {
+// Move your component logic here
+function JoinGameInner() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const { data: session, status } = useSession();
@@ -32,7 +33,7 @@ export default function JoinGame() {
     <div className={`animate-pulse bg-gray-200 rounded ${className || 'h-4 w-16'}`}></div>
   );
 
-useEffect(() => {
+  useEffect(() => {
     if (currentUser?.avatar) {
       setSelectedAvatar(currentUser.avatar);
       setReady(true); // Set ready to true when avatar is available
@@ -427,5 +428,13 @@ useEffect(() => {
         </div>
       </div>
     </div>
+  );
+}
+
+export default function JoinGame() {
+  return (
+    <Suspense fallback={<div>Loading...</div>}>
+      <JoinGameInner />
+    </Suspense>
   );
 }

@@ -1,5 +1,6 @@
 import { io, Socket } from 'socket.io-client';
 
+const SERVER_URL = process.env.NEXT_PUBLIC_SERVER_URL || 'http://localhost:3001';
 
 export interface Player {
   id: string;
@@ -72,7 +73,7 @@ class SocketService {
   // Listen for game state updates
 
   private socket: Socket | null = null;
-  private readonly serverUrl = 'http://localhost:3001';
+  private readonly serverUrl = `${SERVER_URL}`;
 
   connect(): Promise<Socket> {
     return new Promise((resolve, reject) => {
@@ -220,6 +221,12 @@ class SocketService {
     }
   }
 
+  onForceSubmitArgument(callback: () => void) {
+    if (this.socket) {
+      this.socket.on('forceSubmitArgument', callback);
+    }
+  }
+
   onJoinError(callback: (error: { message: string }) => void) {
     if (this.socket) {
       this.socket.on('join-error', callback);
@@ -288,7 +295,7 @@ class SocketService {
   // Submit argument
   submitArgument(roomId: string, argument: any) {
     if (this.socket) {
-      this.socket.emit('submit-argument', { roomId, argument });
+      this.socket.emit('submitArgument', { roomId, argument });
     }
   }
   // Submit argument
@@ -299,6 +306,13 @@ class SocketService {
   }
   getSocket() {
     return this.socket;
+  }
+
+  // Listen for timer updates from the server
+  onTimerUpdate(callback: (timer: { timerValue: number; timerRemaining: number; timerRunning: boolean }) => void) {
+    if (this.socket) {
+      this.socket.on('timerUpdate', callback);
+    }
   }
 }
 

@@ -8,7 +8,7 @@ import Link from 'next/link'
 export default function ProfilePage() {
   const { data: session, status, update } = useSession()
   const router = useRouter()
-  
+
   const [isEditing, setIsEditing] = useState(false)
   const [formData, setFormData] = useState({
     username: '',
@@ -135,7 +135,7 @@ export default function ProfilePage() {
 
       setSuccess('Profile updated successfully!')
       setIsEditing(false)
-      
+
       // Clear success message after 3 seconds
       setTimeout(() => setSuccess(''), 3000)
 
@@ -206,7 +206,7 @@ export default function ProfilePage() {
       {/* Main Container */}
       <div className="flex items-center justify-center min-h-screen p-6 relative z-10">
         <div className="bg-white/95 backdrop-blur-xl rounded-2xl shadow-2xl p-10 max-w-4xl w-full border border-white/30">
-          
+
           {/* Header */}
           <div className="text-center mb-8">
             <h1 className="text-4xl font-black bg-gradient-to-r from-purple-800 to-blue-800 bg-clip-text text-transparent mb-2">
@@ -227,7 +227,7 @@ export default function ProfilePage() {
               <p className="text-green-700 text-sm">{success}</p>
             </div>
           )}
-          
+
           {error && (
             <div className="mb-6 p-4 bg-red-100 border border-red-300 rounded-lg">
               <p className="text-red-700 text-sm">{error}</p>
@@ -235,11 +235,11 @@ export default function ProfilePage() {
           )}
 
           <div className="grid md:grid-cols-2 gap-8">
-            
+
             {/* Profile Information */}
             <div className="space-y-6">
               <h2 className="text-2xl font-bold text-gray-800 mb-4">Profile Information</h2>
-              
+
               {/* Avatar Selection */}
               <div>
                 <label className="block text-gray-700 font-semibold mb-3">Avatar</label>
@@ -253,7 +253,7 @@ export default function ProfilePage() {
                       console.log('- userStats.avatar:', (userStats as any)?.avatar)
                       console.log('- session.user.image:', session?.user?.image)
                       console.log('- formData.avatar:', formData.avatar)
-                      
+
                       if (isEditing) {
                         return formData.avatar
                       } else if (statsLoading) {
@@ -272,7 +272,7 @@ export default function ProfilePage() {
                     </div>
                   )}
                 </div>
-                
+
                 {isEditing && (
                   <div className="grid grid-cols-6 gap-2">
                     {avatarOptions.map((avatar) => (
@@ -280,11 +280,10 @@ export default function ProfilePage() {
                         key={avatar}
                         type="button"
                         onClick={() => setFormData(prev => ({ ...prev, avatar }))}
-                        className={`w-12 h-12 text-2xl rounded-lg border-2 transition-all duration-200 ${
-                          formData.avatar === avatar
+                        className={`w-12 h-12 text-2xl rounded-lg border-2 transition-all duration-200 ${formData.avatar === avatar
                             ? 'border-purple-500 bg-purple-100 scale-110'
                             : 'border-gray-300 hover:border-purple-300 hover:scale-105'
-                        }`}
+                          }`}
                       >
                         {avatar}
                       </button>
@@ -354,7 +353,7 @@ export default function ProfilePage() {
             {/* Statistics */}
             <div className="space-y-6">
               <h2 className="text-2xl font-bold text-gray-800 mb-4">Battle Statistics</h2>
-              
+
               {/* Rating Card */}
               <div className="bg-gradient-to-r from-yellow-100 to-orange-100 p-6 rounded-xl border-2 border-yellow-300">
                 <div className="text-center">
@@ -373,21 +372,21 @@ export default function ProfilePage() {
                   </div>
                   <div className="text-blue-600 text-sm font-medium">Games Played</div>
                 </div>
-                
+
                 <div className="bg-green-100 p-4 rounded-xl border-2 border-green-300 text-center">
                   <div className="text-2xl font-bold text-green-800">
                     {statsLoading ? <LoadingSkeleton className="h-6 w-8 mx-auto" /> : (user?.gamesWon || 0)}
                   </div>
                   <div className="text-green-600 text-sm font-medium">Games Won</div>
                 </div>
-                
+
                 <div className="bg-red-100 p-4 rounded-xl border-2 border-red-300 text-center">
                   <div className="text-2xl font-bold text-red-800">
                     {statsLoading ? <LoadingSkeleton className="h-6 w-8 mx-auto" /> : (user?.gamesLost || 0)}
                   </div>
                   <div className="text-red-600 text-sm font-medium">Games Lost</div>
                 </div>
-                
+
                 <div className="bg-purple-100 p-4 rounded-xl border-2 border-purple-300 text-center">
                   <div className="text-2xl font-bold text-purple-800">
                     {statsLoading ? <LoadingSkeleton className="h-6 w-12 mx-auto" /> : `${user?.winPercentage?.toFixed(1) || '0.0'}%`}
@@ -432,7 +431,7 @@ export default function ProfilePage() {
               {/* Points and Performance */}
               <div className="space-y-4">
                 <h3 className="text-lg font-bold text-gray-700">Performance Metrics</h3>
-                
+
                 <div className="bg-gray-50 p-4 rounded-xl space-y-3">
                   <div className="flex justify-between">
                     <span className="text-gray-600">Average Argument Score</span>
@@ -452,12 +451,14 @@ export default function ProfilePage() {
                       {statsLoading ? <LoadingSkeleton className="h-4 w-8" /> : (user?.worstArgumentScore || 0)}
                     </span>
                   </div>
+                  {/* Average Game Duration  TODO
                   <div className="flex justify-between">
                     <span className="text-gray-600">Average Game Duration</span>
                     <span className="font-bold text-indigo-600">
                       {statsLoading ? <LoadingSkeleton className="h-4 w-16" /> : (user?.averageGameDuration ? `${user.averageGameDuration.toFixed(1)} min` : '0.0 min')}
                     </span>
                   </div>
+                   Average Game Duration  TODO */}
                   <div className="flex justify-between">
                     <span className="text-gray-600">Current Win Streak</span>
                     <span className="font-bold text-orange-600">
@@ -476,7 +477,7 @@ export default function ProfilePage() {
               {/* Role Performance Analysis */}
               <div className="space-y-4">
                 <h3 className="text-lg font-bold text-gray-700">Role Performance</h3>
-                
+
                 {/* Preferred Role Display */}
                 {!statsLoading && (user as any)?.preferredRole && (user as any).preferredRole !== 'none' && (
                   <div className="bg-gradient-to-r from-yellow-100 to-orange-100 p-4 rounded-xl border-2 border-yellow-300">
@@ -516,14 +517,14 @@ export default function ProfilePage() {
                         <div className="flex justify-between">
                           <span className="text-red-600">Win Rate</span>
                           <span className="font-bold text-red-800">
-                            {(user as any)?.prosecutorRoundsPlayed ? 
+                            {(user as any)?.prosecutorRoundsPlayed ?
                               (((user as any).prosecutorRoundsWon / (user as any).prosecutorRoundsPlayed) * 100).toFixed(1) : '0.0'}%
                           </span>
                         </div>
                         <div className="flex justify-between">
                           <span className="text-red-600">Avg Score</span>
                           <span className="font-bold text-red-800">
-                            {(user as any)?.prosecutorAverageScore ? 
+                            {(user as any)?.prosecutorAverageScore ?
                               (user as any).prosecutorAverageScore.toFixed(1) : '0.0'}
                           </span>
                         </div>
@@ -560,14 +561,14 @@ export default function ProfilePage() {
                         <div className="flex justify-between">
                           <span className="text-blue-600">Win Rate</span>
                           <span className="font-bold text-blue-800">
-                            {(user as any)?.defenderRoundsPlayed ? 
+                            {(user as any)?.defenderRoundsPlayed ?
                               (((user as any).defenderRoundsWon / (user as any).defenderRoundsPlayed) * 100).toFixed(1) : '0.0'}%
                           </span>
                         </div>
                         <div className="flex justify-between">
                           <span className="text-blue-600">Avg Score</span>
                           <span className="font-bold text-blue-800">
-                            {(user as any)?.defenderAverageScore ? 
+                            {(user as any)?.defenderAverageScore ?
                               (user as any).defenderAverageScore.toFixed(1) : '0.0'}
                           </span>
                         </div>

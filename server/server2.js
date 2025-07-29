@@ -24,13 +24,16 @@ const app = express();
 const server = http.createServer(app);
 const io = socketIo(server, {
   cors: {
-    origin: "http://localhost:3001",
+    origin: process.env.SERVER_URL || 'http://localhost:3001',
     methods: ["GET", "POST"]
   }
 });
 
 app.use(cors());
 app.use(express.json());
+
+const ROUND_TIME = 10; // 90 seconds
+const READING_TIME = 10; // 90 seconds
 
 // Game state management
 const games = new Map();
@@ -79,6 +82,10 @@ class GameRoom {
     this.exchange = 1;
     this.argumentCount = 0;
     this.tiebreakerWinner = null; // player with higher score in case of 1-1
+    this.timerValue = 0;
+    this.timerRemaining = 0;
+    this.timerRunning = false;
+    this.timerInterval = null;
   }
 
   addPlayer(player) {
@@ -103,7 +110,7 @@ class GameRoom {
     const users = mongoDb.collection('users');
 
     for (const player of this.players) {
-      if (!player.id) {continue;}
+      if (!player.id) { continue; }
       // Fetch the current user document
       const user = await users.findOne({ _id: new ObjectId(player.id) });
       if (!user) {
@@ -174,30 +181,30 @@ class GameRoom {
         { username: player.username },
         {
           $set: {
-        gamesPlayed: newGamesPlayed,
-        gamesWon: newGamesWon,
-        gamesLost: newGamesLost,
-        rating: newRating,
-        winPercentage: newWinPercentage,
-        averageArgumentScore: Math.round(newAverageArgumentScore * 10) / 10,
-        bestArgumentScore: newBestArgumentScore,
-        worstArgumentScore: newWorstArgumentScore,
-        totalArguments: newTotalArguments,
-        totalRoundsPlayed: newTotalRoundsPlayed,
-        totalRoundsWon: newTotalRoundsWon,
-        totalRoundsLost: newTotalRoundsLost,
-        averageGameDuration: averageGameDuration, // TODO: implement game duration tracking
-        longestWinStreak: newLongestWinStreak,
-        currentWinStreak: newCurrentWinStreak,
-        prosecutorRoundsPlayed: newProsecutorRoundsPlayed,
-        prosecutorRoundsWon: newProsecutorRoundsWon,
-        prosecutorPointsWon: newProsecutorPointsWon,
-        prosecutorAverageScore: Math.round(newProsecutorAverageScore * 10) / 10,
-        defenderRoundsPlayed: newDefenderRoundsPlayed,
-        defenderRoundsWon: newDefenderRoundsWon,
-        defenderPointsWon: newDefenderPointsWon,
-        defenderAverageScore: Math.round(newDefenderAverageScore * 10) / 10,
-        preferredRole: newPreferredRole
+            gamesPlayed: newGamesPlayed,
+            gamesWon: newGamesWon,
+            gamesLost: newGamesLost,
+            rating: newRating,
+            winPercentage: newWinPercentage,
+            averageArgumentScore: Math.round(newAverageArgumentScore * 10) / 10,
+            bestArgumentScore: newBestArgumentScore,
+            worstArgumentScore: newWorstArgumentScore,
+            totalArguments: newTotalArguments,
+            totalRoundsPlayed: newTotalRoundsPlayed,
+            totalRoundsWon: newTotalRoundsWon,
+            totalRoundsLost: newTotalRoundsLost,
+            averageGameDuration: averageGameDuration, // TODO: implement game duration tracking
+            longestWinStreak: newLongestWinStreak,
+            currentWinStreak: newCurrentWinStreak,
+            prosecutorRoundsPlayed: newProsecutorRoundsPlayed,
+            prosecutorRoundsWon: newProsecutorRoundsWon,
+            prosecutorPointsWon: newProsecutorPointsWon,
+            prosecutorAverageScore: Math.round(newProsecutorAverageScore * 10) / 10,
+            defenderRoundsPlayed: newDefenderRoundsPlayed,
+            defenderRoundsWon: newDefenderRoundsWon,
+            defenderPointsWon: newDefenderPointsWon,
+            defenderAverageScore: Math.round(newDefenderAverageScore * 10) / 10,
+            preferredRole: newPreferredRole
           }
         }
       );
@@ -404,6 +411,7 @@ Return only the JSON object, no extra text.
         break;
       case 'ready-to-start':
         this.gameState = 'case-reading';
+        this.setTimer(READING_TIME);
         break;
       case 'case-reading':
         this.gameState = 'round-start';
@@ -437,6 +445,8 @@ Return only the JSON object, no extra text.
   }
 
   startRound() {
+    this.setTimer(ROUND_TIME);
+
     // Reset player ready states
     this.players.forEach(p => p.ready = false);
 
@@ -444,15 +454,16 @@ Return only the JSON object, no extra text.
 
     // Set turn to prosecutor
     this.turn = this.getProsecutor().socketId;
+    this.startTimer();
     console.log(`Starting round ${this.round} in room ${this.roomId}, initial turn: ${this.turn} = ${this.getProsecutor().username} with socket id ${this.getProsecutor().socketId}`);
   }
 
   async submitArgument(socketId, argument) {
+    console.log(`Player ${socketId} submitted argument: ${argument}`);
     const player = this.getPlayerBySocketId(socketId);
     if (!player || this.turn !== player.socketId) {
       return false;
     }
-    console.log(`Player ${player.username} submitted argument: ${argument}`);
     // Add argument to player
     player.addArgument(argument, 0, this.round, this.exchange, player.currentRole);
     this.argumentCount++;
@@ -477,13 +488,18 @@ Return only the JSON object, no extra text.
     if (this.argumentCount % 6 === 0) {
       await this.endRound();
     } else {
+
       this.broadcastGameState();
+      this.startTimer();
+
     }
 
     return true;
   }
 
   async endRound() {
+          this.stopTimer();
+
     this.gameState = 'round-over';
     this.exchange = 1;
     this.round++;
@@ -589,6 +605,8 @@ Return only the JSON object, no extra text.
 
     if (bothReady) {
       this.proceed();
+
+
     }
   }
 
@@ -612,6 +630,14 @@ Return only the JSON object, no extra text.
 
     return true;
   }
+
+  forceArgumentsSubmission() {
+  // Send a signal to the client whose turn it is to auto-submit their argument
+  if (this.turn) {
+    io.to(this.turn).emit('forceSubmitArgument');
+    console.log(`Sent forceSubmitArgument to socket ${this.turn}`);
+  }
+}
 
   async getAIAnalysis(context) {
 
@@ -705,6 +731,53 @@ Return only the JSON object, no extra text.
       console.error('Failed to parse Gemini response:', text);
       throw e;
     }
+  }
+
+  setTimer(value) {
+    this.timerValue = value;
+    this.timerRemaining = value;
+    this.timerRunning = false;
+    if (this.timerInterval) {
+      clearInterval(this.timerInterval);
+      this.timerInterval = null;
+    }
+    this.broadcastTimer();
+  }
+
+  startTimer() {
+    if (this.timerRunning) return;
+    this.timerRunning = true;
+    this.broadcastTimer();
+    this.timerInterval = setInterval(() => {
+      if (this.timerRemaining > 0) {
+        this.timerRemaining--;
+        this.broadcastTimer();
+      } else {
+        if (this.gameState === 'round-start') {
+          this.forceArgumentsSubmission();
+        }
+        this.stopTimer();
+        // Optionally, trigger stage transition here
+
+      }
+    }, 1000);
+  }
+
+  stopTimer() {
+    this.timerRunning = false;
+    if (this.timerInterval) {
+      clearInterval(this.timerInterval);
+      this.timerInterval = null;
+    }
+    this.broadcastTimer();
+  }
+
+  broadcastTimer() {
+    io.to(this.roomId).emit('timerUpdate', {
+      timerValue: this.timerValue,
+      timerRemaining: this.timerRemaining,
+      timerRunning: this.timerRunning
+    });
   }
 
   broadcastGameState() {
@@ -821,6 +894,8 @@ io.on('connection', (socket) => {
   socket.on('submitArgument', async ({ roomId, argument }) => {
     const game = games.get(roomId);
     if (game) {
+      game.setTimer(ROUND_TIME);
+
       const success = await game.submitArgument(socket.id, argument);
       if (!success) {
         socket.emit('error', { message: 'Invalid argument submission' });
@@ -905,6 +980,13 @@ io.on('connection', (socket) => {
       console.log(`Proceed called but no game found for socket ${socket.id}`);
     }
   });
+
+  socket.on('forceSubmitArgument', ({ roomId }) => {
+  const game = games.get(roomId);
+  if (game) {
+    game.forceArgumentsSubmission();
+  }
+});
 });
 
 // REST endpoints for health check

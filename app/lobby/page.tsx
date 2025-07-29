@@ -1,10 +1,11 @@
 'use client';
 
+import { Suspense } from 'react';
 import { useState, useEffect } from 'react';
 import { useSearchParams, useRouter } from 'next/navigation';
 import { socketService, GameRoom, Player } from '../services/socketService';
 
-export default function GameLobby() {
+function GameLobbyInner() {
   const searchParams = useSearchParams();
   const router = useRouter();
   const [room, setRoom] = useState<GameRoom | null>(null);
@@ -493,5 +494,13 @@ export default function GameLobby() {
         </div>
       )}
     </div>
+  );
+}
+
+export default function GameLobby() {
+  return (
+    <Suspense fallback={<div>Loading...</div>}>
+      <GameLobbyInner />
+    </Suspense>
   );
 }
