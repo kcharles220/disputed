@@ -33,7 +33,7 @@ app.use(cors());
 app.use(express.json());
 
 const ROUND_TIME = 10; // 90 seconds
-const READING_TIME = 10; // 90 seconds
+const READING_TIME = 90; // 90 seconds
 
 // Game state management
 const games = new Map();
@@ -412,6 +412,7 @@ Return only the JSON object, no extra text.
       case 'ready-to-start':
         this.gameState = 'case-reading';
         this.setTimer(READING_TIME);
+        this.startTimer();
         break;
       case 'case-reading':
         this.gameState = 'round-start';
@@ -498,7 +499,7 @@ Return only the JSON object, no extra text.
   }
 
   async endRound() {
-          this.stopTimer();
+    this.stopTimer();
 
     this.gameState = 'round-over';
     this.exchange = 1;
@@ -632,12 +633,12 @@ Return only the JSON object, no extra text.
   }
 
   forceArgumentsSubmission() {
-  // Send a signal to the client whose turn it is to auto-submit their argument
-  if (this.turn) {
-    io.to(this.turn).emit('forceSubmitArgument');
-    console.log(`Sent forceSubmitArgument to socket ${this.turn}`);
+    // Send a signal to the client whose turn it is to auto-submit their argument
+    if (this.turn) {
+      io.to(this.turn).emit('forceSubmitArgument');
+      console.log(`Sent forceSubmitArgument to socket ${this.turn}`);
+    }
   }
-}
 
   async getAIAnalysis(context) {
 
@@ -756,9 +757,13 @@ Return only the JSON object, no extra text.
         if (this.gameState === 'round-start') {
           this.forceArgumentsSubmission();
         }
-        this.stopTimer();
-        // Optionally, trigger stage transition here
+        else if (this.gameState === 'case-reading') {
+          this.proceed();
+        }
 
+        if (this.gameState !== 'case-reading') {
+          this.stopTimer();
+        }
       }
     }, 1000);
   }
@@ -982,11 +987,11 @@ io.on('connection', (socket) => {
   });
 
   socket.on('forceSubmitArgument', ({ roomId }) => {
-  const game = games.get(roomId);
-  if (game) {
-    game.forceArgumentsSubmission();
-  }
-});
+    const game = games.get(roomId);
+    if (game) {
+      game.forceArgumentsSubmission();
+    }
+  });
 });
 
 // REST endpoints for health check

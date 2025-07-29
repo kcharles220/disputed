@@ -1,5 +1,6 @@
 'use client';
 
+import { useEffect, useState } from 'react';
 import { GameRoom, Player, socketService } from '../../../services/socketService';
 
 
@@ -21,9 +22,28 @@ export default function CaseReadingModal({
     leftPlayer,
     rightPlayer
 }: CaseReadingModalProps) {
-    // Placeholder definitions for missing variables and functions
-    const caseReadingTimeLeft = 30;
-    const formatTime = (t: any) => t;
+    const [timeLeft, setTimeLeft] = useState(120); // Default to 60 seconds
+        useEffect(() => {
+            const socket = socketService.getSocket();
+            if (!socket) return;
+    
+            // Listen for timerUpdate from server
+            const handleTimerUpdate = (timer: { timerValue: number; timerRemaining: number; timerRunning: boolean }) => {
+                setTimeLeft(timer.timerRemaining);
+                console.log('Timer update received:', timer);
+    
+            };
+
+            
+            socket.on('timerUpdate', handleTimerUpdate);
+    
+            return () => {
+                socket.off('timerUpdate', handleTimerUpdate);
+            };
+    
+    
+        }, []);
+
     const toggleReady = () => {
 
         if (gameState) {
@@ -244,13 +264,13 @@ export default function CaseReadingModal({
                                 {/* Only show timer during initial case reading phase (when not both ready) */}
                                 { (
                                     <div className="flex items-center justify-center gap-4 mb-4">
-                                        <div className={`bg-white/95 px-6 py-3 rounded-xl shadow-lg border-2 transition-all duration-200 ${caseReadingTimeLeft <= 30
+                                        <div className={`bg-white/95 px-6 py-3 rounded-xl shadow-lg border-2 transition-all duration-200 ${timeLeft <= 30
                                                 ? 'border-red-500 animate-pulse'
                                                 : 'border-slate-500'
                                             }`}>
-                                            <span className={`font-bold ${caseReadingTimeLeft <= 30 ? 'text-red-700' : 'text-slate-800'
+                                            <span className={`font-bold ${ timeLeft <= 30 ? 'text-red-700' : 'text-slate-800'
                                                 }`}>
-                                                ⏰ Time Remaining: {formatTime(caseReadingTimeLeft)}
+                                                ⏰ Time Remaining: {timeLeft}
                                             </span>
                                         </div>
                                     </div>
@@ -272,10 +292,10 @@ export default function CaseReadingModal({
                                             {currentPlayer?.ready ? '✅ Ready!' : '📖 I\'m Ready to Battle!'}
                                         </button>
 
-                                        {caseReadingTimeLeft <= 10 && (
+                                        {timeLeft <= 10 && (
                                             <div className="mt-4 bg-red-200/90 border-2 border-red-500 rounded-lg p-3 animate-pulse">
                                                 <div className="text-red-800 font-bold">
-                                                    ⚠️ Battle will start automatically in {caseReadingTimeLeft} seconds!
+                                                    ⚠️ Battle will start automatically in {timeLeft} seconds!
                                                 </div>
                                             </div>
                                         )}
