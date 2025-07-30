@@ -6,6 +6,8 @@ import { useSession, signOut } from 'next-auth/react';
 import { socketService, PlayerData } from './services/socketService';
 import { useUser } from './lib/UserContext';
 import { stat } from 'fs';
+import LanguageSwitcher from './components/LanguageSwitcher';
+import { useTranslation } from 'react-i18next';
 
 export default function Home() {
   const router = useRouter();
@@ -17,7 +19,8 @@ export default function Home() {
   const [isCreatingGame, setIsCreatingGame] = useState(false);
   const [error, setError] = useState('');
   const [ready, setReady] = useState(false);
-  // Removed local isLoadingUser and hasLoadedUser state; use context only
+  const { t, i18n } = useTranslation('common');
+
 
   const avatarOptions = ['⚖️', '👨‍💼', '👩‍💼', '👨‍⚖️', '👩‍⚖️', '🎭', '⚔️', '🏛️', '📚', '🗣️', '💼', '🎯'];
   const guestNameSuggestions = [
@@ -107,7 +110,7 @@ export default function Home() {
       };
 
       // Create room
-      const { roomId } = await socketService.createRoom(playerData);
+      const { roomId } = await socketService.createRoom(playerData, i18n.language);
 
       // Navigate to lobby with just room ID
       router.push(`/lobby?room=${roomId}`);
@@ -146,20 +149,25 @@ export default function Home() {
 
       {/* How to Play Button - Top Left */}
       <div className="absolute top-6 left-6 z-30">
+
+        <LanguageSwitcher
+  currentLang={i18n.language}
+  onChange={(lang) => i18n.changeLanguage(lang)}
+/>
         <button
           onClick={() => setShowHowToPlay(true)}
-          className="group flex items-center gap-2 px-4 py-3 bg-white/10 backdrop-blur-sm text-white border border-white/20 rounded-xl font-semibold hover:bg-white/20 transition-all duration-200 cursor-pointer"
+          className="group mt-4 flex items-center gap-2 px-4 py-3 bg-white/10 backdrop-blur-sm text-white border border-white/20 rounded-xl font-semibold hover:bg-white/20 transition-all duration-200 cursor-pointer"
         >
           <span className="text-xl">❓</span>
-          <span className="hidden sm:inline">How to Play</span>
+          <span className="hidden sm:inline">{t('how_to_play')}</span>
         </button>
+       
       </div>
 
       {/* Top Right Corner - Auth Section */}
       <div className="absolute top-6 right-6 flex flex-col gap-3 z-30">
         {status === 'loading' ? (
-          <div className="px-5 py-2.5 bg-white/10 backdrop-blur-sm text-white/70 border border-white/20 rounded-lg font-medium">
-            Loading...
+          <div>
           </div>
         ) : session ? (
           <div className="flex flex-col gap-4">
@@ -211,7 +219,7 @@ export default function Home() {
                           )}
                         </span>
                       </div>
-                      <span className="text-white/60 text-sm">rating</span>
+                      <span className="text-white/60 text-sm">{t('rating')}</span>
                     </div>
                   </div>
                 </div>
@@ -226,7 +234,7 @@ export default function Home() {
                         currentUser?.gamesPlayed || session.user?.gamesPlayed || 0
                       )}
                     </div>
-                    <div className="text-white/70 text-xs uppercase tracking-wide">Games</div>
+                    <div className="text-white/70 text-xs uppercase tracking-wide">{t('games')}</div>
                   </div>
                   <div className="bg-white/10 rounded-xl p-3 text-center backdrop-blur-sm border border-white/20">
                     <div className="text-green-400 font-bold text-lg">
@@ -236,7 +244,7 @@ export default function Home() {
                         `${Math.round(currentUser?.winPercentage || session.user?.winPercentage || 0)}%`
                       )}
                     </div>
-                    <div className="text-white/70 text-xs uppercase tracking-wide">Win Rate</div>
+                    <div className="text-white/70 text-xs uppercase tracking-wide">{t('win_rate')}</div>
                   </div>
                   <div className="bg-white/10 rounded-xl p-3 text-center backdrop-blur-sm border border-white/20">
                     <div className="text-orange-400 font-bold text-lg flex items-center justify-center gap-1">
@@ -248,7 +256,7 @@ export default function Home() {
                         </>
                       )}
                     </div>
-                    <div className="text-white/70 text-xs uppercase tracking-wide">Streak</div>
+                    <div className="text-white/70 text-xs uppercase tracking-wide">{t('streak')}</div>
                   </div>
                 </div>
 
@@ -261,7 +269,7 @@ export default function Home() {
                     >
                       <div className="absolute inset-0 bg-gradient-to-r from-white/0 via-white/20 to-white/0 transform -skew-x-12 -translate-x-full group-hover:translate-x-full transition-transform duration-700"></div>
                       <div className="relative flex items-center justify-center">
-                        <span className="text-sm font-medium">View Stats</span>
+                        <span className="text-sm font-medium">{t('view_stats')}</span>
                       </div>
                     </button>
 
@@ -271,7 +279,7 @@ export default function Home() {
                     >
                       <div className="absolute inset-0 bg-gradient-to-r from-white/0 via-white/20 to-white/0 transform -skew-x-12 -translate-x-full group-hover:translate-x-full transition-transform duration-700"></div>
                       <div className="relative flex items-center justify-center">
-                        <span className="text-sm font-medium">Leaderboard</span>
+                        <span className="text-sm font-medium">{t('leaderboard')}</span>
                       </div>
                     </button>
                   </div>
@@ -282,7 +290,7 @@ export default function Home() {
                   >
                     <div className="absolute inset-0 bg-gradient-to-r from-white/0 via-white/20 to-white/0 transform -skew-x-12 -translate-x-full group-hover:translate-x-full transition-transform duration-700"></div>
                     <div className="relative flex items-center justify-center">
-                      <span className="text-sm font-medium">Sign Out</span>
+                      <span className="text-sm font-medium">{t('sign_out')}</span>
                     </div>
                   </button>
                 </div>
@@ -295,13 +303,13 @@ export default function Home() {
               onClick={() => router.push('/auth/signin')}
               className="px-8 py-4 bg-white/10 backdrop-blur-sm text-white border border-white/20 rounded-xl font-semibold text-lg hover:bg-white/20 transition-all duration-200 cursor-pointer min-w-[120px]"
             >
-              Login
+              {t('login')}
             </button>
             <button
               onClick={() => router.push('/auth/signup')}
               className="px-8 py-4 bg-blue-600/80 backdrop-blur-sm text-white border border-blue-500/30 rounded-xl font-semibold text-lg hover:bg-blue-600 transition-all duration-200 cursor-pointer min-w-[120px]"
             >
-              Register
+              {t('register')}
             </button>
           </div>
         )}
@@ -349,7 +357,7 @@ export default function Home() {
 
               {session && (
                 <p className="absolute -bottom-8 left-1/2 transform -translate-x-1/2 text-xs text-gray-500 whitespace-nowrap">
-                  Avatar from profile
+                  {t('avatar_from_profile')}
                 </p>
               )}
 
@@ -410,7 +418,7 @@ export default function Home() {
               <div className="absolute inset-0 bg-gradient-to-r from-white/0 via-white/20 to-white/0 transform -skew-x-12 -translate-x-full group-hover:translate-x-full transition-transform duration-700"></div>
               <span className="relative flex items-center justify-center gap-2">
                 <span className="text-2xl">⚖️</span>
-                {isCreatingGame ? 'CREATING...' : 'CREATE GAME'}
+                {isCreatingGame ? t('creating') : t('create_game')}
               </span>
             </button>
 
@@ -426,7 +434,7 @@ export default function Home() {
               <div className="absolute inset-0 bg-gradient-to-r from-white/0 via-white/20 to-white/0 transform -skew-x-12 -translate-x-full group-hover:translate-x-full transition-transform duration-700"></div>
               <span className="relative flex items-center justify-center gap-2">
                 <span className="text-2xl">🚪</span>
-                JOIN GAME
+                {t('join_game')}
               </span>
             </button>
           </div>
@@ -456,20 +464,19 @@ export default function Home() {
             <div className="space-y-6">
               <div className="text-center">
                 <h2 className="text-3xl font-black bg-gradient-to-r from-blue-800 to-purple-800 bg-clip-text text-transparent mb-2">
-                  How to Play DISPUTED!
+                  {t('guide_title')}
                 </h2>
-                <p className="text-gray-600 text-lg">Master the art of legal argumentation</p>
+                <p className="text-gray-600 text-lg">{t('guide_subtitle')}</p>
               </div>
-
               {/* Game Overview */}
               <div className="bg-gradient-to-r from-blue-50 to-purple-50 rounded-xl p-6 border border-blue-200">
                 <h3 className="text-xl font-bold text-blue-800 mb-3 flex items-center gap-2">
                   <span className="text-2xl">⚖️</span>
-                  Game Overview
+                  {t('game_overview')}
                 </h3>
                 <p className="text-gray-700 leading-relaxed">
-                  DISPUTED! is a best-of-3 competitive debate game where players receive the same legal case but argue from different perspectives.
-                  Players alternate roles across rounds, with AI judging each round. If tied after 2 rounds, the best performer chooses their role for the decisive 3rd round!
+                  {t('game_overview_description')}
+                  
                 </p>
               </div>
 
@@ -478,26 +485,27 @@ export default function Home() {
                 <div className="bg-green-50 rounded-xl p-5 border border-green-200">
                   <h4 className="text-lg font-bold text-green-800 mb-3 flex items-center gap-2">
                     <span className="text-xl">🎯</span>
-                    Create Game
+                    {t('create_game_guide')}
                   </h4>
                   <ul className="text-gray-700 space-y-2 text-sm">
-                    <li>• Click "CREATE GAME" to start a new match</li>
-                    <li>• Share the room code with friends</li>
-                    <li>• Wait for players to join your lobby</li>
-                    <li>• Start the game when everyone's ready</li>
+                    <li>• {t('create_game_step_1')}</li>
+
+                    <li>• {t('create_game_step_2')}</li>
+                    <li>• {t('create_game_step_3')}</li>
+                    <li>• {t('create_game_step_4')}</li>
                   </ul>
                 </div>
 
                 <div className="bg-purple-50 rounded-xl p-5 border border-purple-200">
                   <h4 className="text-lg font-bold text-purple-800 mb-3 flex items-center gap-2">
                     <span className="text-xl">🚪</span>
-                    Join Game
+                    {t('join_game_guide')}
                   </h4>
                   <ul className="text-gray-700 space-y-2 text-sm">
-                    <li>• Click "JOIN GAME" to enter a room</li>
-                    <li>• Enter the 6-digit room code</li>
-                    <li>• Choose your avatar and name</li>
-                    <li>• Wait for the host to start</li>
+                    <li>• {t('join_game_step_1')}</li>
+                    <li>• {t('join_game_step_2')}</li>
+                    <li>• {t('join_game_step_3')}</li>
+                    <li>• {t('join_game_step_4')}</li>
                   </ul>
                 </div>
               </div>
@@ -506,42 +514,42 @@ export default function Home() {
               <div className="bg-gradient-to-r from-orange-50 to-red-50 rounded-xl p-6 border border-orange-200">
                 <h3 className="text-xl font-bold text-orange-800 mb-4 flex items-center gap-2">
                   <span className="text-2xl">🏛️</span>
-                  Best-of-3 Format
+                  {t('best_of_3_format')}
                 </h3>
                 <div className="grid gap-3">
                   <div className="flex items-start gap-3">
                     <div className="w-8 h-8 bg-orange-500 text-white rounded-full flex items-center justify-center text-sm font-bold flex-shrink-0">1</div>
                     <div>
-                      <strong className="text-orange-800">Case Assignment:</strong>
-                      <span className="text-gray-700 ml-2">Both players receive the same legal case to study</span>
+                      <strong className="text-orange-800">{t('case_assignment')}:</strong>
+                      <span className="text-gray-700 ml-2">{t('case_assignment_description')} </span>
                     </div>
                   </div>
                   <div className="flex items-start gap-3">
                     <div className="w-8 h-8 bg-orange-500 text-white rounded-full flex items-center justify-center text-sm font-bold flex-shrink-0">2</div>
                     <div>
-                      <strong className="text-orange-800">Round 1:</strong>
-                      <span className="text-gray-700 ml-2">Roles assigned randomly - one defends, one attacks</span>
+                      <strong className="text-orange-800">{t('round_1')}:</strong>
+                      <span className="text-gray-700 ml-2">{t('round_1_description')}</span>
                     </div>
                   </div>
                   <div className="flex items-start gap-3">
                     <div className="w-8 h-8 bg-orange-500 text-white rounded-full flex items-center justify-center text-sm font-bold flex-shrink-0">3</div>
                     <div>
-                      <strong className="text-orange-800">Round 2:</strong>
-                      <span className="text-gray-700 ml-2">Players automatically switch roles from Round 1</span>
+                      <strong className="text-orange-800">{t('round_2')}:</strong>
+                      <span className="text-gray-700 ml-2">{t('round_2_description')}</span>
                     </div>
                   </div>
                   <div className="flex items-start gap-3">
                     <div className="w-8 h-8 bg-orange-500 text-white rounded-full flex items-center justify-center text-sm font-bold flex-shrink-0">4</div>
                     <div>
-                      <strong className="text-orange-800">Tiebreaker Round:</strong>
-                      <span className="text-gray-700 ml-2">If tied 1-1, best performer chooses their preferred role</span>
+                      <strong className="text-orange-800">{t('tiebreaker_round')}:</strong>
+                      <span className="text-gray-700 ml-2">{t('tiebreaker_round_description')}</span>
                     </div>
                   </div>
                   <div className="flex items-start gap-3">
                     <div className="w-8 h-8 bg-orange-500 text-white rounded-full flex items-center justify-center text-sm font-bold flex-shrink-0">5</div>
                     <div>
-                      <strong className="text-orange-800">Victory:</strong>
-                      <span className="text-gray-700 ml-2">First to win 2 rounds wins the match!</span>
+                      <strong className="text-orange-800">{t('victory')}:</strong>
+                      <span className="text-gray-700 ml-2">{t('victory_description')}</span>
                     </div>
                   </div>
                 </div>
@@ -551,27 +559,27 @@ export default function Home() {
               <div className="bg-gradient-to-r from-yellow-50 to-amber-50 rounded-xl p-6 border border-yellow-200">
                 <h3 className="text-xl font-bold text-yellow-800 mb-3 flex items-center gap-2">
                   <span className="text-2xl">🏆</span>
-                  Scoring & Strategy
+                  {t('scoring_n_strategy')}
                 </h3>
                 <div className="grid md:grid-cols-2 gap-4 text-sm">
                   <div>
-                    <h4 className="font-bold text-yellow-800 mb-2">Win Conditions:</h4>
+                    <h4 className="font-bold text-yellow-800 mb-2">{t('win_conditions')}:</h4>
                     <ul className="text-gray-700 space-y-1">
-                      <li>• Best 2 out of 3 rounds wins</li>
-                      <li>• AI judges each round individually</li>
-                      <li>• Strong logical arguments score higher</li>
-                      <li>• Clear evidence presentation matters</li>
-                      <li>• Best performer gets tiebreaker choice</li>
+                      <li>• {t('win_conditions_step1')} </li>
+                      <li>• {t('win_conditions_step2')} </li>
+                      <li>• {t('win_conditions_step3')} </li>
+                      <li>• {t('win_conditions_step4')} </li>
+                      <li>• {t('win_conditions_step5')} </li>
                     </ul>
                   </div>
                   <div>
-                    <h4 className="font-bold text-yellow-800 mb-2">Winning Tips:</h4>
+                    <h4 className="font-bold text-yellow-800 mb-2">{t('winning_tips')}:</h4>
                     <ul className="text-gray-700 space-y-1">
-                      <li>• Aim to win first 2 rounds quickly</li>
-                      <li>• Master both sides of the case</li>
-                      <li>• Perform consistently for tiebreaker edge</li>
-                      <li>• Choose your stronger role if tied</li>
-                      <li>• Adapt strategy based on round scores</li>
+                      <li>• {t('winning_tips_step1')} </li>
+                      <li>• {t('winning_tips_step2')} </li>
+                      <li>• {t('winning_tips_step3')} </li>
+                      <li>• {t('winning_tips_step4')} </li>
+                      <li>• {t('winning_tips_step5')}</li>
                     </ul>
                   </div>
                 </div>
@@ -583,7 +591,7 @@ export default function Home() {
                   onClick={() => setShowHowToPlay(false)}
                   className="group px-8 py-3 bg-gradient-to-r from-blue-600 to-purple-600 text-white font-bold rounded-xl hover:from-blue-700 hover:to-purple-700 transition-all duration-300 shadow-lg hover:shadow-xl transform hover:scale-[1.02]"
                 >
-                  Got it! Let's Play ⚖️
+                  {t('got_it_lets_play')} ⚖️
                 </button>
               </div>
             </div>

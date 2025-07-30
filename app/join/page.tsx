@@ -5,6 +5,8 @@ import { useRouter, useSearchParams } from 'next/navigation';
 import { useSession, signOut } from 'next-auth/react';
 import { socketService, PlayerData } from '../services/socketService';
 import { useUser } from '../lib/UserContext';
+import { useTranslation } from 'react-i18next';
+import LanguageSwitcher from '../components/LanguageSwitcher';
 
 // Move your component logic here
 function JoinGameInner() {
@@ -21,6 +23,8 @@ function JoinGameInner() {
   const [placeholderName, setPlaceholderName] = useState('');
   const { user: currentUser, isLoading: isLoadingUser, refetchUser } = useUser();
   const [ready, setReady] = useState(false);
+  const [showHowToPlay, setShowHowToPlay] = useState(false);
+  const { t, i18n } = useTranslation('common');
 
   const avatarOptions = ['⚖️', '👨‍💼', '👩‍💼', '👨‍⚖️', '👩‍⚖️', '🎭', '⚔️', '🏛️', '📚', '🗣️', '💼', '🎯'];
   const guestNameSuggestions = [
@@ -116,7 +120,7 @@ function JoinGameInner() {
       };
 
       // Join the room
-      await socketService.joinRoom(roomId.toUpperCase(), playerData);
+      await socketService.joinRoom(roomId.toUpperCase(), playerData, i18n.language);
       
       // Navigate to lobby
       router.push(`/lobby?room=${roomId.toUpperCase()}`);
@@ -138,20 +142,31 @@ function JoinGameInner() {
       </div>
 
       {/* Back button */}
-      <div className="absolute top-6 left-6 z-30">
+      <div className="absolute top-6 left-6 z-30 flex flex-col gap-4">
         <button
           onClick={() => router.push('/')}
           className="px-5 py-2.5 bg-white/10 backdrop-blur-sm text-white border border-white/20 rounded-lg font-medium hover:bg-white/20 transition-all duration-200 cursor-pointer"
         >
           ← Back to Home
         </button>
+
+        <LanguageSwitcher
+          currentLang={i18n.language}
+          onChange={(lang) => i18n.changeLanguage(lang)}
+        />
+        <button
+          onClick={() => setShowHowToPlay(true)}
+          className="group flex items-center gap-2 px-4 py-3 bg-white/10 backdrop-blur-sm text-white border border-white/20 rounded-xl font-semibold hover:bg-white/20 transition-all duration-200 cursor-pointer"
+        >
+          <span className="text-xl">❓</span>
+          <span className="hidden sm:inline">{t('how_to_play')}</span>
+        </button>
       </div>
 
-      {/* Top Right Corner - Auth Section */}
+   {/* Top Right Corner - Auth Section */}
       <div className="absolute top-6 right-6 flex flex-col gap-3 z-30">
         {status === 'loading' ? (
-          <div className="px-5 py-2.5 bg-white/10 backdrop-blur-sm text-white/70 border border-white/20 rounded-lg font-medium">
-            Loading...
+          <div>
           </div>
         ) : session ? (
           <div className="flex flex-col gap-4">
@@ -161,7 +176,7 @@ function JoinGameInner() {
               <div className="absolute inset-0 bg-gradient-to-br from-purple-500/10 via-transparent to-blue-500/10"></div>
               <div className="absolute -top-10 -right-10 w-32 h-32 bg-white/5 rounded-full blur-xl"></div>
               <div className="absolute -bottom-6 -left-6 w-24 h-24 bg-purple-500/10 rounded-full blur-lg"></div>
-              
+
               {/* Content */}
               <div className="relative z-10">
                 {/* Header with Avatar and Basic Info */}
@@ -187,7 +202,7 @@ function JoinGameInner() {
                       </svg>
                     </div>
                   </div>
-                  
+
                   <div className="flex-1">
                     <div className="font-bold text-xl text-white mb-1">
                       {currentUser?.username || session.user?.username || session.user?.name}
@@ -203,7 +218,7 @@ function JoinGameInner() {
                           )}
                         </span>
                       </div>
-                      <span className="text-white/60 text-sm">rating</span>
+                      <span className="text-white/60 text-sm">{t('rating')}</span>
                     </div>
                   </div>
                 </div>
@@ -218,7 +233,7 @@ function JoinGameInner() {
                         currentUser?.gamesPlayed || session.user?.gamesPlayed || 0
                       )}
                     </div>
-                    <div className="text-white/70 text-xs uppercase tracking-wide">Games</div>
+                    <div className="text-white/70 text-xs uppercase tracking-wide">{t('games')}</div>
                   </div>
                   <div className="bg-white/10 rounded-xl p-3 text-center backdrop-blur-sm border border-white/20">
                     <div className="text-green-400 font-bold text-lg">
@@ -228,7 +243,7 @@ function JoinGameInner() {
                         `${Math.round(currentUser?.winPercentage || session.user?.winPercentage || 0)}%`
                       )}
                     </div>
-                    <div className="text-white/70 text-xs uppercase tracking-wide">Win Rate</div>
+                    <div className="text-white/70 text-xs uppercase tracking-wide">{t('win_rate')}</div>
                   </div>
                   <div className="bg-white/10 rounded-xl p-3 text-center backdrop-blur-sm border border-white/20">
                     <div className="text-orange-400 font-bold text-lg flex items-center justify-center gap-1">
@@ -240,7 +255,7 @@ function JoinGameInner() {
                         </>
                       )}
                     </div>
-                    <div className="text-white/70 text-xs uppercase tracking-wide">Streak</div>
+                    <div className="text-white/70 text-xs uppercase tracking-wide">{t('streak')}</div>
                   </div>
                 </div>
 
@@ -253,28 +268,28 @@ function JoinGameInner() {
                     >
                       <div className="absolute inset-0 bg-gradient-to-r from-white/0 via-white/20 to-white/0 transform -skew-x-12 -translate-x-full group-hover:translate-x-full transition-transform duration-700"></div>
                       <div className="relative flex items-center justify-center">
-                        <span className="text-sm font-medium">View Stats</span>
+                        <span className="text-sm font-medium">{t('view_stats')}</span>
                       </div>
                     </button>
-                    
+
                     <button
                       onClick={() => router.push('/leaderboard')}
                       className="group relative px-4 py-3 bg-gradient-to-r from-purple-600 to-purple-700 text-white font-semibold rounded-xl hover:from-purple-700 hover:to-purple-800 transition-all duration-300 cursor-pointer shadow-lg hover:shadow-xl transform hover:scale-[1.02] overflow-hidden"
                     >
                       <div className="absolute inset-0 bg-gradient-to-r from-white/0 via-white/20 to-white/0 transform -skew-x-12 -translate-x-full group-hover:translate-x-full transition-transform duration-700"></div>
                       <div className="relative flex items-center justify-center">
-                        <span className="text-sm font-medium">Leaderboard</span>
+                        <span className="text-sm font-medium">{t('leaderboard')}</span>
                       </div>
                     </button>
                   </div>
-                  
+
                   <button
                     onClick={() => signOut({ callbackUrl: '/' })}
                     className="group w-full px-4 py-3 bg-gradient-to-r from-red-600/80 to-red-700/80 text-white font-semibold rounded-xl hover:from-red-700 hover:to-red-800 transition-all duration-300 cursor-pointer shadow-lg hover:shadow-xl transform hover:scale-[1.02] backdrop-blur-sm border border-red-500/30 overflow-hidden"
                   >
                     <div className="absolute inset-0 bg-gradient-to-r from-white/0 via-white/20 to-white/0 transform -skew-x-12 -translate-x-full group-hover:translate-x-full transition-transform duration-700"></div>
                     <div className="relative flex items-center justify-center">
-                      <span className="text-sm font-medium">Sign Out</span>
+                      <span className="text-sm font-medium">{t('sign_out')}</span>
                     </div>
                   </button>
                 </div>
@@ -287,13 +302,13 @@ function JoinGameInner() {
               onClick={() => router.push('/auth/signin')}
               className="px-8 py-4 bg-white/10 backdrop-blur-sm text-white border border-white/20 rounded-xl font-semibold text-lg hover:bg-white/20 transition-all duration-200 cursor-pointer min-w-[120px]"
             >
-              Login
+              {t('login')}
             </button>
             <button
               onClick={() => router.push('/auth/signup')}
               className="px-8 py-4 bg-blue-600/80 backdrop-blur-sm text-white border border-blue-500/30 rounded-xl font-semibold text-lg hover:bg-blue-600 transition-all duration-200 cursor-pointer min-w-[120px]"
             >
-              Register
+              {t('register')}
             </button>
           </div>
         )}
@@ -305,7 +320,7 @@ function JoinGameInner() {
           
           {/* Title */}
           <h1 className="text-4xl font-black text-center mb-8 bg-gradient-to-r from-purple-800 to-blue-800 bg-clip-text text-transparent">
-            JOIN GAME
+            {t('join_game')}
           </h1>
 
           {/* Error message */}
@@ -317,12 +332,12 @@ function JoinGameInner() {
 
           {/* Room Code Input */}
           <div className="mb-6">
-            <label className="block text-gray-700 font-bold mb-2">Room Code</label>
+            <label className="block text-gray-700 font-bold mb-2">{t('room_code')}</label>
             <input
               type="text"
               value={roomId}
               onChange={(e) => setRoomId(e.target.value.toUpperCase())}
-              placeholder="Enter room code (e.g., ABC123)"
+              placeholder={t('room_code_placeholder')}
               className="w-full px-4 py-3 text-lg border-2 border-gray-200 rounded-xl focus:border-purple-500 focus:outline-none transition-all duration-200 bg-white shadow-sm placeholder-gray-400 text-black uppercase font-mono"
               maxLength={6}
             />
@@ -353,7 +368,7 @@ function JoinGameInner() {
               
               {session && (
                 <p className="absolute -bottom-8 left-1/2 transform -translate-x-1/2 text-xs text-gray-500 whitespace-nowrap">
-                  Avatar from profile
+                  {t('avatar_from_profile')}
                 </p>
               )}
               
@@ -389,7 +404,7 @@ function JoinGameInner() {
 
             {/* Name Input */}
             <div className="flex-1">
-              <label className="block text-gray-700 font-bold mb-2">Your Name</label>
+              <label className="block text-gray-700 font-bold mb-2">{t('your_name')}</label>
               <input
                 type="text"
                 value={playerName}
@@ -404,7 +419,7 @@ function JoinGameInner() {
               />
               {session && (
                 <p className="mt-1 text-sm text-gray-600">
-                  Username is set from your account profile
+                  {t('username_is_set')}
                 </p>
               )}
             </div>
@@ -421,19 +436,180 @@ function JoinGameInner() {
                   : 'bg-gradient-to-r from-purple-600 to-blue-700 text-white hover:from-purple-700 hover:to-blue-800 hover:scale-[1.02] active:scale-[0.98]'
               }`}
             >
-              {isJoining ? 'JOINING...' : 'JOIN GAME'}
+              {isJoining ? t('joining') : t('join_game')}
             </button>
           </div>
 
+          
+
         </div>
+
+        
       </div>
+      {showHowToPlay && (
+        <div
+          className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center p-4 z-50"
+          onClick={() => setShowHowToPlay(false)}
+        >
+          <div
+            className="bg-white/95 backdrop-blur-xl rounded-2xl shadow-2xl p-8 max-w-2xl w-full max-h-[80vh] overflow-y-auto border border-white/30 relative"
+            onClick={(e) => e.stopPropagation()}
+          >
+            {/* Close Button */}
+            <button
+              onClick={() => setShowHowToPlay(false)}
+              className="absolute top-4 right-4 w-8 h-8 bg-red-500/20 hover:bg-red-500/30 rounded-full flex items-center justify-center text-red-600 hover:text-red-700 transition-all duration-200"
+            >
+              ✕
+            </button>
+
+            {/* Modal Content */}
+            <div className="space-y-6">
+              <div className="text-center">
+                <h2 className="text-3xl font-black bg-gradient-to-r from-blue-800 to-purple-800 bg-clip-text text-transparent mb-2">
+                  {t('guide_title')}
+                </h2>
+                <p className="text-gray-600 text-lg">{t('guide_subtitle')}</p>
+              </div>
+              {/* Game Overview */}
+              <div className="bg-gradient-to-r from-blue-50 to-purple-50 rounded-xl p-6 border border-blue-200">
+                <h3 className="text-xl font-bold text-blue-800 mb-3 flex items-center gap-2">
+                  <span className="text-2xl">⚖️</span>
+                  {t('game_overview')}
+                </h3>
+                <p className="text-gray-700 leading-relaxed">
+                  {t('game_overview_description')}
+                  
+                </p>
+              </div>
+
+              {/* How to Start */}
+              <div className="grid md:grid-cols-2 gap-4">
+                <div className="bg-green-50 rounded-xl p-5 border border-green-200">
+                  <h4 className="text-lg font-bold text-green-800 mb-3 flex items-center gap-2">
+                    <span className="text-xl">🎯</span>
+                    {t('create_game_guide')}
+                  </h4>
+                  <ul className="text-gray-700 space-y-2 text-sm">
+                    <li>• {t('create_game_step_1')}</li>
+
+                    <li>• {t('create_game_step_2')}</li>
+                    <li>• {t('create_game_step_3')}</li>
+                    <li>• {t('create_game_step_4')}</li>
+                  </ul>
+                </div>
+
+                <div className="bg-purple-50 rounded-xl p-5 border border-purple-200">
+                  <h4 className="text-lg font-bold text-purple-800 mb-3 flex items-center gap-2">
+                    <span className="text-xl">🚪</span>
+                    {t('join_game_guide')}
+                  </h4>
+                  <ul className="text-gray-700 space-y-2 text-sm">
+                    <li>• {t('join_game_step_1')}</li>
+                    <li>• {t('join_game_step_2')}</li>
+                    <li>• {t('join_game_step_3')}</li>
+                    <li>• {t('join_game_step_4')}</li>
+                  </ul>
+                </div>
+              </div>
+
+              {/* Gameplay Steps */}
+              <div className="bg-gradient-to-r from-orange-50 to-red-50 rounded-xl p-6 border border-orange-200">
+                <h3 className="text-xl font-bold text-orange-800 mb-4 flex items-center gap-2">
+                  <span className="text-2xl">🏛️</span>
+                  {t('best_of_3_format')}
+                </h3>
+                <div className="grid gap-3">
+                  <div className="flex items-start gap-3">
+                    <div className="w-8 h-8 bg-orange-500 text-white rounded-full flex items-center justify-center text-sm font-bold flex-shrink-0">1</div>
+                    <div>
+                      <strong className="text-orange-800">{t('case_assignment')}:</strong>
+                      <span className="text-gray-700 ml-2">{t('case_assignment_description')} </span>
+                    </div>
+                  </div>
+                  <div className="flex items-start gap-3">
+                    <div className="w-8 h-8 bg-orange-500 text-white rounded-full flex items-center justify-center text-sm font-bold flex-shrink-0">2</div>
+                    <div>
+                      <strong className="text-orange-800">{t('round_1')}:</strong>
+                      <span className="text-gray-700 ml-2">{t('round_1_description')}</span>
+                    </div>
+                  </div>
+                  <div className="flex items-start gap-3">
+                    <div className="w-8 h-8 bg-orange-500 text-white rounded-full flex items-center justify-center text-sm font-bold flex-shrink-0">3</div>
+                    <div>
+                      <strong className="text-orange-800">{t('round_2')}:</strong>
+                      <span className="text-gray-700 ml-2">{t('round_2_description')}</span>
+                    </div>
+                  </div>
+                  <div className="flex items-start gap-3">
+                    <div className="w-8 h-8 bg-orange-500 text-white rounded-full flex items-center justify-center text-sm font-bold flex-shrink-0">4</div>
+                    <div>
+                      <strong className="text-orange-800">{t('tiebreaker_round')}:</strong>
+                      <span className="text-gray-700 ml-2">{t('tiebreaker_round_description')}</span>
+                    </div>
+                  </div>
+                  <div className="flex items-start gap-3">
+                    <div className="w-8 h-8 bg-orange-500 text-white rounded-full flex items-center justify-center text-sm font-bold flex-shrink-0">5</div>
+                    <div>
+                      <strong className="text-orange-800">{t('victory')}:</strong>
+                      <span className="text-gray-700 ml-2">{t('victory_description')}</span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* Scoring */}
+              <div className="bg-gradient-to-r from-yellow-50 to-amber-50 rounded-xl p-6 border border-yellow-200">
+                <h3 className="text-xl font-bold text-yellow-800 mb-3 flex items-center gap-2">
+                  <span className="text-2xl">🏆</span>
+                  {t('scoring_n_strategy')}
+                </h3>
+                <div className="grid md:grid-cols-2 gap-4 text-sm">
+                  <div>
+                    <h4 className="font-bold text-yellow-800 mb-2">{t('win_conditions')}:</h4>
+                    <ul className="text-gray-700 space-y-1">
+                      <li>• {t('win_conditions_step1')} </li>
+                      <li>• {t('win_conditions_step2')} </li>
+                      <li>• {t('win_conditions_step3')} </li>
+                      <li>• {t('win_conditions_step4')} </li>
+                      <li>• {t('win_conditions_step5')} </li>
+                    </ul>
+                  </div>
+                  <div>
+                    <h4 className="font-bold text-yellow-800 mb-2">{t('winning_tips')}:</h4>
+                    <ul className="text-gray-700 space-y-1">
+                      <li>• {t('winning_tips_step1')} </li>
+                      <li>• {t('winning_tips_step2')} </li>
+                      <li>• {t('winning_tips_step3')} </li>
+                      <li>• {t('winning_tips_step4')} </li>
+                      <li>• {t('winning_tips_step5')}</li>
+                    </ul>
+                  </div>
+                </div>
+              </div>
+
+              {/* Close Button */}
+              <div className="text-center pt-4">
+                <button
+                  onClick={() => setShowHowToPlay(false)}
+                  className="group px-8 py-3 bg-gradient-to-r from-blue-600 to-purple-600 text-white font-bold rounded-xl hover:from-blue-700 hover:to-purple-700 transition-all duration-300 shadow-lg hover:shadow-xl transform hover:scale-[1.02]"
+                >
+                  {t('got_it_lets_play')} ⚖️
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
 
 export default function JoinGame() {
+    const { t } = useTranslation('common');
+
   return (
-    <Suspense fallback={<div>Loading...</div>}>
+    <Suspense fallback={<div>{t('loading')}</div>}>
       <JoinGameInner />
     </Suspense>
   );

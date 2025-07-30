@@ -15,6 +15,7 @@ export interface Player {
   socketId?: string;
   arguments?: { argument: string; score: number, round: number, exchange: number, role: string }[];
   connected?: boolean;
+  language?: string;
 }
 
 export interface GameRoom {
@@ -29,6 +30,7 @@ export interface GameRoom {
   argumentCount: number;
   arguments: { argument: string; score: number, round: number, exchange: number, socketId: string, role: string }[];
   tiebreakerWinner: string | null;
+  language: string;
 }
 
 export interface PlayerData {
@@ -120,15 +122,15 @@ class SocketService {
     }
   }
 
-  // Create a new game room
-  createRoom(playerData: PlayerData): Promise<{ roomId: string; room: GameRoom }> {
+  // Create a new game room 
+  createRoom(playerData: PlayerData, language: string): Promise<{ roomId: string; room: GameRoom }> {
     return new Promise((resolve, reject) => {
       if (!this.socket) {
         reject(new Error('Not connected to server'));
         return;
       }
 
-      this.socket.emit('create-room', playerData);
+      this.socket.emit('create-room',  playerData , language);
 
       this.socket.once('room-created', (data) => {
         resolve(data);
@@ -142,14 +144,14 @@ class SocketService {
   }
 
   // Join an existing room
-  joinRoom(roomId: string, playerData: PlayerData): Promise<GameRoom> {
+  joinRoom(roomId: string, playerData: PlayerData, language: string): Promise<GameRoom> {
     return new Promise((resolve, reject) => {
       if (!this.socket) {
         reject(new Error('Not connected to server'));
         return;
       }
 
-      this.socket.emit('join-room', { roomId, playerData });
+      this.socket.emit('join-room', { roomId, playerData }, language);
 
       this.socket.once('gameStateUpdate', (room: GameRoom) => {
         resolve(room);
