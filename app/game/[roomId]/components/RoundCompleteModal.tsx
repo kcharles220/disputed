@@ -25,11 +25,30 @@ export default function RoundCompleteModal({
     setShowRoundCompleteModal,
     setShowGameCompleteModal
 }: RoundCompleteModalProps) {
-    // Placeholder definitions for missing variables and functions
-    const nextRoundAutoStartTime = 30;
-    const formatTime = (t: any) => t;
-    const [seen, setSeen] = useState(false);
 
+    const [seen, setSeen] = useState(false);
+    const [timeLeft, setTimeLeft] = useState(60); // Default to 60 seconds
+
+    useEffect(() => {
+        const socket = socketService.getSocket();
+        if (!socket) return;
+
+        // Listen for timerUpdate from server
+        const handleTimerUpdate = (timer: { timerValue: number; timerRemaining: number; timerRunning: boolean }) => {
+            setTimeLeft(timer.timerRemaining);
+            console.log('Timer update received:', timer);
+
+        };
+
+
+        socket.on('timerUpdate', handleTimerUpdate);
+
+        return () => {
+            socket.off('timerUpdate', handleTimerUpdate);
+        };
+
+
+    }, []);
     const toggleReady = () => {
         if (gameState) {
             const newReadyState = !currentPlayer?.ready;
@@ -385,9 +404,9 @@ export default function RoundCompleteModal({
                                                         <span className="text-sm">⏰</span>
                                                     </div>
                                                     <span className="text-amber-200 font-medium">Auto-Start:</span>
-                                                    <span className={`text-2xl font-bold ${nextRoundAutoStartTime <= 10 ? 'text-red-300 animate-pulse' : 'text-white'
+                                                    <span className={`text-2xl font-bold ${timeLeft <= 10 ? 'text-red-300 animate-pulse' : 'text-white'
                                                         }`}>
-                                                        {formatTime(nextRoundAutoStartTime)}
+                                                        {timeLeft}
                                                     </span>
                                                 </div>
                                             </div>

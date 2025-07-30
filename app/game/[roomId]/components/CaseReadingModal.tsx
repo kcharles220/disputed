@@ -23,34 +23,34 @@ export default function CaseReadingModal({
     rightPlayer
 }: CaseReadingModalProps) {
     const [timeLeft, setTimeLeft] = useState(120); // Default to 60 seconds
-        useEffect(() => {
-            const socket = socketService.getSocket();
-            if (!socket) return;
-    
-            // Listen for timerUpdate from server
-            const handleTimerUpdate = (timer: { timerValue: number; timerRemaining: number; timerRunning: boolean }) => {
-                setTimeLeft(timer.timerRemaining);
-                console.log('Timer update received:', timer);
-    
-            };
+    useEffect(() => {
+        const socket = socketService.getSocket();
+        if (!socket) return;
 
-            
-            socket.on('timerUpdate', handleTimerUpdate);
-    
-            return () => {
-                socket.off('timerUpdate', handleTimerUpdate);
-            };
-    
-    
-        }, []);
+        // Listen for timerUpdate from server
+        const handleTimerUpdate = (timer: { timerValue: number; timerRemaining: number; timerRunning: boolean }) => {
+            setTimeLeft(timer.timerRemaining);
+            console.log('Timer update received:', timer);
+
+        };
+
+
+        socket.on('timerUpdate', handleTimerUpdate);
+
+        return () => {
+            socket.off('timerUpdate', handleTimerUpdate);
+        };
+
+
+    }, []);
 
     const toggleReady = () => {
 
         if (gameState) {
-              const newReadyState = !currentPlayer?.ready;
-              console.log('Toggling ready for room:', gameState.roomId, 'Sending ready:', newReadyState);
-              socketService.toggleReady(gameState.roomId, newReadyState);
-            }
+            const newReadyState = !currentPlayer?.ready;
+            console.log('Toggling ready for room:', gameState.roomId, 'Sending ready:', newReadyState);
+            socketService.toggleReady(gameState.roomId, newReadyState);
+        }
     };
     if (!showCaseModal || !gameState.caseDetails) return null;
 
@@ -149,25 +149,25 @@ export default function CaseReadingModal({
 
                                     return (
                                         <div className={`rounded-xl p-6 shadow-lg border-2 transition-all duration-200 ${currentPlayer?.position === 'left'
-                                                ? currentPlayer?.ready
-                                                    ? 'bg-green-100/90 border-green-400 shadow-green-200/50 transform scale-105'
-                                                    : leftPlayer?.currentRole === 'prosecutor'
-                                                        ? 'bg-white/80 border-red-300 shadow-red-200/50 transform scale-105'
-                                                        : 'bg-white/80 border-blue-300 shadow-blue-200/50 transform scale-105'
-                                                : gameState.players.find(p => p.id !== currentPlayer?.id)?.ready
-                                                    ? 'bg-green-100/90 border-green-400 shadow-green-200/50 opacity-75'
-                                                    : 'bg-white/80 border-gray-300 opacity-75'
+                                            ? currentPlayer?.ready
+                                                ? 'bg-green-100/90 border-green-400 shadow-green-200/50 transform scale-105'
+                                                : leftPlayer?.currentRole === 'prosecutor'
+                                                    ? 'bg-white/80 border-red-300 shadow-red-200/50 transform scale-105'
+                                                    : 'bg-white/80 border-blue-300 shadow-blue-200/50 transform scale-105'
+                                            : gameState.players.find(p => p.id !== currentPlayer?.id)?.ready
+                                                ? 'bg-green-100/90 border-green-400 shadow-green-200/50 opacity-75'
+                                                : 'bg-white/80 border-gray-300 opacity-75'
                                             }`}>
                                             <div className="text-center">
                                                 <div className={`w-16 h-16 mx-auto mb-3 ${leftPlayer?.currentRole === 'prosecutor'
-                                                        ? 'bg-gradient-to-br from-red-400 to-red-600'
-                                                        : 'bg-gradient-to-br from-blue-400 to-blue-600'
+                                                    ? 'bg-gradient-to-br from-red-400 to-red-600'
+                                                    : 'bg-gradient-to-br from-blue-400 to-blue-600'
                                                     } rounded-full flex items-center justify-center text-2xl text-white shadow-lg`}>
                                                     {leftPlayer?.avatar || '⚖️'}
                                                 </div>
                                                 <h3 className={`text-xl font-bold mb-2 ${leftPlayer?.currentRole === 'prosecutor' ? 'text-red-700' : 'text-blue-700'
                                                     }`}>
-                                                    {leftPlayer?.currentRole?.toUpperCase()} 
+                                                    {leftPlayer?.currentRole?.toUpperCase()}
                                                     {currentPlayer?.position === 'left' && (
                                                         <span className="ml-2 text-amber-600 text-lg font-bold">(YOU)</span>
                                                     )}
@@ -190,8 +190,8 @@ export default function CaseReadingModal({
                                                     )}
                                                 </div>
                                                 <p className={`text-sm px-3 py-2 rounded-lg ${leftPlayer?.currentRole === 'prosecutor'
-                                                        ? 'bg-red-50 text-red-700'
-                                                        : 'bg-blue-50 text-blue-700'
+                                                    ? 'bg-red-50 text-red-700'
+                                                    : 'bg-blue-50 text-blue-700'
                                                     }`}>
                                                     Arguing for: {leftPlayer?.currentRole === 'prosecutor' ? gameState.caseDetails.prosecutionPosition : gameState.caseDetails.defensePosition}
                                                 </p>
@@ -202,23 +202,23 @@ export default function CaseReadingModal({
 
                                 {/* Right side - Original Defender Position */}
                                 {(() => {
-                                   
+
 
                                     return (
                                         <div className={`rounded-xl p-6 shadow-lg border-2 transition-all duration-200 ${currentPlayer?.position === 'right'
-                                                ? currentPlayer?.ready
-                                                    ? 'bg-green-100/90 border-green-400 shadow-green-200/50 transform scale-105'
-                                                    : rightPlayer?.currentRole === 'prosecutor'
-                                                        ? 'bg-white/80 border-red-300 shadow-red-200/50 transform scale-105'
-                                                        : 'bg-white/80 border-blue-300 shadow-blue-200/50 transform scale-105'
-                                                : gameState.players.find(p => p.id !== currentPlayer?.id)?.ready
-                                                    ? 'bg-green-100/90 border-green-400 shadow-green-200/50 opacity-75'
-                                                    : 'bg-white/80 border-gray-300 opacity-75'
+                                            ? currentPlayer?.ready
+                                                ? 'bg-green-100/90 border-green-400 shadow-green-200/50 transform scale-105'
+                                                : rightPlayer?.currentRole === 'prosecutor'
+                                                    ? 'bg-white/80 border-red-300 shadow-red-200/50 transform scale-105'
+                                                    : 'bg-white/80 border-blue-300 shadow-blue-200/50 transform scale-105'
+                                            : gameState.players.find(p => p.id !== currentPlayer?.id)?.ready
+                                                ? 'bg-green-100/90 border-green-400 shadow-green-200/50 opacity-75'
+                                                : 'bg-white/80 border-gray-300 opacity-75'
                                             }`}>
                                             <div className="text-center">
                                                 <div className={`w-16 h-16 mx-auto mb-3 ${rightPlayer?.currentRole === 'prosecutor'
-                                                        ? 'bg-gradient-to-br from-red-400 to-red-600'
-                                                        : 'bg-gradient-to-br from-blue-400 to-blue-600'
+                                                    ? 'bg-gradient-to-br from-red-400 to-red-600'
+                                                    : 'bg-gradient-to-br from-blue-400 to-blue-600'
                                                     } rounded-full flex items-center justify-center text-2xl text-white shadow-lg`}>
                                                     {rightPlayer?.avatar || '⚖️'}
                                                 </div>
@@ -247,8 +247,8 @@ export default function CaseReadingModal({
                                                     )}
                                                 </div>
                                                 <p className={`text-sm px-3 py-2 rounded-lg ${rightPlayer?.currentRole === 'prosecutor'
-                                                        ? 'bg-red-50 text-red-700'
-                                                        : 'bg-blue-50 text-blue-700'
+                                                    ? 'bg-red-50 text-red-700'
+                                                    : 'bg-blue-50 text-blue-700'
                                                     }`}>
                                                     Arguing for: {rightPlayer?.currentRole === 'prosecutor' ? gameState.caseDetails.prosecutionPosition : gameState.caseDetails.defensePosition}
                                                 </p>
@@ -262,13 +262,13 @@ export default function CaseReadingModal({
                         <div className="text-center">
                             <div className="mb-6">
                                 {/* Only show timer during initial case reading phase (when not both ready) */}
-                                { (
+                                {(
                                     <div className="flex items-center justify-center gap-4 mb-4">
                                         <div className={`bg-white/95 px-6 py-3 rounded-xl shadow-lg border-2 transition-all duration-200 ${timeLeft <= 30
-                                                ? 'border-red-500 animate-pulse'
-                                                : 'border-slate-500'
+                                            ? 'border-red-500 animate-pulse'
+                                            : 'border-slate-500'
                                             }`}>
-                                            <span className={`font-bold ${ timeLeft <= 30 ? 'text-red-700' : 'text-slate-800'
+                                            <span className={`font-bold ${timeLeft <= 30 ? 'text-red-700' : 'text-slate-800'
                                                 }`}>
                                                 ⏰ Time Remaining: {timeLeft}
                                             </span>
@@ -279,14 +279,14 @@ export default function CaseReadingModal({
 
 
                                 {/* Only show ready button and auto-start warning during initial case reading */}
-                                { (
+                                {(
                                     <>
                                         <button
                                             onClick={toggleReady}
                                             disabled={currentPlayer?.ready && gameState.players.find(p => p.id !== currentPlayer?.id)?.ready}
                                             className={`px-8 py-4 font-bold rounded-xl transition-all duration-200 transform hover:scale-105 shadow-lg border-2 ${currentPlayer?.ready
-                                                    ? 'bg-green-600 hover:bg-green-700 border-green-500 text-white'
-                                                    : 'bg-slate-600 hover:bg-slate-700 border-slate-500 text-white'
+                                                ? 'bg-green-600 hover:bg-green-700 border-green-500 text-white'
+                                                : 'bg-slate-600 hover:bg-slate-700 border-slate-500 text-white'
                                                 } ${currentPlayer?.ready && gameState.players.find(p => p.id !== currentPlayer?.id)?.ready ? 'opacity-50 cursor-not-allowed' : ''}`}
                                         >
                                             {currentPlayer?.ready ? '✅ Ready!' : '📖 I\'m Ready to Battle!'}
@@ -302,7 +302,7 @@ export default function CaseReadingModal({
                                     </>
                                 )}
 
-                                
+
                             </div>
                         </div>
                     </div>
