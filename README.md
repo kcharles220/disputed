@@ -26,7 +26,6 @@ It’s a fast-paced, fun, and intellectually engaging experience that mixes game
 #### ⚙️ Backend
 - **Node.js** with **Express** for API structure
 - **Socket.IO** for real-time communication between players
-- Modular architecture handling session management, game logic, and AI analysis
 
 ➡️ **Running on an Oracle Cloud VM** (Ubuntu 22.04 LTS), fully self-managed, with manual deployments via SSH and custom logging/monitoring.
 
@@ -67,7 +66,6 @@ O sistema analisa automaticamente os argumentos, tendo em conta fatores como rel
 #### ⚙️ Backend
 - **Node.js** com **Express** para a estrutura da API
 - **Socket.IO** para comunicação em tempo real entre jogadores
-- Arquitectura modular para gestão de sessões, lógica de jogo e análise via IA
 
 ➡️ **A correr numa VM da Oracle Cloud** (Ubuntu 22.04 LTS), com deploy manual via SSH e sistema próprio de logging e monitorização.
 

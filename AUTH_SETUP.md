@@ -19,7 +19,7 @@
 
 ## 2. NextAuth Secret
 
-Generate a secure secret for NextAuth:
+Generate a secure secret for NextAuth
 
 ```bash
 openssl rand -base64 32
