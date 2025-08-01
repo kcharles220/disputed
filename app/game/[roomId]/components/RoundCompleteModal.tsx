@@ -3,7 +3,7 @@
 import { useEffect, useState } from 'react';
 import { GameRoom, Player, socketService } from '../../../services/socketService';
 import { set } from 'zod';
-
+import { useTranslation } from 'react-i18next';
 
 
 interface RoundCompleteModalProps {
@@ -25,7 +25,7 @@ export default function RoundCompleteModal({
     setShowRoundCompleteModal,
     setShowGameCompleteModal
 }: RoundCompleteModalProps) {
-
+    const { t } = useTranslation('common');
     const [seen, setSeen] = useState(false);
     const [timeLeft, setTimeLeft] = useState(60); // Default to 60 seconds
 
@@ -110,7 +110,7 @@ export default function RoundCompleteModal({
                                 <span className="relative text-5xl animate-spin-slow">🤖</span>
                             </div>
                             <h2 className="text-3xl font-bold mb-2 bg-gradient-to-r from-cyan-300 via-purple-400 to-violet-400 bg-clip-text text-transparent drop-shadow-lg animate-fade-in">
-                                AI is Analyzing the Arguments
+                                {t('ai_analyzing')}
                             </h2>
                             <div className="mt-4 flex items-center justify-center gap-2">
                                 <span className="w-3 h-3 bg-cyan-400 rounded-full animate-bounce"></span>
@@ -144,18 +144,18 @@ export default function RoundCompleteModal({
                                     </span>
                                 </div>
                                 <h1 className="text-4xl font-bold mb-2 bg-gradient-to-r from-yellow-300 to-orange-400 bg-clip-text text-transparent drop-shadow-lg">
-                                    Round {currentRoundIndex} Complete!
+                                    {t('round')} {currentRoundIndex} {t('complete')}!
                                 </h1>
                                 <h2 className={`text-3xl font-bold mb-4 ${winner?.lastRole === 'prosecutor' ? 'text-red-300' : 'text-blue-300'
                                     }`}>
-                                    {winner?.lastRole === 'prosecutor' ? 'Prosecutor' : 'Defender'} Wins!
+                                    {winner?.lastRole === 'prosecutor' ? t('prosecutor') : t('defender')} {t('wins')}!
                                 </h2>
                                 {/* Show role switch message if applicable */}
                                 {currentRoundIndex === 1 && (
                                     <div className="relative overflow-hidden rounded-xl p-4 mt-4">
                                         <div className="absolute inset-0 bg-gradient-to-br from-yellow-500/20 via-yellow-400/10 to-orange-500/15 backdrop-blur-sm border border-yellow-400/30 shadow-lg"></div>
                                         <div className="relative z-10 text-yellow-300 font-semibold text-lg">
-                                            🔄 Roles have been switched!
+                                            🔄 {t('roles_switched')}
                                         </div>
                                     </div>
                                 )}
@@ -170,13 +170,12 @@ export default function RoundCompleteModal({
                                         <div className="w-10 h-10 bg-gradient-to-br from-cyan-500/30 to-blue-500/30 backdrop-blur-sm rounded-full flex items-center justify-center border border-cyan-400/50">
                                             <span className="text-xl">🤖</span>
                                         </div>
-                                        <h3 className="text-xl font-bold text-white">AI Verdict</h3>
+                                        <h3 className="text-xl font-bold text-white">{t('ai_verdict')}</h3>
                                     </div>
                                     <p className="text-white/95 mb-4 leading-relaxed">
                                         {round?.analysis || 'AI analysis of the arguments presented in this round.'}
                                     </p>
                                     <div className="text-sm text-cyan-300 mb-6">
-                                        AI analyzed 3 exchanges (6 total arguments) to determine the round winner.
                                     </div>
 
                                     {/* Score Display */}
@@ -204,7 +203,7 @@ export default function RoundCompleteModal({
                                                         </span>
                                                     </div>
                                                     <h4 className="font-bold text-white mb-2">
-                                                        {leftPlayer.lastRole === 'prosecutor' ? 'Prosecutor' : 'Defender'} Score
+                                                        {leftPlayer.lastRole === 'prosecutor' ? t('prosecutor_score') : t('defender_score')}
                                                     </h4>
                                                     <span className={`text-3xl font-bold ${leftPlayer.lastRole === 'prosecutor' ? 'text-red-300' : 'text-blue-300'
                                                         }`}>
@@ -241,7 +240,7 @@ export default function RoundCompleteModal({
                                                         </span>
                                                     </div>
                                                     <h4 className="font-bold text-white mb-2">
-                                                        {rightPlayer.lastRole === 'prosecutor' ? 'Prosecutor' : 'Defender'} Score
+                                                        {rightPlayer.lastRole === 'prosecutor' ? t('prosecutor_score') : t('defender_score')}
                                                     </h4>
                                                     <span className={`text-3xl font-bold ${rightPlayer.lastRole === 'prosecutor' ? 'text-red-300' : 'text-blue-300'
                                                         }`}>
@@ -271,7 +270,7 @@ export default function RoundCompleteModal({
                                                 <span className="text-4xl">🏆</span>
                                             </div>
                                             <p className="text-white/80 mb-6 text-lg">
-                                                The battle has concluded! Review the final analysis above.
+                                                {t('battle_concluded')}
                                             </p>
                                             <button
                                                 onClick={() => {
@@ -280,7 +279,7 @@ export default function RoundCompleteModal({
                                                 className="relative overflow-hidden px-8 py-4 font-bold rounded-xl transition-all duration-200 transform hover:scale-105 shadow-lg text-lg border border-yellow-400/50"
                                             >
                                                 <div className="absolute inset-0 bg-gradient-to-r from-yellow-500/80 to-orange-600/80 backdrop-blur-sm"></div>
-                                                <span className="relative z-10 text-white">🏆 View Final Results</span>
+                                                <span className="relative z-10 text-white">🏆 {t('view_final_results')}</span>
                                             </button>
                                         </div>
                                     );
@@ -313,17 +312,17 @@ export default function RoundCompleteModal({
                                                             <span className="text-2xl">👤</span>
                                                         </div>
                                                         <h3 className="text-xl font-bold mb-3 text-white">
-                                                            {currentPlayer?.username} (You)
+                                                            {currentPlayer?.username} ({t('you')})
                                                         </h3>
 
                                                         {/* Player Scores */}
                                                         <div className="bg-gradient-to-br from-black/50 to-black/30 backdrop-blur-sm rounded-lg p-4 mb-4 border border-white/30">
-                                                            <div className="text-sm text-cyan-300 mb-1">Round Wins</div>
+                                                            <div className="text-sm text-cyan-300 mb-1">{t('round_wins')}</div>
                                                             <div className="text-2xl font-bold text-white mb-1">
                                                                 {currentPlayer.points}
                                                             </div>
                                                             <div className="text-xs text-cyan-200">
-                                                                Total Score: {currentPlayerScore}
+                                                                {t('total_score')}: {currentPlayerScore}
                                                             </div>
                                                         </div>
 
@@ -331,12 +330,12 @@ export default function RoundCompleteModal({
                                                             {currentPlayer.ready ? (
                                                                 <div className="flex items-center gap-2 text-emerald-300 font-bold">
                                                                     <span className="text-lg animate-pulse">✅</span>
-                                                                    <span>Ready</span>
+                                                                    <span>{t('ready')}</span>
                                                                 </div>
                                                             ) : (
                                                                 <div className="flex items-center gap-2 text-purple-300 font-medium">
                                                                     <span className="text-lg">⏳</span>
-                                                                    <span>Not Ready</span>
+                                                                    <span>{t('unready')}</span>
                                                                 </div>
                                                             )}
                                                         </div>
@@ -368,12 +367,12 @@ export default function RoundCompleteModal({
 
                                                             {/* Player Scores */}
                                                             <div className="bg-gradient-to-br from-black/50 to-black/30 backdrop-blur-sm rounded-lg p-4 mb-4 border border-white/30">
-                                                                <div className="text-sm text-cyan-300 mb-1">Round Wins</div>
+                                                                <div className="text-sm text-cyan-300 mb-1">{t('round_wins')}</div>
                                                                 <div className="text-2xl font-bold text-white mb-1">
                                                                     {otherPlayer.points}
                                                                 </div>
                                                                 <div className="text-xs text-cyan-200">
-                                                                    Total Score: {otherPlayerScore}
+                                                                    {t('total_score')}: {otherPlayerScore}
                                                                 </div>
                                                             </div>
 
@@ -381,12 +380,12 @@ export default function RoundCompleteModal({
                                                                 {otherPlayer.ready ? (
                                                                     <div className="flex items-center gap-2 text-emerald-300 font-bold">
                                                                         <span className="text-lg animate-pulse">✅</span>
-                                                                        <span>Ready</span>
+                                                                        <span>{t('ready')}</span>
                                                                     </div>
                                                                 ) : (
                                                                     <div className="flex items-center gap-2 text-purple-300 font-medium">
                                                                         <span className="text-lg">⏳</span>
-                                                                        <span>Not Ready</span>
+                                                                        <span>{t('not_ready')}</span>
                                                                     </div>
                                                                 )}
                                                             </div>
@@ -403,7 +402,7 @@ export default function RoundCompleteModal({
                                                     <div className="w-8 h-8 bg-gradient-to-br from-amber-500/30 to-orange-500/30 backdrop-blur-sm rounded-full flex items-center justify-center border border-amber-400/50">
                                                         <span className="text-sm">⏰</span>
                                                     </div>
-                                                    <span className="text-amber-200 font-medium">Auto-Start:</span>
+                                                    <span className="text-amber-200 font-medium">{t('auto_start')}:</span>
                                                     <span className={`text-2xl font-bold ${timeLeft <= 10 ? 'text-red-300 animate-pulse' : 'text-white'
                                                         }`}>
                                                         {timeLeft}
@@ -434,7 +433,7 @@ export default function RoundCompleteModal({
                                                         <span className="text-xl">
                                                             {currentPlayer.ready ? '✅' : '⚔️'}
                                                         </span>
-                                                        {currentPlayer.ready ? 'Ready! Waiting for opponent...' : 'Ready for Next Round'}
+                                                        {currentPlayer.ready ? t('ready_waiting') : t('ready_up')}
                                                     </span>
                                                 </button>
                                             </div>

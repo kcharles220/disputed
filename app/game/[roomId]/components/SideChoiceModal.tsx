@@ -22,7 +22,6 @@ export default function SideChoiceModal({
 }: SideChoiceModalProps) {
 
        const handleSideChoice = (side: string) => {
-           console.log(gameState.roomId, side);
            socketService.chooseSide(gameState.roomId, side);
        };
 

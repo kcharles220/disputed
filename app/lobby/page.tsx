@@ -4,6 +4,7 @@ import { Suspense } from 'react';
 import { useState, useEffect } from 'react';
 import { useSearchParams, useRouter } from 'next/navigation';
 import { socketService, GameRoom, Player } from '../services/socketService';
+import { useTranslation } from 'react-i18next';
 
 function GameLobbyInner() {
   const searchParams = useSearchParams();
@@ -17,6 +18,7 @@ function GameLobbyInner() {
   const [coinResult, setCoinResult] = useState<'red' | 'blue' | null>(null);
   const [flipAnimation, setFlipAnimation] = useState(false);
   const [flipped, setFlipped] = useState(false);
+  const { t, i18n } = useTranslation('common');
 
   useEffect(() => {
     const roomId = searchParams.get('room');
@@ -43,6 +45,9 @@ function GameLobbyInner() {
           const socketId = socketService.getSocket()?.id;
           const player = gameState.players.find(p => p.socketId === socketId);
           setCurrentPlayer(player || null);
+          if (player) {
+            setIsReady(player.ready);
+          }
         });
 
         socketService.onJoinError((error) => {
@@ -155,9 +160,9 @@ function GameLobbyInner() {
               <span className="text-7xl drop-shadow-lg">🤖</span>
             </div>
             {/* Animated text */}
-          <div className="text-white text-2xl font-bold flex items-center gap-3">
-            <span className="animate-fade-in">Generating a random case</span>
-          </div>
+            <div className="text-white text-2xl font-bold flex items-center gap-3">
+              <span className="animate-fade-in">{t("generating_random_case")}</span>
+            </div>
             {/* Animated gears */}
             <div className="flex gap-2 mt-2">
               <span className="inline-block animate-spin-slow text-indigo-300 text-2xl">⚙️</span>
@@ -165,7 +170,7 @@ function GameLobbyInner() {
               <span className="inline-block animate-spin-slow text-blue-300 text-lg">⚙️</span>
             </div>
           </div>
-          
+
         </div>
         {/* Custom keyframes */}
         <style jsx>{`
@@ -235,7 +240,7 @@ function GameLobbyInner() {
         {/* Room title and status */}
         <div className="text-center mb-12">
           <h1 className="text-5xl font-bold text-transparent bg-gradient-to-r from-blue-300 via-purple-300 to-indigo-300 bg-clip-text mb-2 drop-shadow-lg">
-            {room.players.length < 2 ? '⚖️ Awaiting Opponent ⚖️' : '🏛️ Debate Chamber 🏛️'}
+            {room.players.length < 2 ? `⚖️ ${t("waiting_for_opponent")} ⚖️` : `🏛️ ${t("debate_chamber")} 🏛️`}
           </h1>
           {room.players.length < 2 ? (
             <div className="flex items-center justify-center gap-2">
@@ -245,70 +250,70 @@ function GameLobbyInner() {
             </div>
           ) : (
             <div className="text-lg text-blue-200 font-medium">
-              💭 Prepare your arguments
+              💭 {t("prepare_your_arguments")}
             </div>
           )}
         </div>
 
         {/* Players section */}
-        <div className="flex items-end justify-center gap-16">
+        <div className="flex items-end justify-center gap-48 relative p-4">
           {/* Left: Current Player */}
-          <div className="text-center">
+          <div className="text-center flex-1 flex flex-col items-center">
             <div className="relative">
               <div className="w-28 h-28 bg-gradient-to-br from-blue-500/30 to-indigo-600/30 backdrop-blur-sm rounded-full flex items-center justify-center text-5xl shadow-2xl border-2 border-blue-300/40 mb-4 mx-auto">
-                {leftPlayer?.avatar || '⚖️'}
+          {leftPlayer?.avatar || '⚖️'}
               </div>
             </div>
             <h3 className="text-xl font-bold text-blue-100 drop-shadow-sm">{leftPlayer?.username || 'You'}</h3>
             <div className="mt-2">
               <div className={`w-40 mx-auto px-4 py-2 rounded-full text-sm font-medium backdrop-blur-sm border shadow-lg transition-colors duration-200 ${leftPlayer?.ready ? 'bg-green-500/70 text-white border-green-300/50' : 'bg-blue-500/70 text-white border-blue-300/50'
-                }`}>
-                <div className="text-center">
-                  {leftPlayer?.ready ? '✓ Ready to Debate' : '📝 Preparing...'}
-                </div>
+          }`}>
+          <div className="text-center">
+            {leftPlayer?.ready ? `✓ ${t("ready")}` : `📝 ${t("preparing")}`}
+          </div>
               </div>
             </div>
           </div>
 
           {/* VS text */}
-          <div className="text-center mb-16 relative">
+          <div className="absolute left-1/2 transform -translate-x-1/2 mb-16">
             <div className="text-6xl font-bold text-transparent bg-gradient-to-r from-blue-400 via-purple-400 to-indigo-400 bg-clip-text drop-shadow-lg">
               VS
             </div>
           </div>
 
           {/* Right: Opponent */}
-          <div className="text-center">
+          <div className="text-center flex-1 flex flex-col items-center">
             {rightPlayer ? (
               <>
-                <div className="relative">
-                  <div className="w-28 h-28 bg-gradient-to-br from-purple-500/30 to-violet-600/30 backdrop-blur-sm rounded-full flex items-center justify-center text-5xl shadow-2xl border-2 border-purple-300/40 mb-4 mx-auto">
-                    {rightPlayer.avatar}
-                  </div>
-                </div>
-                <h3 className="text-xl font-bold text-purple-100 drop-shadow-sm">{rightPlayer.username}</h3>
-                <div className="mt-2">
-                  <div className={`w-40 mx-auto px-4 py-2 rounded-full text-sm font-medium backdrop-blur-sm border shadow-lg transition-colors duration-200 ${rightPlayer.ready ? 'bg-green-500/70 text-white border-green-300/50' : 'bg-purple-500/70 text-white border-purple-300/50'
-                    }`}>
-                    <div className="text-center">
-                      {rightPlayer.ready ? '✓ Ready to Debate' : '📝 Preparing...'}
-                    </div>
-                  </div>
-                </div>
+          <div className="relative">
+            <div className="w-28 h-28 bg-gradient-to-br from-purple-500/30 to-violet-600/30 backdrop-blur-sm rounded-full flex items-center justify-center text-5xl shadow-2xl border-2 border-purple-300/40 mb-4 mx-auto">
+              {rightPlayer.avatar}
+            </div>
+          </div>
+          <h3 className="text-xl font-bold text-purple-100 drop-shadow-sm">{rightPlayer.username}</h3>
+          <div className="mt-2">
+            <div className={`w-40 mx-auto px-4 py-2 rounded-full text-sm font-medium backdrop-blur-sm border shadow-lg transition-colors duration-200 ${rightPlayer.ready ? 'bg-green-500/70 text-white border-green-300/50' : 'bg-purple-500/70 text-white border-purple-300/50'
+              }`}>
+              <div className="text-center">
+                {rightPlayer.ready ? `✓ ${t("ready")}` : `📝 ${t("preparing")}`}
+              </div>
+            </div>
+          </div>
               </>
             ) : (
               <>
-                <div className="relative">
-                  <div className="w-28 h-28 bg-gradient-to-br from-gray-500/30 to-gray-700/30 backdrop-blur-sm rounded-full flex items-center justify-center shadow-2xl border-2 border-gray-400/40 mb-4 mx-auto">
-                    <div className="flex gap-2">
-                      <div className="w-2 h-2 bg-blue-300 rounded-full animate-pulse"></div>
-                      <div className="w-2 h-2 bg-purple-300 rounded-full animate-pulse delay-300"></div>
-                      <div className="w-2 h-2 bg-indigo-300 rounded-full animate-pulse delay-600"></div>
-                    </div>
-                  </div>
-                </div>
-                <h3 className="text-xl font-bold text-gray-200 drop-shadow-sm">Seeking Debater...</h3>
-                <p className="text-blue-200 text-sm font-medium">Share the chamber code</p>
+          <div className="relative">
+            <div className="w-28 h-28 bg-gradient-to-br from-gray-500/30 to-gray-700/30 backdrop-blur-sm rounded-full flex items-center justify-center shadow-2xl border-2 border-gray-400/40 mb-4 mx-auto">
+              <div className="flex gap-2">
+                <div className="w-2 h-2 bg-blue-300 rounded-full animate-pulse"></div>
+                <div className="w-2 h-2 bg-purple-300 rounded-full animate-pulse delay-300"></div>
+                <div className="w-2 h-2 bg-indigo-300 rounded-full animate-pulse delay-600"></div>
+              </div>
+            </div>
+          </div>
+          <h3 className="text-xl font-bold text-gray-200 drop-shadow-sm">{t("seeking_debater")}</h3>
+          <p className="text-blue-200 text-sm font-medium">{t("share_code")}</p>
               </>
             )}
           </div>
@@ -318,7 +323,7 @@ function GameLobbyInner() {
         <div className="mt-16 text-center">
           <div className="bg-black/30 backdrop-blur-xl rounded-2xl p-8 shadow-2xl border border-blue-300/20">
 
-            <p className="text-blue-200 mb-4 font-medium">Debate Chamber Code:</p>
+            <p className="text-blue-200 mb-4 font-medium">{t("debate_chamber_code")}:</p>
             <div className="flex items-center justify-center gap-3 mb-6">
               <div className="bg-indigo-900/60 backdrop-blur-sm rounded-lg px-6 py-3 font-mono text-xl font-bold text-blue-200 border border-indigo-400/30 shadow-lg">
                 {room.roomId}
@@ -378,25 +383,25 @@ function GameLobbyInner() {
                 onClick={handleLeaveRoom}
                 className="px-8 py-4 bg-red-600/70 backdrop-blur-sm text-white rounded-lg font-medium hover:bg-red-500/70 transition-all duration-200 cursor-pointer shadow-lg border border-red-400/40 transform hover:scale-105"
               >
-                🚪 Leave Chamber
+                🚪 {t("leave_chamber")}
               </button>
               <div className="w-48">
                 <button
                   onClick={handleToggleReady}
                   className={`w-full px-8 py-4 rounded-lg font-medium transition-all duration-200 cursor-pointer shadow-lg backdrop-blur-sm border transform hover:scale-105 ${isReady
-                      ? 'bg-blue-600/70 text-white hover:bg-blue-500/70 border-blue-400/40'
-                      : 'bg-green-600/70 text-white hover:bg-green-500/70 border-green-400/40'
+                    ? 'bg-blue-600/70 text-white hover:bg-blue-500/70 border-blue-400/40'
+                    : 'bg-green-600/70 text-white hover:bg-green-500/70 border-green-400/40'
                     }`}
                 >
                   <div className="text-center">
-                    {isReady ? '📝 Revise Arguments' : '✓ Ready to Debate'}
+                    {isReady ? `📝 ${t("revise_arguments")}` : `✓ ${t("ready_to_debate")}`}
                   </div>
                 </button>
               </div>
 
 
             </div>
-
+            {/*
             {room.players.length === 2 && room.players.every(p => p.ready) && !showCoinFlip && (
               <div className="mt-6 p-6 bg-purple-600/20 backdrop-blur-sm border border-purple-400/30 rounded-lg">
                 <p className="text-purple-200 font-medium mb-4 text-lg">🎭 Both debaters are ready!</p>
@@ -408,6 +413,7 @@ function GameLobbyInner() {
                 </button>
               </div>
             )}
+            */}
           </div>
         </div>
 
@@ -424,9 +430,9 @@ function GameLobbyInner() {
 
           <div className="relative bg-black/40 backdrop-blur-xl rounded-3xl shadow-2xl p-12 max-w-lg w-full border border-blue-300/30 text-center">
             <h2 className="text-4xl font-bold text-transparent bg-gradient-to-r from-blue-300 via-purple-300 to-indigo-300 bg-clip-text mb-2 drop-shadow-lg">
-              ⚖️ Role Assignment ⚖️
+              ⚖️ {t("role_assignment")} ⚖️
             </h2>
-            <p className="text-blue-200 mb-10 font-medium">The scales of justice determine your position</p>
+            <p className="text-blue-200 mb-10 font-medium">{t("scales_of_justice")}</p>
 
             {/* Coin Animation */}
             <div className="flex justify-center mb-10">
@@ -445,8 +451,8 @@ function GameLobbyInner() {
                 </div>
                 {/* Glow effect */}
                 <div className={`absolute inset-0 rounded-full blur-xl ${coinResult === 'red' ? 'bg-red-500/30' :
-                    coinResult === 'blue' ? 'bg-blue-500/30' :
-                      'bg-indigo-500/20'
+                  coinResult === 'blue' ? 'bg-blue-500/30' :
+                    'bg-indigo-500/20'
                   } animate-pulse`}></div>
               </div>
             </div>
@@ -455,7 +461,7 @@ function GameLobbyInner() {
             <div className="text-lg">
               {flipAnimation ? (
                 <div className="flex items-center justify-center gap-3">
-                  <span className="text-blue-200 font-medium">Consulting the scales</span>
+                  <span className="text-blue-200 font-medium">{t("consulting_the_scales")}</span>
                   <div className="flex gap-1">
                     <div className="w-3 h-3 bg-blue-400/70 rounded-full animate-pulse"></div>
                     <div className="w-3 h-3 bg-purple-400/70 rounded-full animate-pulse delay-300"></div>
@@ -465,21 +471,21 @@ function GameLobbyInner() {
               ) : coinResult === 'red' ? (
                 <div className="space-y-4">
                   <p className="text-2xl font-bold text-transparent bg-gradient-to-r from-red-300 to-red-500 bg-clip-text drop-shadow-lg">
-                    ⚔️ You are the PROSECUTOR ⚔️
+                    ⚔️ {t("you_are_prosecutor")} ⚔️
                   </p>
-                  <p className="text-blue-200 font-medium">You'll present the case and challenge your opponent</p>
+                  <p className="text-blue-200 font-medium">{t("prosecutor_role")}</p>
                   <div className="bg-red-500/20 backdrop-blur-sm border border-red-300/30 rounded-lg p-4 mt-4">
-                    <p className="text-red-200 text-sm">🎯 Your mission: Build a compelling argument and prove your case</p>
+                    <p className="text-red-200 text-sm">{t("prosecutor_mission")}</p>
                   </div>
                 </div>
               ) : coinResult === 'blue' ? (
                 <div className="space-y-4">
                   <p className="text-2xl font-bold text-transparent bg-gradient-to-r from-blue-300 to-blue-500 bg-clip-text drop-shadow-lg">
-                    🛡️ You are the DEFENDER 🛡️
+                    🛡️ {t("you_are_defender")} 🛡️
                   </p>
-                  <p className="text-blue-200 font-medium">You'll counter arguments and protect your position</p>
+                  <p className="text-blue-200 font-medium">{t("defender_role")}</p>
                   <div className="bg-blue-500/20 backdrop-blur-sm border border-blue-300/30 rounded-lg p-4 mt-4">
-                    <p className="text-blue-200 text-sm">🎯 Your mission: Refute claims and establish reasonable doubt</p>
+                    <p className="text-blue-200 text-sm">{t("defender_mission")}</p>
                   </div>
                 </div>
               ) : null}
@@ -487,7 +493,7 @@ function GameLobbyInner() {
 
             {coinResult && (
               <div className="mt-8 p-4 bg-indigo-500/20 backdrop-blur-sm border border-indigo-300/30 rounded-lg">
-                <p className="text-indigo-200 font-medium">⚖️ Justice has spoken! Preparing the courtroom...</p>
+                <p className="text-indigo-200 font-medium">⚖️ {t("scales_spoken")} ⚖️</p>
               </div>
             )}
           </div>
@@ -498,8 +504,10 @@ function GameLobbyInner() {
 }
 
 export default function GameLobby() {
+  const { t } = useTranslation('common');
+
   return (
-    <Suspense fallback={<div>Loading...</div>}>
+    <Suspense fallback={<div>{t('loading')}</div>}>
       <GameLobbyInner />
     </Suspense>
   );

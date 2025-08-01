@@ -18,6 +18,7 @@ const cors = require('cors');
 const { pl } = require('zod/locales');
 const { set } = require('zod');
 const { ObjectId } = require('mongodb');
+const { Socket } = require('socket.io-client');
 const AI_API_KEY = process.env.AI_API_KEY;
 
 const app = express();
@@ -32,7 +33,7 @@ const io = socketIo(server, {
 app.use(cors());
 app.use(express.json());
 
-const ROUND_TIME = 120; // 90 seconds
+const ROUND_TIME = 999; // 90 seconds
 const READING_TIME = 90; // 90 seconds
 const ROUND_READING_TIME = 30; // 30 seconds for reading arguments
 // Game state management
@@ -347,17 +348,20 @@ Return only the JSON object, no extra text.
               { text: prompt }
             ]
           }
-        ]
+        ],
+        generationConfig: {
+          temperature: 1.5
+        },
       })
     });
 
     const data = await response.json();
     const text = data.candidates?.[0]?.content?.parts?.[0]?.text;
-        
+
     if (!text) {
-  console.error('Gemini API did not return text:', data);
-  throw new Error('No text returned from Gemini API');
-}
+      console.error('Gemini API did not return text:', data);
+      throw new Error('No text returned from Gemini API');
+    }
 
     try {
       // Remove Markdown code fences if present
@@ -572,11 +576,12 @@ Return only the JSON object, no extra text.
         this.gameState = 'game-over';
         await this.updateUserStats();
       } else if (prosecutor.points === 1 && defender.points === 1) {
-        // Tiebreaker needed
-        this.gameState = 'tiebreaker';
-        // Determine who gets to choose side (higher total score)
+       
         this.tiebreakerWinner = prosecutorScore > defenderScore ? prosecutor : defender;
         this.players.forEach(p => p.ready = false);
+        this.gameState = 'tiebreaker';
+        this.setTimer(ROUND_READING_TIME);
+        this.startTimer();
       } else {
         // Next round
         this.gameState = 'round-reading';
@@ -634,6 +639,7 @@ Return only the JSON object, no extra text.
         player.currentRole = notChosenRole;
       }
     });
+  
 
     //this.round.number = 3;
     this.gameState = 'round-start';
@@ -705,7 +711,10 @@ Return only the JSON object, no extra text.
               { text: prompt }
             ]
           }
-        ]
+        ],
+        generationConfig: {
+          temperature: 1.0
+        },
       })
     });
 
@@ -713,9 +722,9 @@ Return only the JSON object, no extra text.
     const text = data.candidates?.[0]?.content?.parts?.[0]?.text;
 
     if (!text) {
-  console.error('Gemini API did not return text:', data);
-  throw new Error('No text returned from Gemini API');
-}
+      console.error('Gemini API did not return text:', data);
+      throw new Error('No text returned from Gemini API');
+    }
     try {
       // Remove Markdown code fences if present
       const cleanedText = text
@@ -777,12 +786,12 @@ Return only the JSON object, no extra text.
         }
         else if (this.gameState === 'case-reading') {
           this.proceed();
-        }else if (this.gameState === 'round-reading') {
+        } else if (this.gameState === 'round-reading') {
           this.proceed();
         }
 
-          
-        
+
+
       }
     }, 1000);
   }

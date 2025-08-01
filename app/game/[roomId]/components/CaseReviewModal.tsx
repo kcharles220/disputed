@@ -1,5 +1,6 @@
 'use client';
 
+import { useTranslation } from 'react-i18next';
 import { GameRoom, Player } from '../../../services/socketService';
 
 
@@ -21,6 +22,7 @@ export default function CaseReviewModal({
     leftPlayer,
     rightPlayer
 }: CaseReviewModalProps) {
+    const { t } = useTranslation('common');
     if (!showCaseReviewModal || !gameState.caseDetails) return null;
 
     return (
@@ -79,9 +81,9 @@ export default function CaseReviewModal({
                     <div className="p-8 text-gray-800 relative z-10">
                         <div className="text-center mb-6">
                             <h1 className="text-4xl font-bold text-slate-800 mb-2 drop-shadow-sm">
-                                ⚖️ LEGAL CASE FILE ⚖️
+                                ⚖️ {t('legal_case_file')} ⚖️
                             </h1>
-                            <p className="text-slate-700/90 font-medium">Study the details carefully before battle</p>
+                            <p className="text-slate-700/90 font-medium">{t('study_details')}</p>
                         </div>
 
                         {/* Case Details */}
@@ -92,14 +94,14 @@ export default function CaseReviewModal({
 
                             <div className="space-y-4">
                                 <div className="bg-slate-100/90 rounded-lg p-4 border-l-4 border-slate-500">
-                                    <h3 className="text-lg font-semibold text-slate-800 mb-2">📖 The Situation:</h3>
+                                    <h3 className="text-lg font-semibold text-slate-800 mb-2">📖 {t('the_situation')}:</h3>
                                     <p className="text-slate-700 leading-relaxed mb-3">{gameState.caseDetails.description}</p>
                                 </div>
 
                                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-6">
                                     <div className={`rounded-lg p-4 border-l-4 shadow-sm ${leftPlayer?.currentRole === 'prosecutor' ? 'bg-red-100/90 border-red-500' : 'bg-blue-100/90 border-blue-500'}`}>
                                         <h4 className={`font-bold mb-2 flex items-center gap-2 ${leftPlayer?.currentRole === 'prosecutor' ? 'text-red-800' : 'text-blue-800'}`}>
-                                            {leftPlayer?.currentRole === 'prosecutor' ? '⚔️ Prosecution\'s Position:' : '🛡️ Defense\'s Position:'}
+                                            {leftPlayer?.currentRole === 'prosecutor' ? `⚔️ ${t('prosecution_position')}` : `🛡️ ${t('defense_position')}`}
                                         </h4>
                                         <p className="text-slate-700 text-sm">
                                             {leftPlayer?.currentRole === 'prosecutor'
@@ -109,7 +111,7 @@ export default function CaseReviewModal({
                                     </div>
                                     <div className={`rounded-lg p-4 border-l-4 shadow-sm ${rightPlayer?.currentRole === 'prosecutor' ? 'bg-red-100/90 border-red-500' : 'bg-blue-100/90 border-blue-500'}`}>
                                         <h4 className={`font-bold mb-2 flex items-center gap-2 ${rightPlayer?.currentRole === 'prosecutor' ? 'text-red-800' : 'text-blue-800'}`}>
-                                            {rightPlayer?.currentRole === 'prosecutor' ? '⚔️ Prosecution\'s Position:' : '🛡️ Defense\'s Position:'}
+                                            {rightPlayer?.currentRole === 'prosecutor' ? `⚔️ ${t('prosecution_position')}` : `🛡️ ${t('defense_position')}`}
                                         </h4>
                                         <p className="text-slate-700 text-sm">
                                             {rightPlayer?.currentRole === 'prosecutor'
@@ -129,8 +131,8 @@ export default function CaseReviewModal({
 
 
                                 <div className="bg-blue-200/90 border-2 border-blue-500 rounded-xl p-6">
-                                    <p className="text-blue-900 font-medium">📚 Case Review Mode</p>
-                                    <p className="text-blue-800 text-sm mt-1">You can review the case details anytime during the battle</p>
+                                    <p className="text-blue-900 font-medium">📚 {t('case_review_mode')}</p>
+                                    <p className="text-blue-800 text-sm mt-1">{t('case_review_description')}</p>
                                 </div>
 
                             </div>

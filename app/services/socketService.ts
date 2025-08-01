@@ -301,9 +301,9 @@ class SocketService {
     }
   }
   // Submit argument
-  chooseSide(roomId: string, side: string) {
+  chooseSide(roomId: string, role: string) {
     if (this.socket) {
-      this.socket.emit('chooseSide', { roomId, side });
+      this.socket.emit('chooseSide', { roomId, role });
     }
   }
   getSocket() {

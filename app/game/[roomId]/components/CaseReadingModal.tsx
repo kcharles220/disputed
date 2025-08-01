@@ -1,7 +1,8 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { use, useEffect, useState } from 'react';
 import { GameRoom, Player, socketService } from '../../../services/socketService';
+import { useTranslation } from 'react-i18next';
 
 
 
@@ -23,6 +24,7 @@ export default function CaseReadingModal({
     rightPlayer
 }: CaseReadingModalProps) {
     const [timeLeft, setTimeLeft] = useState(120); // Default to 60 seconds
+    const { t } = useTranslation('common');
     useEffect(() => {
         const socket = socketService.getSocket();
         if (!socket) return;
@@ -98,9 +100,9 @@ export default function CaseReadingModal({
                     <div className="p-8 text-gray-800 relative z-10">
                         <div className="text-center mb-6">
                             <h1 className="text-4xl font-bold text-slate-800 mb-2 drop-shadow-sm">
-                                ⚖️ LEGAL CASE FILE ⚖️
+                                ⚖️ {t("legal_case_file")} ⚖️
                             </h1>
-                            <p className="text-slate-700/90 font-medium">Study the details carefully before battle</p>
+                            <p className="text-slate-700/90 font-medium">{t("study_details")}</p>
                         </div>
 
                         {/* Case Details */}
@@ -111,14 +113,14 @@ export default function CaseReadingModal({
 
                             <div className="space-y-4">
                                 <div className="bg-slate-100/90 rounded-lg p-4 border-l-4 border-slate-500">
-                                    <h3 className="text-lg font-semibold text-slate-800 mb-2">📖 The Situation:</h3>
+                                    <h3 className="text-lg font-semibold text-slate-800 mb-2">📖 {t("the_situation")}:</h3>
                                     <p className="text-slate-700 leading-relaxed mb-3">{gameState.caseDetails.description}</p>
                                 </div>
 
                                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-6">
                                     <div className={`rounded-lg p-4 border-l-4 shadow-sm ${leftPlayer?.currentRole === 'prosecutor' ? 'bg-red-100/90 border-red-500' : 'bg-blue-100/90 border-blue-500'}`}>
                                         <h4 className={`font-bold mb-2 flex items-center gap-2 ${leftPlayer?.currentRole === 'prosecutor' ? 'text-red-800' : 'text-blue-800'}`}>
-                                            {leftPlayer?.currentRole === 'prosecutor' ? '⚔️ Prosecution\'s Position:' : '🛡️ Defense\'s Position:'}
+                                            {leftPlayer?.currentRole === 'prosecutor' ? '⚔️ ' + t("prosecution_position") : '🛡️ ' + t("defense_position")}
                                         </h4>
                                         <p className="text-slate-700 text-sm">
                                             {leftPlayer?.currentRole === 'prosecutor'
@@ -128,7 +130,7 @@ export default function CaseReadingModal({
                                     </div>
                                     <div className={`rounded-lg p-4 border-l-4 shadow-sm ${rightPlayer?.currentRole === 'prosecutor' ? 'bg-red-100/90 border-red-500' : 'bg-blue-100/90 border-blue-500'}`}>
                                         <h4 className={`font-bold mb-2 flex items-center gap-2 ${rightPlayer?.currentRole === 'prosecutor' ? 'text-red-800' : 'text-blue-800'}`}>
-                                            {rightPlayer?.currentRole === 'prosecutor' ? '⚔️ Prosecution\'s Position:' : '🛡️ Defense\'s Position:'}
+                                            {rightPlayer?.currentRole === 'prosecutor' ? '⚔️ ' + t("prosecution_position") : '🛡️ ' + t("defense_position")}
                                         </h4>
                                         <p className="text-slate-700 text-sm">
                                             {rightPlayer?.currentRole === 'prosecutor'
@@ -167,9 +169,9 @@ export default function CaseReadingModal({
                                                 </div>
                                                 <h3 className={`text-xl font-bold mb-2 ${leftPlayer?.currentRole === 'prosecutor' ? 'text-red-700' : 'text-blue-700'
                                                     }`}>
-                                                    {leftPlayer?.currentRole?.toUpperCase()}
+                                                    {leftPlayer?.currentRole === 'prosecutor' ? t('prosecutor_caps') : t('defender_caps')}
                                                     {currentPlayer?.position === 'left' && (
-                                                        <span className="ml-2 text-amber-600 text-lg font-bold">(YOU)</span>
+                                                        <span className="ml-2 text-amber-600 text-lg font-bold">({t('you')})</span>
                                                     )}
                                                 </h3>
                                                 <p className="text-slate-700 font-medium mb-3">{leftPlayer?.username}</p>
@@ -177,15 +179,15 @@ export default function CaseReadingModal({
                                                 <div className="flex items-center justify-center mb-3">
                                                     {currentPlayer?.position === 'left' ? (
                                                         currentPlayer?.ready ? (
-                                                            <span className="text-green-600 font-bold bg-green-100 px-3 py-1 rounded-full">✅ Ready!</span>
+                                                            <span className="text-green-600 font-bold bg-green-100 px-3 py-1 rounded-full">✅ {t('ready')}</span>
                                                         ) : (
-                                                            <span className="text-amber-600 bg-amber-100 px-3 py-1 rounded-full">📖 Reading...</span>
+                                                            <span className="text-amber-600 bg-amber-100 px-3 py-1 rounded-full">📖 {t('reading')}</span>
                                                         )
                                                     ) : (
                                                         gameState.players.find(p => p.id !== currentPlayer?.id)?.ready ? (
-                                                            <span className="text-green-600 font-bold bg-green-100 px-3 py-1 rounded-full">✅ Ready!</span>
+                                                            <span className="text-green-600 font-bold bg-green-100 px-3 py-1 rounded-full">✅ {t('ready')}</span>
                                                         ) : (
-                                                            <span className="text-amber-600 bg-amber-100 px-3 py-1 rounded-full">📖 Reading...</span>
+                                                            <span className="text-amber-600 bg-amber-100 px-3 py-1 rounded-full">📖 {t('reading')}</span>
                                                         )
                                                     )}
                                                 </div>
@@ -193,7 +195,7 @@ export default function CaseReadingModal({
                                                     ? 'bg-red-50 text-red-700'
                                                     : 'bg-blue-50 text-blue-700'
                                                     }`}>
-                                                    Arguing for: {leftPlayer?.currentRole === 'prosecutor' ? gameState.caseDetails.prosecutionPosition : gameState.caseDetails.defensePosition}
+                                                    {t('arguing_for')}: {leftPlayer?.currentRole === 'prosecutor' ? gameState.caseDetails.prosecutionPosition : gameState.caseDetails.defensePosition}
                                                 </p>
                                             </div>
                                         </div>
@@ -224,9 +226,9 @@ export default function CaseReadingModal({
                                                 </div>
                                                 <h3 className={`text-xl font-bold mb-2 ${rightPlayer?.currentRole === 'prosecutor' ? 'text-red-700' : 'text-blue-700'
                                                     }`}>
-                                                    {rightPlayer?.currentRole?.toUpperCase()}
+                                                    {rightPlayer?.currentRole === 'prosecutor' ? t('prosecutor_caps') : t('defender_caps')}
                                                     {currentPlayer?.position === 'right' && (
-                                                        <span className="ml-2 text-amber-600 text-lg font-bold">(YOU)</span>
+                                                        <span className="ml-2 text-amber-600 text-lg font-bold">({t('you')})</span>
                                                     )}
                                                 </h3>
                                                 <p className="text-slate-700 font-medium mb-3">{rightPlayer?.username}</p>
@@ -234,15 +236,15 @@ export default function CaseReadingModal({
                                                 <div className="flex items-center justify-center mb-3">
                                                     {currentPlayer?.position === 'right' ? (
                                                         currentPlayer?.ready ? (
-                                                            <span className="text-green-600 font-bold bg-green-100 px-3 py-1 rounded-full">✅ Ready!</span>
+                                                            <span className="text-green-600 font-bold bg-green-100 px-3 py-1 rounded-full">✅ {t('ready')}</span>
                                                         ) : (
-                                                            <span className="text-amber-600 bg-amber-100 px-3 py-1 rounded-full">📖 Reading...</span>
+                                                            <span className="text-amber-600 bg-amber-100 px-3 py-1 rounded-full">📖 {t('reading')}</span>
                                                         )
                                                     ) : (
                                                         gameState?.players.find(p => p.id !== currentPlayer?.id)?.ready ? (
-                                                            <span className="text-green-600 font-bold bg-green-100 px-3 py-1 rounded-full">✅ Ready!</span>
+                                                            <span className="text-green-600 font-bold bg-green-100 px-3 py-1 rounded-full">✅ {t('ready')}</span>
                                                         ) : (
-                                                            <span className="text-amber-600 bg-amber-100 px-3 py-1 rounded-full">📖 Reading...</span>
+                                                            <span className="text-amber-600 bg-amber-100 px-3 py-1 rounded-full">📖 {t('reading')}</span>
                                                         )
                                                     )}
                                                 </div>
@@ -250,7 +252,7 @@ export default function CaseReadingModal({
                                                     ? 'bg-red-50 text-red-700'
                                                     : 'bg-blue-50 text-blue-700'
                                                     }`}>
-                                                    Arguing for: {rightPlayer?.currentRole === 'prosecutor' ? gameState.caseDetails.prosecutionPosition : gameState.caseDetails.defensePosition}
+                                                    {t('arguing_for')}: {rightPlayer?.currentRole === 'prosecutor' ? gameState.caseDetails.prosecutionPosition : gameState.caseDetails.defensePosition}
                                                 </p>
                                             </div>
                                         </div>
@@ -270,7 +272,7 @@ export default function CaseReadingModal({
                                             }`}>
                                             <span className={`font-bold ${timeLeft <= 30 ? 'text-red-700' : 'text-slate-800'
                                                 }`}>
-                                                ⏰ Time Remaining: {timeLeft}
+                                                ⏰ {t('time_remaining')}: {timeLeft}
                                             </span>
                                         </div>
                                     </div>
@@ -289,13 +291,13 @@ export default function CaseReadingModal({
                                                 : 'bg-slate-600 hover:bg-slate-700 border-slate-500 text-white'
                                                 } ${currentPlayer?.ready && gameState.players.find(p => p.id !== currentPlayer?.id)?.ready ? 'opacity-50 cursor-not-allowed' : ''}`}
                                         >
-                                            {currentPlayer?.ready ? '✅ Ready!' : '📖 I\'m Ready to Battle!'}
+                                            {currentPlayer?.ready ? '✅ ' + t("ready") + '!': '📖 ' + t("not_ready")}
                                         </button>
-
+                                                
                                         {timeLeft <= 10 && (
                                             <div className="mt-4 bg-red-200/90 border-2 border-red-500 rounded-lg p-3 animate-pulse">
                                                 <div className="text-red-800 font-bold">
-                                                    ⚠️ Battle will start automatically in {timeLeft} seconds!
+                                                    ⚠️ {t('battle_start_warning', { timeLeft })}
                                                 </div>
                                             </div>
                                         )}

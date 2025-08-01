@@ -11,6 +11,7 @@ import GameCompleteModal from './components/GameCompleteModal';
 import { set } from 'zod';
 import { ar } from 'zod/locales';
 import CaseReviewModal from './components/CaseReviewModal';
+import { useTranslation } from 'react-i18next';
 
 
 export default function GameBattle() {
@@ -19,11 +20,11 @@ export default function GameBattle() {
     const [currentArgument, setCurrentArgument] = useState<string>('');
     const searchParams = useSearchParams();
     const router = useRouter();
+    const maxArgumentLength = 300;
     const roomIdRef = useRef<string | null>(null);
     const [gameState, setGameState] = useState<GameRoom | null>(null);
     const [currentPlayer, setCurrentPlayer] = useState<Player | null>(null);
     const [nonCurrentPlayer, setNonCurrentPlayer] = useState<Player | null>(null);
-
     const [leftPlayer, setLeftPlayer] = useState<Player | null>(null);
     const [rightPlayer, setRightPlayer] = useState<Player | null>(null);
 
@@ -37,6 +38,8 @@ export default function GameBattle() {
     const [timerPhase, setTimerPhase] = useState<number>(1);
     const [canInterrupt, setCanInterrupt] = useState<boolean>(false);
 
+    const { t } = useTranslation("common");
+    
     const handleInterrupt = () => {
         const socket = socketService.getSocket();
                 const roomId = roomIdRef.current;
@@ -61,7 +64,7 @@ export default function GameBattle() {
         let argumentToSend = argumentRef.current.trim();
         console.log('trying to submit argument, roomID and socket:', argumentToSend, roomId, socket?.id);
         if (!argumentToSend) {
-            argumentToSend = '[No argument provided]';
+            argumentToSend = t('no_argument');
         }
         if (socket && roomId && argumentToSend) {
             console.log('Submitting argument:', argumentToSend);
@@ -167,8 +170,8 @@ export default function GameBattle() {
             <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-slate-900 via-gray-900 to-slate-900">
                 <div className="flex flex-col items-center">
                     <div className="animate-spin rounded-full h-24 w-24 border-t-4 border-b-4 border-yellow-400 mb-8"></div>
-                    <div className="text-2xl text-white font-bold">Loading game...</div>
-                    <div className="text-white/70 mt-2">Please wait while we connect to the game room.</div>
+                    <div className="text-2xl text-white font-bold">{t('loading')}</div>
+                    <div className="text-white/70 mt-2">{t('loading_description')}</div>
                 </div>
             </div>
         );
@@ -333,8 +336,9 @@ export default function GameBattle() {
                                             {/* Text */}
                                             <div className="flex-1">
                                                 <h3 className={`text-2xl font-bold ${leftPlayer?.currentRole === 'prosecutor' ? 'text-red-300' : 'text-blue-300'} mb-1`}>
-                                                    {leftPlayer?.currentRole?.toUpperCase()} {leftPlayer?.socketId === currentPlayer?.socketId && (
-                                                        <span className="mx-2 text-yellow-300 text-lg font-semibold">(YOU)</span>
+                                                {leftPlayer?.currentRole === 'prosecutor' ? t('prosecutor_caps') : t('defender_caps')}
+                                                    {leftPlayer?.socketId === currentPlayer?.socketId && (
+                                                        <span className="mx-2 text-yellow-300 text-lg font-semibold">({t('you')})</span>
                                                     )}
                                                 </h3>
                                                 <p className="text-white/90 font-medium text-lg">{leftPlayer?.username}</p>
@@ -351,7 +355,7 @@ export default function GameBattle() {
                                                     }`}>
                                                     {timerPhase === 1 ? '⏱️' : '⚡'} {timeLeft}s
                                                     {timerPhase === 2 && (
-                                                        <div className="text-xs text-orange-200 mt-1">INTERRUPT PHASE</div>
+                                                        <div className="text-xs text-orange-200 mt-1">{t('interrupt_phase')}</div>
                                                     )}
                                                 </div>
                                             )}
@@ -390,14 +394,14 @@ export default function GameBattle() {
                                 {/* Content */}
                                 <div className="relative z-10 p-6">
                                     <h1 className="text-4xl font-bold bg-gradient-to-r from-yellow-300 to-orange-400 bg-clip-text text-transparent mb-4 drop-shadow-lg">
-                                        Dispute!
+                                        Disputed!
                                     </h1>
                                     <div className="flex flex-col items-center gap-2 text-base text-white/80 mb-4">
-                                        <span className="font-semibold">Round {gameState.round}/3</span>
+                                        <span className="font-semibold">{t('round')} {gameState.round}/3</span>
                                         {gameState.round === 2 && (
-                                            <span className="text-yellow-300 text-sm font-bold animate-pulse">🔄 ROLES SWITCHED!</span>
+                                            <span className="text-yellow-300 text-sm font-bold animate-pulse">🔄 {t('roles_switched')}</span>
                                         )}
-                                        <span>Turn: {(() => {
+                                        <span>{t('turn')}: {(() => {
                                             if ((gameState.players.find(p => p.socketId === gameState.turn)?.currentRole === 'prosecutor')) {
                                                 return `🔥 ${gameState.players.find(p => p.socketId === gameState.turn)?.username || 'Prosecutor'}`;
                                             } else {
@@ -405,7 +409,7 @@ export default function GameBattle() {
                                             }
                                         })()}</span>
                                         <span>
-                                            Arguments: {gameState.exchange}/3 exchanges
+                                            {t('exchanges')}: {gameState.exchange}/3
                                         </span>
                                     </div>
                                     <div className="space-y-2">
@@ -413,7 +417,7 @@ export default function GameBattle() {
                                             onClick={() => setShowCaseReviewModal(true)}
                                             className="px-6 py-3 bg-gradient-to-r from-gray-600/80 to-gray-700/80 hover:from-gray-500/80 hover:to-gray-600/80 text-white rounded-xl transition-all duration-200 text-sm border border-white/20 backdrop-blur-sm transform hover:scale-105 shadow-lg"
                                         >
-                                            📋 Review Case
+                                            📋 {t('review_case')}
                                         </button>
                                     </div>
                                 </div>
@@ -474,7 +478,7 @@ export default function GameBattle() {
                                                     }`}>
                                                     {timerPhase === 1 ? '⏱️' : '⚡'} {timeLeft}s
                                                     {timerPhase === 2 && (
-                                                        <div className="text-xs text-orange-200 mt-1">INTERRUPT PHASE</div>
+                                                        <div className="text-xs text-orange-200 mt-1">{t('interrupt_phase')}</div>
                                                     )}
                                                 </div>
                                             )}
@@ -483,8 +487,9 @@ export default function GameBattle() {
                                             <div className="flex-1 text-right">
                                                 <h3 className={`text-2xl font-bold ${rightPlayer?.currentRole === 'prosecutor' ? 'text-red-300' : 'text-blue-300'} mb-1`}>
                                                     {currentPlayer?.position === 'right' && (
-                                                        <span className="mx-2 text-yellow-300 text-lg font-semibold">(YOU)</span>
-                                                    )} {rightPlayer?.currentRole?.toUpperCase()}
+                                                        <span className="mx-2 text-yellow-300 text-lg font-semibold">({t('you')})</span>
+                                                    )} 
+                                                    {rightPlayer?.currentRole === 'prosecutor' ? t('prosecutor_caps') : t('defender_caps')}
                                                 </h3>
                                                 <p className="text-white/90 font-medium text-lg">{rightPlayer?.username}</p>
                                                 <div className="text-sm text-white/60 mt-1">
@@ -520,19 +525,19 @@ export default function GameBattle() {
                                         <div>
                                             <div className="flex items-center justify-between mb-4">
                                                 <h3 className={`text-xl font-bold ${timerPhase === 2 ? 'text-red-300 animate-pulse' : 'text-yellow-300'}`}>
-                                                    {timerPhase === 2 ? '⚡ HURRY! Opponent can interrupt!' : '🎯 Your Turn! Make your argument:'}
+                                                    {timerPhase === 2 ? `⚡ ${t('hurry')}` : `🎯 ${t('your_turn')}`}
                                                 </h3>
                                                 <div className={`text-base ${timerPhase === 2 ? 'text-red-300' : 'text-white/70'}`}>
-                                                    Exchange {gameState.exchange}/3
-                                                    {timerPhase === 2 && <span className="ml-2 animate-pulse">⚡ INTERRUPT PHASE</span>}
+                                                    {t('exchange')} {gameState.exchange}/3
+                                                    {timerPhase === 2 && <span className="ml-2 animate-pulse">⚡ {t('interrupt_phase')}</span>}
                                                 </div>
                                             </div>
                                             <div className="mb-4 text-base text-white/70">
                                                 {(() => {
                                                     const remaining = 3 - (currentPlayer?.arguments?.filter((arg) => arg.round === gameState.round)?.length ?? 0);
-                                                    return `You have ${remaining} argument${remaining !== 1 ? 's' : ''} remaining this round.`;
+                                                    return `${t('you_have')} ${remaining} ${t('argument(s)')}${remaining !== 1 ? 's' : ''} ${t('remaining')}`;
                                                 })()}
-                                            </div>
+                                            </div> 
                                             <div className="relative">
                                                 <textarea
                                                     value={currentArgument}
@@ -540,25 +545,25 @@ export default function GameBattle() {
                                                         setCurrentArgument(e.target.value);
                                                         argumentRef.current = e.target.value;
                                                     }}
-                                                    placeholder={`Write your ${currentPlayer && currentPlayer.currentRole === 'prosecutor' ? 'attack' : 'defense'} argument here...`}
+                                                    placeholder={`${t('write_your')} ${currentPlayer && currentPlayer.currentRole === 'prosecutor' ? t('attack') : t('defense')} ${t('argument_here')}...`}
                                                     className={`w-full h-40 bg-gradient-to-br from-gray-800/80 to-gray-900/80 backdrop-blur-sm rounded-xl p-6 text-white placeholder-white/50 resize-none focus:outline-none text-lg transition-all duration-300 border ${timerPhase === 2
                                                         ? 'border-red-400/60 shadow-red-500/20 animate-pulse focus:border-red-300'
                                                         : 'border-white/20 focus:border-yellow-400/60 shadow-yellow-500/10'
                                                         } shadow-lg`}
-                                                    maxLength={250}
+                                                    maxLength={maxArgumentLength}
                                                     disabled={gameState.gameState !== 'round-start'}
                                                 />
                                             </div>
                                             <div className="flex items-center justify-between mt-6">
                                                 <span className="text-base text-white/60">
-                                                    {currentArgument.length}/250 characters
+                                                    {currentArgument.length}/{maxArgumentLength} {t('characters')}
                                                 </span>
                                                 <button
                                                     onClick={handleSubmitArgument}
                                                     disabled={!currentArgument.trim() || gameState.gameState !== 'round-start'}
                                                     className="px-8 py-3 bg-gradient-to-r from-yellow-500 to-orange-600 hover:from-yellow-400 hover:to-orange-500 text-white font-bold rounded-xl transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed text-lg transform hover:scale-105 shadow-lg border border-yellow-400/30"
                                                 >
-                                                    🚀 Submit Argument
+                                                    🚀 {t('submit_argument')}
                                                 </button>
                                             </div>
                                         </div>
@@ -566,21 +571,21 @@ export default function GameBattle() {
                                         <div className="text-center py-12">
                                             <div className="text-4xl mb-4">⏳</div>
                                             <p className="text-white/80 text-xl">
-                                                Waiting for {nonCurrentPlayer?.username} to make their argument...
+                                                {t('waiting_for')} {nonCurrentPlayer?.username} {t('to_make_their_argument')}
                                             </p>
                                             <div className="text-base text-white/60 mt-3">
-                                                Exchange {gameState.exchange}/3 in progress
+                                                {t('exchange')} {gameState.exchange}/3 {t('in_progress')}
                                             </div>
                                             {canInterrupt && timerPhase === 2 && (
                                                 <div className="mt-4">
-                                                    <div className="text-sm text-orange-300 mb-2">⚡ INTERRUPT PHASE ACTIVE ⚡</div>
+                                                    <div className="text-sm text-orange-300 mb-2">⚡ {t('interrupt_phase_active')} ⚡</div>
                                                     <button
                                                         onClick={handleInterrupt}
                                                         className="px-6 py-3 bg-gradient-to-r from-red-600 to-red-700 hover:from-red-500 hover:to-red-600 text-white font-bold rounded-xl transition-all duration-200 transform hover:scale-105 shadow-lg animate-pulse border border-red-400/30"
                                                     >
-                                                        ⚡ Interrupt Now!
+                                                        ⚡ {t('interrupt_now')}
                                                     </button>
-                                                    <div className="text-xs text-white/50 mt-2">Time will expire automatically in {timeLeft}s</div>
+                                                    <div className="text-xs text-white/50 mt-2">{t('auto_time_expire')} {timeLeft}s</div>
                                                 </div>
                                             )}
                                         </div>
@@ -599,9 +604,9 @@ export default function GameBattle() {
                             {/* Content */}
                             <div className="relative z-10 p-8">
                                 <div className="flex items-center justify-between mb-6">
-                                    <h2 className="text-2xl font-bold text-white">📜 Log</h2>
+                                    <h2 className="text-2xl font-bold text-white">📜 {t('log')}</h2>
                                     <div className="text-base text-white/70">
-                                        Round {gameState.round} Progress: {gameState.exchange}/3 exchanges
+                                        {t('round')} {gameState.round} {t('progress')}: {gameState.exchange}/3 {t('exchanges')}
                                     </div>
                                 </div>
                                 <div className="space-y-6 max-h-[600px] overflow-y-auto">
@@ -609,8 +614,8 @@ export default function GameBattle() {
                                         <div className="text-center py-12">
                                             <div className="text-6xl mb-4 opacity-40">⚖️</div>
                                             <p className="text-white/60 text-lg">
-                                                No arguments yet. {gameState.players.find(p => p.currentRole === 'prosecutor')?.username} will start the battle!<br />
-                                                <span className="text-base">Each round requires 3 exchanges (6 total arguments) before AI analysis.</span>
+                                                {t('no_arguments')} {gameState.players.find(p => p.currentRole === 'prosecutor')?.username} {t('will_start')}<br />
+                                                <span className="text-base">{t('each_round_requires')}</span>
                                             </p>
                                         </div>
                                     ) : (
@@ -622,7 +627,7 @@ export default function GameBattle() {
                                                     {argument.role === 'prosecutor' && (
                                                         <div className="border-t border-white/20 my-6 pt-6">
                                                             <div className="text-center text-sm text-white/50 mb-4">
-                                                                Exchange #{exchangeNumber}
+                                                                {t('exchange')} #{exchangeNumber}
                                                             </div>
                                                         </div>
                                                     )}
@@ -645,10 +650,10 @@ export default function GameBattle() {
                                                                 </span>
                                                                 <span className={`font-semibold text-lg ${argument.role === 'prosecutor' ? 'text-red-300' : 'text-blue-300'
                                                                     }`}>
-                                                                    {gameState.players.find(player => player.socketId === argument.socketId)?.username} ({argument.role === 'prosecutor' ? 'Prosecutor' : 'Defender'})
+                                                                    {gameState.players.find(player => player.socketId === argument.socketId)?.username} ({argument.role === 'prosecutor' ? t('prosecutor') : t('defender')})
                                                                 </span>
                                                                 <span className="text-sm text-white/50 ml-auto">
-                                                                    Argument #{index + 1}
+                                                                    {t('argument')} #{index + 1}
                                                                 </span>
                                                             </div>
                                                             <p className="text-white/90 text-lg leading-relaxed">{argument.argument}</p>
