@@ -33,6 +33,17 @@ const io = socketIo(server, {
 app.use(cors());
 app.use(express.json());
 
+const AUTH_TOKEN = process.env.AUTH_TOKEN;
+
+app.use((req, res, next) => {
+  const authHeader = req.headers['authorization'];
+  if (authHeader === `Bearer ${AUTH_TOKEN}`) {
+    next();
+  } else {
+    res.status(401).json({ error: 'Unauthorized' });
+  }
+});
+
 const ROUND_TIME = 999; // 90 seconds
 const READING_TIME = 90; // 90 seconds
 const ROUND_READING_TIME = 30; // 30 seconds for reading arguments

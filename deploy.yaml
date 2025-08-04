@@ -1,0 +1,40 @@
+name: Deploy backend to Oracle VM
+
+on:
+  push:
+    branches:
+      - main
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    environment: production
+
+    steps:
+    - name: Code Checkout
+      uses: actions/checkout@v3
+
+    - name: Copy backend files to VM
+      uses: appleboy/scp-action@v0.1.4
+      with:
+        host: ${{ secrets.VM_HOST }}
+        username: ${{ secrets.VM_USER }}
+        key: ${{ secrets.VM_SSH_KEY }}
+        source: "backend/*"
+        target: "~/disputed/backend"
+
+    - name: SSH into VM and start backend
+      uses: appleboy/ssh-action@v0.1.8
+      with:
+        host: ${{ secrets.VM_HOST }}
+        username: ${{ secrets.VM_USER }}
+        key: ${{ secrets.VM_SSH_KEY }}
+        script: |
+          cd ~/disputed/backend
+          npm install
+          export PORT="3001"
+          export SERVER_URL="${{ secrets.VM_HOST }}"
+          export MONGODB_URI="${{ secrets.MONGODB_URI }}"
+          export AI_API_KEY="${{ secrets.AI_API_KEY }}"
+          export AUTH_TOKEN="${{ secrets.AUTH_TOKEN }}"
+          pm2 restart server2.js || pm2 start server2.js --name backend
