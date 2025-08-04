@@ -20,7 +20,7 @@ jobs:
         host: ${{ secrets.VM_HOST }}
         username: ${{ secrets.VM_USER }}
         key: ${{ secrets.VM_SSH_KEY }}
-        source: "backend/*"
+        source: "backend"
         target: "~/disputed/backend"
 
     - name: SSH into VM and start backend
