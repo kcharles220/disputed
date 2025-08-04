@@ -14,14 +14,15 @@ jobs:
     - name: Code Checkout
       uses: actions/checkout@v3
 
-    - name: Copy backend files to VM
+    - name: Create target folder if not exists & Copy backend files to VM
       uses: appleboy/scp-action@v0.1.4
       with:
         host: ${{ secrets.VM_HOST }}
         username: ${{ secrets.VM_USER }}
         key: ${{ secrets.VM_SSH_KEY }}
         source: "backend"
-        target: "~/disputed/backend"
+        target: "~/disputed"
+        rm: true
 
     - name: SSH into VM and start backend
       uses: appleboy/ssh-action@v0.1.8
@@ -30,6 +31,7 @@ jobs:
         username: ${{ secrets.VM_USER }}
         key: ${{ secrets.VM_SSH_KEY }}
         script: |
+          mkdir -p ~/disputed/backend  # ← garante que a pasta existe
           cd ~/disputed/backend
           npm install
           export PORT="3001"
@@ -37,4 +39,4 @@ jobs:
           export MONGODB_URI="${{ secrets.MONGODB_URI }}"
           export AI_API_KEY="${{ secrets.AI_API_KEY }}"
           export AUTH_TOKEN="${{ secrets.AUTH_TOKEN }}"
-          pm2 restart server2.js || pm2 start server2.js --name backend
+          pm2 start server2.js --name backend || pm2 restart backend
