@@ -39,12 +39,9 @@ jobs:
           # Install dependencies
           npm install
           
-          # Install localtunnel globally if not exists
-          sudo npm install -g localtunnel || true
-          
           # Stop existing processes
           pm2 delete backend || true
-          pm2 delete localtunnel || true
+          pm2 delete tunnel || true
           
           # Start backend server
           pm2 start server2.js --name backend
@@ -52,8 +49,20 @@ jobs:
           # Wait a moment for server to start
           sleep 3
           
-          # Start localtunnel with pm2 (so it auto-restarts)
-          pm2 start --name localtunnel -- npx lt --port 3001 --subdomain disputed-api
+          # Create Serveo tunnel script
+          cat > ~/serveo-tunnel.sh << 'EOF'
+          #!/bin/bash
+          while true; do
+              echo "$(date): Starting Serveo tunnel..."
+              ssh -o StrictHostKeyChecking=no -o ServerAliveInterval=60 -R disputed-api:80:localhost:3001 serveo.net
+              echo "$(date): Serveo tunnel disconnected, restarting in 5 seconds..."
+              sleep 5
+          done
+          EOF
+          chmod +x ~/serveo-tunnel.sh
+          
+          # Start Serveo tunnel with pm2
+          pm2 start ~/serveo-tunnel.sh --name tunnel --interpreter bash
           
           # Save pm2 processes
           pm2 save
