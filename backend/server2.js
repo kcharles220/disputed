@@ -30,7 +30,9 @@ const io = socketIo(server, {
   }
 });
 
-app.use(cors());
+app.use(cors({
+  origin: FRONTEND_URL
+}));
 app.use(express.json());
 
 // Public endpoints

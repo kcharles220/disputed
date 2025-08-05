@@ -1,6 +1,6 @@
 import { io, Socket } from 'socket.io-client';
 
-const SERVER_URL = process.env.NEXT_PUBLIC_SERVER_URL || 'http://localhost:3001';
+const SERVER_URL = process.env.NEXT_PUBLIC_SERVER_URL || 'http://localhost:3001'; // Use your backend port
 
 export interface Player {
   id: string;
@@ -75,7 +75,7 @@ class SocketService {
   // Listen for game state updates
 
   private socket: Socket | null = null;
-  private readonly serverUrl = `${SERVER_URL}`;
+  private readonly serverUrl = SERVER_URL;
 
   connect(): Promise<Socket> {
     return new Promise((resolve, reject) => {
