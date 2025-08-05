@@ -92,7 +92,9 @@ class SocketService {
 
       console.log('Connecting to Socket.IO server at:', this.serverUrl);
       this.socket = io(this.serverUrl, {
-        transports: ['websocket', 'polling']
+        timeout: 10000,
+        transports: ['websocket', 'polling'],
+        withCredentials: true
       });
 
       this.socket.on('connect', () => {

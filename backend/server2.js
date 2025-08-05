@@ -22,18 +22,22 @@ const PORT = process.env.PORT || 3001;
 const SERVER_URL = process.env.SERVER_URL || 'http://localhost';
 const FRONTEND_URL = process.env.FRONTEND_URL|| 'http://localhost:3000';
 const app = express();
+app.use(express.json());
+
 const server = http.createServer(app);
-const io = socketIo(server, {
+
+const io = new socketIo(server, {
   cors: {
-    origin: "*",
-    methods: ["GET", "POST"]
+    origin: FRONTEND_URL,
+    methods: ["GET", "POST"],
+    credentials: true
   }
 });
 
 app.use(cors({
-  origin: "*"
+  origin: FRONTEND_URL,
+  credentials: true
 }));
-app.use(express.json());
 
 // Public endpoints
 app.get('/health', (req, res) => {
@@ -901,7 +905,7 @@ Return only the JSON object, no extra text.
 
 // Socket.io connection handling
 io.on('connection', (socket) => {
-  console.log('User connected:', socket.id);
+  console.log('User connected:', socket.id, 'from origin:', socket.handshake.headers.origin);
 
   socket.on('join-room', (data, language) => {
     const { roomId, playerData } = data;
@@ -1060,7 +1064,8 @@ app.get('/debug/games/full', (req, res) => {
 
 app.listen(PORT, '0.0.0.0', () => {
     console.log(`Server running at ${SERVER_URL}:${PORT}`);
-    console.log(`Listening on URL:${FRONTEND_URL}`);
+    console.log(`Allowing CORS from: ${FRONTEND_URL}`);
+    console.log(`Socket.IO CORS origin: ${FRONTEND_URL}`);
 });
 
 module.exports = { app, server, io };
