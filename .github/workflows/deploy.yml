@@ -35,8 +35,8 @@ jobs:
           cd ~/disputed/backend
           npm install
           export PORT="3001"
-          export SERVER_URL="${{ secrets.VM_HOST }}"
-          export MONGODB_URI="${{ secrets.MONGODB_URI }}"
-          export AI_API_KEY="${{ secrets.AI_API_KEY }}"
-          export AUTH_TOKEN="${{ secrets.AUTH_TOKEN }}"
+          export SERVER_URL=${{ secrets.VM_HOST }}
+          export MONGODB_URI=${{ secrets.MONGODB_URI }}
+          export AI_API_KEY=${{ secrets.AI_API_KEY }}
+          export AUTH_TOKEN=${{ secrets.AUTH_TOKEN }}
           pm2 start server2.js --name backend || pm2 restart backend
