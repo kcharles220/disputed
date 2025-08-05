@@ -39,9 +39,11 @@ jobs:
           # Install dependencies
           npm install
           
-          # Stop existing processes
-          pm2 delete backend || true
-          pm2 delete tunnel || true
+          # Stop existing processes gracefully
+          pm2 stop backend 2>/dev/null || true
+          pm2 delete backend 2>/dev/null || true
+          pm2 stop tunnel 2>/dev/null || true
+          pm2 delete tunnel 2>/dev/null || true
           
           # Start backend server
           pm2 start server2.js --name backend
