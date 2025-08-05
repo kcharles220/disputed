@@ -1052,8 +1052,8 @@ app.get('/debug/games/full', (req, res) => {
 });
 
 
-server.listen(PORT, () => {
-  console.log(`Server running at ${SERVER_URL}:${PORT}`);
+app.listen(PORT || 3002, '0.0.0.0', () => {
+    console.log(`Server running at ${SERVER_URL}:${PORT}`);
 });
 
 module.exports = { app, server, io };
