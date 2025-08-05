@@ -1074,8 +1074,8 @@ app.get('/debug/games/full', (req, res) => {
   res.json(allGames);
 });
 
-
-app.listen(PORT, '0.0.0.0', () => {
+// Use server.listen() instead of app.listen() for Socket.IO compatibility
+server.listen(PORT, '0.0.0.0', () => {
     console.log(`Server running at ${SERVER_URL}:${PORT}`);
     console.log(`Allowing CORS from: ${FRONTEND_URL}`);
     console.log(`Socket.IO CORS origin: ${FRONTEND_URL}`);
