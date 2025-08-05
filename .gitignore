@@ -9,6 +9,8 @@
 !.yarn/plugins
 !.yarn/releases
 !.yarn/versions
+backend/node_modules/
+frontend/node_modules/
 
 # testing
 /coverage
@@ -16,6 +18,8 @@
 # next.js
 /.next/
 /out/
+frontend/.next/
+frontend/out/
 
 # production
 /build
@@ -29,9 +33,12 @@ npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
 .pnpm-debug.log*
+*.log
 
 # env files (can opt-in for committing if needed)
 .env*
+frontend/.env*
+backend/.env*
 
 # vercel
 .vercel

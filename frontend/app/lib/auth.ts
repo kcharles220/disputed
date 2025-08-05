@@ -6,6 +6,7 @@ import { MongoClient, ObjectId } from 'mongodb'
 import bcrypt from 'bcryptjs'
 import { ExtendedProfile } from '@/types/next-auth'
 
+
 const client = new MongoClient(process.env.MONGODB_URI!)
 const clientPromise = client.connect()
 
