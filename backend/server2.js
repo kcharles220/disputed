@@ -28,14 +28,14 @@ const server = http.createServer(app);
 
 const io = socketIo(server, {
   cors: {
-    origin: FRONTEND_URL,
+    origin: "*",  // Temporarily allow all origins for testing
     methods: ["GET", "POST"],
     credentials: true
   }
 });
 
 app.use(cors({
-  origin: FRONTEND_URL,
+  origin: "*",  // Temporarily allow all origins for testing
   credentials: true
 }));
 
@@ -903,12 +903,7 @@ Return only the JSON object, no extra text.
   }
 }
 
-// Socket.io connection handling
-io.on('connection', (socket) => {
-  console.log('User connected:', socket.id, 'from origin:', socket.handshake.headers.origin);
-  console.log('Connection headers:', socket.handshake.headers);
-});
-
+// Socket.io error handling
 io.on('connect_error', (error) => {
   console.log('Socket.IO connection error:', error);
 });
@@ -923,6 +918,7 @@ io.engine.on('connection_error', (err) => {
 // Socket.io connection handling
 io.on('connection', (socket) => {
   console.log('User connected:', socket.id, 'from origin:', socket.handshake.headers.origin);
+  console.log('Connection headers:', socket.handshake.headers);
 
   socket.on('join-room', (data, language) => {
     const { roomId, playerData } = data;
