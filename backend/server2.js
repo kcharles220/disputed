@@ -26,7 +26,7 @@ app.use(express.json());
 
 const server = http.createServer(app);
 
-const io = new socketIo(server, {
+const io = socketIo(server, {
   cors: {
     origin: FRONTEND_URL,
     methods: ["GET", "POST"],
