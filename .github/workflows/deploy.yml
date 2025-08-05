@@ -42,4 +42,4 @@ jobs:
           echo "AUTH_TOKEN=${{ secrets.AUTH_TOKEN }}" >> .env
 
           npm install
-          pm2 start server2.js --name backend || pm2 restart backend
+          pm2 start server2.js --name backend || pm2 restart backend --update-env
