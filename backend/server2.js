@@ -1051,7 +1051,7 @@ app.get('/debug/games/full', (req, res) => {
   res.json(allGames);
 });
 
-const PORT = process.env.PORT || 3001;
+const PORT = process.env.PORT || 3002;
 server.listen(PORT, () => {
   console.log(`Server running on port ${PORT} in url: ${SERVER_URL}${PORT}`);
 });
