@@ -18,7 +18,7 @@ const cors = require('cors');
 const { ObjectId } = require('mongodb');
 const AI_API_KEY = process.env.AI_API_KEY;
 const AUTH_TOKEN = process.env.AUTH_TOKEN;
-const PORT = process.env.PORT || 3002;
+const PORT = process.env.PORT || 3000;
 const SERVER_URL = process.env.SERVER_URL || 'http://localhost';
 const FRONTEND_URL = process.env.FRONTEND_URL|| 'http://localhost:3000';
 const app = express();
@@ -1056,7 +1056,7 @@ app.get('/debug/games/full', (req, res) => {
 });
 
 
-app.listen(PORT || 3002, '0.0.0.0', () => {
+app.listen(PORT, '0.0.0.0', () => {
     console.log(`Server running at ${SERVER_URL}:${PORT}`);
     console.log(`Listening on URL:${FRONTEND_URL}`);
 });
