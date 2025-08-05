@@ -13,18 +13,33 @@ mongoClient.connect().then(client => {
 
 const express = require('express');
 const http = require('http');
+const https = require('https');
+const fs = require('fs');
 const socketIo = require('socket.io');
 const cors = require('cors');
 const { ObjectId } = require('mongodb');
 const AI_API_KEY = process.env.AI_API_KEY;
 const AUTH_TOKEN = process.env.AUTH_TOKEN;
 const PORT = process.env.PORT || 3001;
-const SERVER_URL = process.env.SERVER_URL || 'http://localhost';
+const SERVER_URL = process.env.SERVER_URL || 'https://localhost';
 const FRONTEND_URL = process.env.FRONTEND_URL|| 'http://localhost:3000';
 const app = express();
 app.use(express.json());
 
-const server = http.createServer(app);
+// Create HTTPS server with SSL certificates
+let server;
+try {
+  const httpsOptions = {
+    key: fs.readFileSync('./key.pem'),
+    cert: fs.readFileSync('./cert.pem')
+  };
+  server = https.createServer(httpsOptions, app);
+  console.log('HTTPS server created with SSL certificates');
+} catch (error) {
+  console.error('Failed to load SSL certificates, falling back to HTTP:', error.message);
+  server = http.createServer(app);
+  console.log('HTTP server created as fallback');
+}
 
 const io = socketIo(server, {
   cors: {
@@ -1076,10 +1091,14 @@ app.get('/debug/games/full', (req, res) => {
 
 // Use server.listen() instead of app.listen() for Socket.IO compatibility
 server.listen(PORT, '0.0.0.0', () => {
-    console.log(`Server running at ${SERVER_URL}:${PORT}`);
+    const protocol = server instanceof https.Server ? 'https' : 'http';
+    console.log(`Server running at ${protocol}://${process.env.SERVER_HOST || '92.5.103.31'}:${PORT}`);
     console.log(`Allowing CORS from: ${FRONTEND_URL}`);
     console.log(`Socket.IO CORS origin: ${FRONTEND_URL}`);
-    console.log('Server listening on all interfaces (0.0.0.0)');
+    console.log(`Server listening on all interfaces (0.0.0.0) using ${protocol.toUpperCase()}`);
+    if (protocol === 'https') {
+        console.log('SSL certificates loaded successfully from key.pem and cert.pem');
+    }
 });
 
 module.exports = { app, server, io };

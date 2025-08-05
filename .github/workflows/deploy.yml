@@ -34,6 +34,15 @@ jobs:
           mkdir -p ~/disputed/backend
           cd ~/disputed/backend
 
+          # Generate SSL certificate if it doesn't exist
+          if [ ! -f "key.pem" ] || [ ! -f "cert.pem" ]; then
+            echo "Generating SSL certificate..."
+            openssl req -x509 -newkey rsa:4096 -keyout key.pem -out cert.pem -days 365 -nodes -subj "/CN=${{ secrets.VM_HOST }}"
+            echo "SSL certificate generated successfully"
+          else
+            echo "SSL certificate already exists"
+          fi
+
           # environment variables here
           echo "PORT=3001" > .env
           echo "SERVER_URL=${{ secrets.VM_HOST }}" >> .env
