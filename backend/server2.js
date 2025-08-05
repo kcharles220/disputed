@@ -35,7 +35,7 @@ const io = socketIo(server, {
 });
 
 app.use(cors({
-  origin: "*",  // Temporarily allow all origins for testing
+  origin: "*",  //TODO Temporarily allow all origins for testing
   credentials: true
 }));
 
