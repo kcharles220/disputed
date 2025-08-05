@@ -1,15 +1,19 @@
 name: Deploy backend to Oracle VM
+
 on:
   push:
     branches:
       - master
+
 jobs:
   deploy:
     runs-on: ubuntu-latest
     environment: production
+
     steps:
     - name: Code Checkout
       uses: actions/checkout@v3
+
     - name: Create target folder if not exists & Copy backend files to VM
       uses: appleboy/scp-action@v0.1.4
       with:
@@ -19,7 +23,8 @@ jobs:
         source: "backend"
         target: "~/disputed"
         rm: true
-    - name: SSH into VM and start backend with tunnel
+
+    - name: SSH into VM and start backend
       uses: appleboy/ssh-action@v0.1.8
       with:
         host: ${{ secrets.VM_HOST }}
@@ -28,44 +33,14 @@ jobs:
         script: |
           mkdir -p ~/disputed/backend
           cd ~/disputed/backend
-          # Environment variables
+
+          # environment variables here
           echo "PORT=3001" > .env
           echo "SERVER_URL=${{ secrets.VM_HOST }}" >> .env
           echo "MONGODB_URI=${{ secrets.MONGODB_URI }}" >> .env
           echo "AI_API_KEY=${{ secrets.AI_API_KEY }}" >> .env
           echo "AUTH_TOKEN=${{ secrets.AUTH_TOKEN }}" >> .env
           echo "FRONTEND_URL=${{ secrets.FRONTEND_URL }}" >> .env
-          
-          # Install dependencies
+
           npm install
-          
-          # Stop existing processes gracefully
-          pm2 stop backend 2>/dev/null || true
-          pm2 delete backend 2>/dev/null || true
-          pm2 stop tunnel 2>/dev/null || true
-          pm2 delete tunnel 2>/dev/null || true
-          
-          # Start backend server
-          pm2 start server2.js --name backend
-          
-          # Wait a moment for server to start
-          sleep 3
-          
-          # Create Serveo tunnel script
-          cat > ~/serveo-tunnel.sh << 'EOF'
-          #!/bin/bash
-          while true; do
-              echo "$(date): Starting Serveo tunnel..."
-              ssh -o StrictHostKeyChecking=no -o ServerAliveInterval=60 -R disputed-api:80:localhost:3001 serveo.net
-              echo "$(date): Serveo tunnel disconnected, restarting in 5 seconds..."
-              sleep 5
-          done
-          EOF
-          chmod +x ~/serveo-tunnel.sh
-          
-          # Start Serveo tunnel with pm2
-          pm2 start ~/serveo-tunnel.sh --name tunnel --interpreter bash
-          
-          # Save pm2 processes
-          pm2 save
-          pm2 startup || true
+          pm2 start server2.js --name backend || pm2 restart backend --update-env
