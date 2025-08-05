@@ -39,6 +39,8 @@ app.use(express.json());
 app.get('/health', (req, res) => {
   res.json({ status: 'Server is running', activeGames: games.size });
 });
+ 
+/* uncomment this to enable token-based authentication
 
 app.use((req, res, next) => {
   const authHeader = req.headers['authorization'];
@@ -48,7 +50,7 @@ app.use((req, res, next) => {
     res.status(401).json({ error: 'Unauthorized' });
   }
 });
-
+*/
 const ROUND_TIME = 999; // 90 seconds
 const READING_TIME = 90; // 90 seconds
 const ROUND_READING_TIME = 30; // 30 seconds for reading arguments
