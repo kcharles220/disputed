@@ -16,14 +16,15 @@ const http = require('http');
 const socketIo = require('socket.io');
 const cors = require('cors');
 const { ObjectId } = require('mongodb');
-const { Socket } = require('socket.io-client');
 const AI_API_KEY = process.env.AI_API_KEY;
+const SERVER_URL = process.env.VM_HOST;
+const AUTH_TOKEN = process.env.AUTH_TOKEN;
 
 const app = express();
 const server = http.createServer(app);
 const io = socketIo(server, {
   cors: {
-    origin: process.env.SERVER_URL || 'http://localhost:3001',
+    origin: SERVER_URL || 'http://localhost:3001',
     methods: ["GET", "POST"]
   }
 });
@@ -31,7 +32,6 @@ const io = socketIo(server, {
 app.use(cors());
 app.use(express.json());
 
-const AUTH_TOKEN = process.env.AUTH_TOKEN;
 
 app.use((req, res, next) => {
   const authHeader = req.headers['authorization'];
@@ -1053,7 +1053,7 @@ app.get('/debug/games/full', (req, res) => {
 
 const PORT = process.env.PORT || 3001;
 server.listen(PORT, () => {
-  console.log(`Server running on port ${PORT}`);
+  console.log(`Server running on port ${PORT} in url: ${SERVER_URL}${PORT}`);
 });
 
 module.exports = { app, server, io };
