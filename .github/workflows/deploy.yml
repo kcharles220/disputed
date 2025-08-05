@@ -40,6 +40,7 @@ jobs:
           echo "MONGODB_URI=${{ secrets.MONGODB_URI }}" >> .env
           echo "AI_API_KEY=${{ secrets.AI_API_KEY }}" >> .env
           echo "AUTH_TOKEN=${{ secrets.AUTH_TOKEN }}" >> .env
+          echo "FRONTEND_URL=${{ secrets.FRONTEND_URL }}" >> .env
 
           npm install
           pm2 start server2.js --name backend || pm2 restart backend --update-env

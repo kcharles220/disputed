@@ -20,11 +20,12 @@ const AI_API_KEY = process.env.AI_API_KEY;
 const AUTH_TOKEN = process.env.AUTH_TOKEN;
 const PORT = process.env.PORT || 3002;
 const SERVER_URL = process.env.SERVER_URL || 'http://localhost';
+const FRONTEND_URL = process.env.FRONTEND_URL|| 'http://localhost:3000';
 const app = express();
 const server = http.createServer(app);
 const io = socketIo(server, {
   cors: {
-    origin: SERVER_URL || 'http://localhost:3001',
+    origin: FRONTEND_URL || 'http://localhost:3000',
     methods: ["GET", "POST"]
   }
 });
