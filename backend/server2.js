@@ -25,13 +25,13 @@ const app = express();
 const server = http.createServer(app);
 const io = socketIo(server, {
   cors: {
-    origin: FRONTEND_URL || 'http://localhost:3000',
+    origin: "*",
     methods: ["GET", "POST"]
   }
 });
 
 app.use(cors({
-  origin: FRONTEND_URL
+  origin: "*"
 }));
 app.use(express.json());
 

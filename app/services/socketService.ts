@@ -92,7 +92,6 @@ class SocketService {
 
       console.log('Connecting to Socket.IO server at:', this.serverUrl);
       this.socket = io(this.serverUrl, {
-        timeout: 10000,
         transports: ['websocket', 'polling']
       });
 
