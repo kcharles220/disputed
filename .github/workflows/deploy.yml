@@ -35,13 +35,11 @@ jobs:
           cd ~/disputed/backend
 
           # environment variables here
-          cat <<EOF > .env
-          PORT=3001
-          SERVER_URL=${{ secrets.VM_HOST }}
-          MONGODB_URI=${{ secrets.MONGODB_URI }}
-          AI_API_KEY=${{ secrets.AI_API_KEY }}
-          AUTH_TOKEN=${{ secrets.AUTH_TOKEN }}
-          EOF
+          echo "PORT=3001" > .env
+          echo "SERVER_URL=${{ secrets.VM_HOST }}" >> .env
+          echo "MONGODB_URI=${{ secrets.MONGODB_URI }}" >> .env
+          echo "AI_API_KEY=${{ secrets.AI_API_KEY }}" >> .env
+          echo "AUTH_TOKEN=${{ secrets.AUTH_TOKEN }}" >> .env
 
           npm install
           pm2 start server2.js --name backend || pm2 restart backend
