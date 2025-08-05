@@ -10,7 +10,7 @@ export function StatusProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
   const checkServer = async () => {
     try {
-      const res = await fetch(`/api/proxy/health`);
+      const res = await fetch(`${process.env.NEXT_PUBLIC_SERVER_URL}/health`);
       if (res.ok) {
         setServerDown(false);
       } else {
