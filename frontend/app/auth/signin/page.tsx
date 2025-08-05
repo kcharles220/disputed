@@ -10,8 +10,8 @@ import { AiOutlineEye, AiOutlineEyeInvisible } from 'react-icons/ai'
 function SignInInner() {
   const router = useRouter()
   const searchParams = useSearchParams()
-  const callbackUrl = searchParams.get('callbackUrl') || '/'
-  const error = searchParams.get('error')
+  const callbackUrl = searchParams?.get('callbackUrl') || '/'
+  const error = searchParams?.get('error')
 
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')

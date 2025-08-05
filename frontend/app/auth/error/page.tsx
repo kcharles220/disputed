@@ -22,7 +22,7 @@ const errorMessages: Record<string, string> = {
 
 function AuthErrorInner() {
   const searchParams = useSearchParams()
-  const error = searchParams.get('error') || 'Default'
+  const error = searchParams?.get('error') || 'Default'
 
   const getMessage = () => {
     return errorMessages[error] || errorMessages.Default

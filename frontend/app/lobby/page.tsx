@@ -21,7 +21,7 @@ function GameLobbyInner() {
   const { t, i18n } = useTranslation('common');
 
   useEffect(() => {
-    const roomId = searchParams.get('room');
+    const roomId = searchParams?.get('room');
 
     if (!roomId) {
       router.push('/');

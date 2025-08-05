@@ -140,6 +140,7 @@
   "ready_waiting": "Ready! Waiting for opponent...",
   "ready_up": "Ready for Next Round",
 "creating": "Creating Game...",
-"joining": "Joining Game..."
+"joining": "Joining Game...",
+  "redirecting": "Redirecting to join game..."
 
 }
