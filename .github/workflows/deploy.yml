@@ -35,7 +35,7 @@ jobs:
           cd ~/disputed/backend
 
           # environment variables here
-          echo "PORT=3000" > .env
+          echo "PORT=3001" > .env
           echo "SERVER_URL=${{ secrets.VM_HOST }}" >> .env
           echo "MONGODB_URI=${{ secrets.MONGODB_URI }}" >> .env
           echo "AI_API_KEY=${{ secrets.AI_API_KEY }}" >> .env
