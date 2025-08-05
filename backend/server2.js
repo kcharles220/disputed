@@ -906,6 +906,23 @@ Return only the JSON object, no extra text.
 // Socket.io connection handling
 io.on('connection', (socket) => {
   console.log('User connected:', socket.id, 'from origin:', socket.handshake.headers.origin);
+  console.log('Connection headers:', socket.handshake.headers);
+});
+
+io.on('connect_error', (error) => {
+  console.log('Socket.IO connection error:', error);
+});
+
+io.engine.on('connection_error', (err) => {
+  console.log('Socket.IO engine connection error:', err.req);
+  console.log('Error code:', err.code);
+  console.log('Error message:', err.message);
+  console.log('Error context:', err.context);
+});
+
+// Socket.io connection handling
+io.on('connection', (socket) => {
+  console.log('User connected:', socket.id, 'from origin:', socket.handshake.headers.origin);
 
   socket.on('join-room', (data, language) => {
     const { roomId, playerData } = data;
@@ -1066,6 +1083,7 @@ app.listen(PORT, '0.0.0.0', () => {
     console.log(`Server running at ${SERVER_URL}:${PORT}`);
     console.log(`Allowing CORS from: ${FRONTEND_URL}`);
     console.log(`Socket.IO CORS origin: ${FRONTEND_URL}`);
+    console.log('Server listening on all interfaces (0.0.0.0)');
 });
 
 module.exports = { app, server, io };

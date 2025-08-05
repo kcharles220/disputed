@@ -102,9 +102,16 @@ class SocketService {
         resolve(this.socket!);
       });
 
-      this.socket.on('connect_error', (error) => {
-        console.error('Connection error:', error);
+      this.socket.on('connect_error', (error: any) => {
+        console.error('Connection error:', error.message);
+        console.error('Error type:', error.type);
+        console.error('Error description:', error.description);
+        console.error('Full error:', error);
         reject(error);
+      });
+
+      this.socket.on('disconnect', (reason) => {
+        console.log('Disconnected from server:', reason);
       });
 
       // Timeout after 10 seconds
