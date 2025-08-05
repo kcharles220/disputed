@@ -1,10 +1,10 @@
-require('dotenv').config();
+require('dotenv').config({ override: true });
 
 const { MongoClient } = require('mongodb');
 const mongoClient = new MongoClient(process.env.MONGODB_URI);
 let mongoDb;
 mongoClient.connect().then(client => {
-  mongoDb = client.db(); // Use default DB from URI
+  mongoDb = client.db();
   console.log('Connected to MongoDB');
 }).catch(err => {
   console.error('MongoDB connection error:', err);
