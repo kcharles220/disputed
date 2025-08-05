@@ -1,19 +1,15 @@
 name: Deploy backend to Oracle VM
-
 on:
   push:
     branches:
       - master
-
 jobs:
   deploy:
     runs-on: ubuntu-latest
     environment: production
-
     steps:
     - name: Code Checkout
       uses: actions/checkout@v3
-
     - name: Create target folder if not exists & Copy backend files to VM
       uses: appleboy/scp-action@v0.1.4
       with:
@@ -23,8 +19,7 @@ jobs:
         source: "backend"
         target: "~/disputed"
         rm: true
-
-    - name: SSH into VM and start backend
+    - name: SSH into VM and start backend with tunnel
       uses: appleboy/ssh-action@v0.1.8
       with:
         host: ${{ secrets.VM_HOST }}
@@ -33,14 +28,33 @@ jobs:
         script: |
           mkdir -p ~/disputed/backend
           cd ~/disputed/backend
-
-          # environment variables here
+          # Environment variables
           echo "PORT=3001" > .env
           echo "SERVER_URL=${{ secrets.VM_HOST }}" >> .env
           echo "MONGODB_URI=${{ secrets.MONGODB_URI }}" >> .env
           echo "AI_API_KEY=${{ secrets.AI_API_KEY }}" >> .env
           echo "AUTH_TOKEN=${{ secrets.AUTH_TOKEN }}" >> .env
           echo "FRONTEND_URL=${{ secrets.FRONTEND_URL }}" >> .env
-
+          
+          # Install dependencies
           npm install
-          pm2 start server2.js --name backend || pm2 restart backend --update-env
+          
+          # Install localtunnel globally if not exists
+          sudo npm install -g localtunnel || true
+          
+          # Stop existing processes
+          pm2 delete backend || true
+          pm2 delete localtunnel || true
+          
+          # Start backend server
+          pm2 start server2.js --name backend
+          
+          # Wait a moment for server to start
+          sleep 3
+          
+          # Start localtunnel with pm2 (so it auto-restarts)
+          pm2 start --name localtunnel -- npx lt --port 3001 --subdomain disputed-api
+          
+          # Save pm2 processes
+          pm2 save
+          pm2 startup || true
