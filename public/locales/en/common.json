@@ -138,6 +138,8 @@
   "unready": "Not Ready",
   "auto_start": "Auto Start",
   "ready_waiting": "Ready! Waiting for opponent...",
-  "ready_up": "Ready for Next Round"
+  "ready_up": "Ready for Next Round",
+"creating": "Creating Game...",
+"joining": "Joining Game..."
 
 }

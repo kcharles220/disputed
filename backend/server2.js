@@ -32,6 +32,10 @@ const io = socketIo(server, {
 app.use(cors());
 app.use(express.json());
 
+// Public endpoints
+app.get('/health', (req, res) => {
+  res.json({ status: 'Server is running', activeGames: games.size });
+});
 
 app.use((req, res, next) => {
   const authHeader = req.headers['authorization'];
@@ -1036,10 +1040,7 @@ io.on('connection', (socket) => {
   });
 });
 
-// REST endpoints for health check
-app.get('/health', (req, res) => {
-  res.json({ status: 'Server is running', activeGames: games.size });
-});
+
 
 // === Debug endpoint to list all active game rooms and their data ===
 app.get('/debug/games/full', (req, res) => {

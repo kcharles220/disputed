@@ -137,6 +137,9 @@
   "unready": "Não Pronto",
   "auto_start": "Início Automático",
   "ready_waiting": "Pronto! À espera do adversário...",
-  "ready_up": "Pronto para a Próxima Ronda"
+  "ready_up": "Pronto para a Próxima Ronda",
+  "creating": "A Criar Jogo...",
+  "joining": "A Entrar no Jogo..."
+
 
 }
