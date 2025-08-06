@@ -14,31 +14,73 @@ It’s a fast-paced, fun, and intellectually engaging experience that mixes game
 
 ---
 
-### 🧠 Tech Stack
+### 💸 Zero-Budget Engineering
 
-#### 🖥️ Frontend
-- **Next.js** with hybrid rendering (SSG/SSR)
-- **Tailwind CSS** for clean and responsive design
-- Integrated AI for case generation and argument scoring
+DISPUTED was built with a core goal: **spend €0 from start to finish**.
 
-➡️ **Hosted on [Vercel](https://vercel.com/)** for fast performance and continuous deployment.
+Despite having no budget, the project uses modern tools, AI integration, CI/CD, and cloud infrastructure — all on free-tier services.  
+This constraint led to creative technical decisions and trade-offs, including self-signed SSL, no domain, and limited storage/memory.
 
-#### ⚙️ Backend
-- **Node.js** with **Express** for API structure
-- **Socket.IO** for real-time communication between players
-
-➡️ **Running on an Oracle Cloud VM** (Ubuntu 22.04 LTS), fully self-managed, with manual deployments via SSH and custom logging/monitoring.
-
-#### 💾 Database
-- **MongoDB Atlas** for storing users, matches, and gameplay stats
-- Optimised schemas for high-performance queries and scalability
+It’s not just a game — it’s a proof of concept that even ambitious, AI-powered multiplayer apps can be built **entirely for free**.
 
 ---
 
-### 🚧 Status
+### 🧠 Tech Stack & Architecture
 
-DISPUTED is currently under active development.  
-Stay tuned for updates and improvements 👀
+#### 🖥️ Frontend
+- **Next.js** (SSG + SSR)
+- **Tailwind CSS** for responsive design
+- **TypeScript** for strong type safety
+- **NextAuth** for secure authentication
+- Hosted on **[Vercel](https://vercel.com/)** (free tier) with automatic CI/CD
+
+#### ⚙️ Backend
+- **Node.js** + **Express**
+- **Socket.IO** for real-time gameplay
+- **CI/CD** via **GitHub Actions**, auto-deploying to an **Oracle Cloud Free Tier VM**  
+  - ARM architecture  
+  - 1 vCPU, 6 GB RAM  
+  - Ubuntu 22.04 LTS  
+- Managed via **PM2**
+- Verbose logging system for runtime inspection
+- **Self-signed SSL certificates** (due to free-only constraints)
+- **CORS** enabled with secure defaults
+
+#### 🧠 AI Integration
+- **Gemini 2.5 Flash API** for:
+  - Generating unique debate topics
+  - Scoring arguments with rational and fair judgment
+- Custom prompt engineering for randomness and variety
+
+#### 💾 Database
+- **MongoDB Atlas** (free tier)
+- Single collection: `users`  
+  - Includes gameplay stats and performance data
+
+---
+
+### 🧱 Project Structure
+Monorepo with separation:
+```
+📦disputed
+ ┣ 📜deploy.yml
+ ┣ 📂backend
+ ┃ ┗ 📜server.js
+ ┣ 📂frontend
+ ┃ ┗ 📜page.tsx
+```
+
+---
+
+### ⚠️ Limitations & Trade-offs
+
+All limitations stem from the zero-budget constraint:
+
+- 🔒 No custom domain or valid SSL → uses self-signed certificates  
+- 💬 No moderation layer — relies on AI to implicitly handle content  
+- 🧠 No match history — only lightweight user stats due to memory limits  
+- 🔍 No automated testing yet  
+- 🌐 Limited horizontal scalability (single-instance architecture)  
 
 ---
 
@@ -54,28 +96,70 @@ O sistema analisa automaticamente os argumentos, tendo em conta fatores como rel
 
 ---
 
-### 🧠 Stack Tecnológica
+### 💸 Engenharia Sem Custos
 
-#### 🖥️ Frontend
-- **Next.js** com renderização híbrida (SSG/SSR)
-- **Tailwind CSS** para um design limpo e responsivo
-- Integração com IA para geração de casos e análise de argumentos
+Este projeto foi concebido com um objetivo: **funcionar do início ao fim com €0**.
 
-➡️ **A ser alojado na [Vercel](https://vercel.com/)** para performance elevada e deploy contínuo.
+Todos os serviços utilizados estão em **versões gratuitas**, e o sistema foi desenhado para tirar o máximo partido das ferramentas disponíveis — sem gastar um único cêntimo.  
+Isto exigiu soluções criativas e compromissos técnicos, como certificados SSL autoassinados, ausência de domínio personalizado e base de dados ultra-simplificada.
 
-#### ⚙️ Backend
-- **Node.js** com **Express** para a estrutura da API
-- **Socket.IO** para comunicação em tempo real entre jogadores
-
-➡️ **A correr numa VM da Oracle Cloud** (Ubuntu 22.04 LTS), com deploy manual via SSH e sistema próprio de logging e monitorização.
-
-#### 💾 Base de Dados
-- **MongoDB Atlas** para armazenar utilizadores, partidas e estatísticas
-- Modelos otimizados para suportar muitas queries e escalar facilmente
+DISPUTED demonstra que é possível construir uma aplicação moderna, com IA e multiplayer em tempo real, **sem gastar dinheiro**.
 
 ---
 
-### 🚧 Estado Atual
+### 🧠 Stack Tecnológica & Arquitetura
 
-O jogo está atualmente em fase de desenvolvimento ativo.  
-Mais funcionalidades e novidades em breve 👀
+#### 🖥️ Frontend
+- **Next.js** com renderização híbrida (SSG/SSR)
+- **Tailwind CSS** para design limpo e responsivo
+- **TypeScript** no frontend
+- Autenticação com **NextAuth**
+- Alojado na **[Vercel](https://vercel.com/)** (plano gratuito) com CI/CD automático
+
+#### ⚙️ Backend
+- **Node.js** com **Express**
+- **Socket.IO** para interações em tempo real
+- **CI/CD** com **GitHub Actions**, com deploy automático para uma **VM Oracle Cloud Free Tier**  
+  - Arquitetura ARM  
+  - 1 core, 6 GB RAM  
+  - Ubuntu 22.04 LTS  
+- Gestão de processos com **PM2**
+- Sistema de logs detalhado para debugging
+- **Certificados SSL autoassinados**
+- Segurança básica via **CORS**
+
+#### 🧠 Integração com IA
+- **Gemini 2.5 Flash API** usada para:
+  - Gerar casos de debate únicos
+  - Avaliar argumentos com imparcialidade
+- Prompts personalizados para garantir variedade e aleatoriedade
+
+#### 💾 Base de Dados
+- **MongoDB Atlas (free tier)**
+- Apenas uma coleção: `users`  
+  - Inclui estatísticas e dados de performance
+
+---
+
+### 🧱 Estrutura do Projeto
+Organizado como monorepo:
+```
+📦disputed
+ ┣ 📜deploy.yml
+ ┣ 📂backend
+ ┃ ┗ 📜server.js
+ ┣ 📂frontend
+ ┃ ┗ 📜page.tsx
+```
+
+---
+
+### ⚠️ Limitações e Compromissos
+
+Estas limitações são consequência direta da estratégia de custo zero:
+
+- 🔒 Sem domínio próprio nem certificados válidos (SSL autoassinado)  
+- 💬 Sem moderação — a IA tenta filtrar conteúdo de forma implícita  
+- 🧠 Sem histórico de jogos — apenas estatísticas leves por utilizador  
+- 🧪 Sem testes automatizados (para já)  
+- 🧱 Escalabilidade limitada a uma instância única  
