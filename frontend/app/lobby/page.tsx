@@ -39,7 +39,6 @@ function GameLobbyInner() {
 
         // Listen for gameStateUpdate and update room state
         socketService.onGameStateUpdate((gameState) => {
-          console.log('Received gameStateUpdate:', gameState);
           setRoom(gameState);
           // Use socketId to determine current player
           const socketId = socketService.getSocket()?.id;
@@ -56,9 +55,7 @@ function GameLobbyInner() {
 
         // Get initial room state
         try {
-          console.log('Getting room info for:', roomId);
           const roomInfo = await socketService.getRoomInfo(roomId);
-          console.log('Room info received:', roomInfo);
           setRoom(roomInfo);
           // Use socketId to determine current player
           const socketId = socketService.getSocket()?.id;
@@ -88,7 +85,6 @@ function GameLobbyInner() {
   const handleToggleReady = () => {
     if (room) {
       const newReadyState = !currentPlayer?.ready;
-      console.log('Toggling ready for room:', room.roomId, 'Sending ready:', newReadyState);
       socketService.toggleReady(room.roomId, newReadyState);
     }
   };
@@ -116,7 +112,6 @@ function GameLobbyInner() {
       // Hide coin flip after showing result for 3 seconds
       setTimeout(() => {
         const gameUrl = room ? `/game/${room.roomId}` : '/game';
-        console.log('Redirecting to URL:', gameUrl);
 
         router.push(gameUrl);
       }, 3000);

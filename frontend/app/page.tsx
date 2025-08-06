@@ -48,8 +48,7 @@ export default function Home() {
 
 
   useEffect(() => {
-    console.log('status:', status);
-    console.log('Session:', session?.user );
+
     if (status === 'authenticated' && JSON.stringify(session?.user) === "{}") {
       signOut({ callbackUrl: '/' });
     }

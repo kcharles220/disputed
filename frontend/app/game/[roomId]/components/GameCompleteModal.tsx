@@ -26,7 +26,6 @@ export default function GameCompleteModal({
     if (!showGameCompleteModal) {
         return null;
     }
-    console.log('Game complete state:', gameState);
     const router = useRouter();
     const [showFullBattleLog, setShowFullBattleLog] = useState(false);
     // Find winner: player with points === 2

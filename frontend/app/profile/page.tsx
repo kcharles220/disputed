@@ -30,7 +30,6 @@ export default function ProfilePage() {
       const response = await fetch('/api/user/stats')
       if (response.ok) {
         const stats = await response.json()
-        console.log('Fetched userStats:', stats) // Debug log
         setUserStats(stats)
         setHasLoadedStats(true)
       }
@@ -69,9 +68,7 @@ export default function ProfilePage() {
 
   // Update formData when fresh user stats are loaded
   useEffect(() => {
-    console.log('useEffect triggered - userStats:', userStats, 'session:', session) // Debug log
     if (userStats && session) {
-      console.log('Updating formData with userStats.avatar:', (userStats as any)?.avatar) // Debug log
       setFormData({
         username: (userStats as any)?.username || session.user?.username || '',
         avatar: (userStats as any)?.avatar || '⚖️'
@@ -246,21 +243,13 @@ export default function ProfilePage() {
                 <div className="flex items-center gap-4 mb-4">
                   <div className="w-16 h-16 bg-gradient-to-br from-purple-100 to-blue-100 rounded-full flex items-center justify-center text-3xl border-3 border-purple-300">
                     {(() => {
-                      console.log('Avatar display logic:')
-                      console.log('- isEditing:', isEditing)
-                      console.log('- statsLoading:', statsLoading)
-                      console.log('- userStats:', userStats)
-                      console.log('- userStats.avatar:', (userStats as any)?.avatar)
-                      console.log('- session.user.image:', session?.user?.image)
-                      console.log('- formData.avatar:', formData.avatar)
-
+                      
                       if (isEditing) {
                         return formData.avatar
                       } else if (statsLoading) {
                         return <div className="w-8 h-8 border-2 border-purple-300 border-t-purple-600 rounded-full animate-spin"></div>
                       } else {
                         const avatar = (userStats as any)?.avatar || session?.user?.image || '⚖️'
-                        console.log('Final avatar to display:', avatar)
                         return avatar
                       }
                     })()}

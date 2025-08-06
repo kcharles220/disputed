@@ -62,12 +62,11 @@ export default function GameBattle() {
 
         const socket = socketService.getSocket();
         let argumentToSend = argumentRef.current.trim();
-        console.log('trying to submit argument, roomID and socket:', argumentToSend, roomId, socket?.id);
+
         if (!argumentToSend) {
             argumentToSend = t('no_argument');
         }
         if (socket && roomId && argumentToSend) {
-            console.log('Submitting argument:', argumentToSend);
 
             socket.emit('submitArgument', {
                 roomId,
@@ -99,7 +98,6 @@ export default function GameBattle() {
 
         // Listen for gameStateUpdate from server
         const handleGameStateUpdate = (newGameState: GameRoom) => {
-            console.log('Game state retrieved:', newGameState);
             setGameState(newGameState);
 
             const socketId = socketService.getSocket()?.id;
@@ -117,7 +115,6 @@ export default function GameBattle() {
         // Emit request-room-info only after listener is registered
         const roomId = typeof window !== 'undefined' ? window.location.pathname.split('/').pop() : null;
         if (socket && roomId) {
-            console.log('Emitting request-room-info with roomId:', roomId);
             socketService.requestRoomInfo(roomId);
         }
 

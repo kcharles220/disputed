@@ -36,7 +36,6 @@ export default function RoundCompleteModal({
         // Listen for timerUpdate from server
         const handleTimerUpdate = (timer: { timerValue: number; timerRemaining: number; timerRunning: boolean }) => {
             setTimeLeft(timer.timerRemaining);
-            console.log('Timer update received:', timer);
 
         };
 
@@ -52,7 +51,6 @@ export default function RoundCompleteModal({
     const toggleReady = () => {
         if (gameState) {
             const newReadyState = !currentPlayer?.ready;
-            console.log('Toggling ready for room:', gameState.roomId, 'Sending ready:', newReadyState);
             socketService.toggleReady(gameState.roomId, newReadyState);
         }
     };
