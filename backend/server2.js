@@ -70,9 +70,9 @@ app.use((req, res, next) => {
   }
 });
 */
-const ROUND_TIME = 999; // 90 seconds
-const READING_TIME = 90; // 90 seconds
-const ROUND_READING_TIME = 30; // 30 seconds for reading arguments
+const ROUND_TIME = 90; // 90 seconds
+const READING_TIME = 99; // 90 seconds
+const ROUND_READING_TIME = 60; // 30 seconds for reading arguments
 // Game state management
 const games = new Map();
 
