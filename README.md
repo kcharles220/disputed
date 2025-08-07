@@ -63,7 +63,9 @@ It’s not just a game — it’s a proof of concept that even ambitious, AI-pow
 Monorepo with separation:
 ```
 📦disputed
- ┣ 📜deploy.yml
+ ┣ 📂.github
+ ┃ ┗ 📂worflows
+ ┃   ┗ 📜deploy.yml
  ┣ 📂backend
  ┃ ┗ 📜server.js
  ┣ 📂frontend
@@ -145,7 +147,9 @@ DISPUTED demonstra que é possível construir uma aplicação moderna, com IA e 
 Organizado como monorepo:
 ```
 📦disputed
- ┣ 📜deploy.yml
+ ┣ 📂.github
+ ┃ ┗ 📂worflows
+ ┃   ┗ 📜deploy.yml
  ┣ 📂backend
  ┃ ┗ 📜server.js
  ┣ 📂frontend
