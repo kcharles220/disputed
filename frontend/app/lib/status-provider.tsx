@@ -10,7 +10,7 @@ export function StatusProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
   const checkServer = async () => {
     try {
-      const res = await fetch(`${process.env.NEXT_PUBLIC_SERVER_URL}/fix`);
+      const res = await fetch(`${process.env.NEXT_PUBLIC_HTTPS_SERVER_URL + ':' + process.env.HTTPS_PORT}/fix`);
       if (res.ok) {
         setServerDown(false);
       } else {

@@ -1511,9 +1511,8 @@ httpServer.listen(PORT, host, () => {
   console.log(`HTTP server listening on ${host}`);
 });
 
-// Start HTTPS server if SSL certificates are available
 if (httpsEnabled) {
-  const httpsPort = parseInt(PORT) + 1; // Use next port for HTTPS (e.g., 3002 if HTTP is 3001)
+  const httpsPort = parseInt(PORT) + 1;
   httpsServer.listen(httpsPort, host, () => {
     console.log(`HTTPS server running at https://${displayHost}:${httpsPort}`);
     console.log(`SSL certificates loaded successfully from key.pem and cert.pem`);

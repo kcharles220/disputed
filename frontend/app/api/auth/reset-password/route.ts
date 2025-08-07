@@ -12,8 +12,8 @@ export async function POST(request: NextRequest) {
     }
 
     // Get the backend URL
-    const backendUrl = process.env.NEXT_PUBLIC_SERVER_URL?.replace('https://', 'http://') || 'http://localhost:3001';
-    
+    const backendUrl = process.env.NEXT_PUBLIC_SERVER_URL + ':' + process.env.HTTP_PORT || 'http://localhost:3001';
+
     // Forward the request to the backend
     const response = await fetch(`${backendUrl}/auth/reset-password`, {
       method: 'POST',
