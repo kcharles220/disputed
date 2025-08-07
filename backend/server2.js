@@ -10,6 +10,8 @@ mongoClient.connect().then(client => {
   console.error('MongoDB connection error:', err);
 });
 
+const { Resend } = require('resend');
+const resend = new Resend(process.env.RESEND_API_KEY);
 
 const express = require('express');
 const http = require('http');
@@ -57,6 +59,86 @@ app.use(cors({
 // Public endpoints
 app.get('/health', (req, res) => {
   res.json({ status: 'Server is running', activeGames: games.size });
+});
+
+// Email sending endpoint for password reset
+app.post('/send-reset-email', async (req, res) => {
+  try {
+    const { email, resetUrl, username } = req.body;
+
+    if (!email || !resetUrl) {
+      return res.status(400).json({ error: 'Email and reset URL are required' });
+    }
+
+    const emailHtml = `
+      <!DOCTYPE html>
+      <html>
+        <head>
+          <meta charset="utf-8">
+          <meta name="viewport" content="width=device-width, initial-scale=1.0">
+          <title>Reset Your Password - Disputed</title>
+          <style>
+            body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; background-color: #f4f4f4; margin: 0; padding: 20px; }
+            .container { max-width: 600px; margin: 0 auto; background: white; border-radius: 10px; overflow: hidden; box-shadow: 0 0 20px rgba(0,0,0,0.1); }
+            .header { background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; padding: 30px; text-align: center; }
+            .content { padding: 30px; }
+            .button { display: inline-block; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; padding: 15px 30px; text-decoration: none; border-radius: 8px; font-weight: bold; margin: 20px 0; }
+            .footer { background: #f8f9fa; padding: 20px; text-align: center; color: #666; font-size: 14px; }
+            .warning { background: #fff3cd; border: 1px solid #ffeaa7; padding: 15px; border-radius: 5px; margin: 20px 0; }
+          </style>
+        </head>
+        <body>
+          <div class="container">
+            <div class="header">
+              <h1>🏛️ Disputed</h1>
+              <h2>Password Reset Request</h2>
+            </div>
+            <div class="content">
+              <h3>Hello ${username}!</h3>
+              <p>We received a request to reset your password for your Disputed account. If you didn't make this request, you can safely ignore this email.</p>
+              
+              <p>To reset your password, click the button below:</p>
+              
+              <div style="text-align: center;">
+                <a href="${resetUrl}" class="button">Reset My Password</a>
+              </div>
+              
+              <div class="warning">
+                <strong>⚠️ Security Notice:</strong>
+                <ul>
+                  <li>This link will expire in 1 hour for your security</li>
+                  <li>If you didn't request this reset, please ignore this email</li>
+                  <li>Never share this link with anyone</li>
+                </ul>
+              </div>
+              
+              <p>If the button doesn't work, you can copy and paste this link into your browser:</p>
+              <p style="word-break: break-all; background: #f8f9fa; padding: 10px; border-radius: 5px; font-family: monospace;">${resetUrl}</p>
+              
+              <p>Thanks,<br>The Disputed Team</p>
+            </div>
+            <div class="footer">
+              <p>This email was sent to ${email}</p>
+              <p>© 2025 Disputed - The Ultimate Legal Battle Game</p>
+            </div>
+          </div>
+        </body>
+      </html>
+    `;
+
+    const result = await resend.emails.send({
+      from: 'Disputed <onboarding@resend.dev>',
+      to: email,
+      subject: '🔐 Reset Your Disputed Password',
+      html: emailHtml,
+    });
+
+    console.log('Password reset email sent successfully:', result);
+    res.json({ success: true, messageId: result.id });
+  } catch (error) {
+    console.error('Error sending reset email:', error);
+    res.status(500).json({ error: 'Failed to send email' });
+  }
 });
  
 app.get('/fix', (req, res) => {
