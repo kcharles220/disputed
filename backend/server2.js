@@ -1,18 +1,8 @@
 require('dotenv').config({ override: true });
 
 const { MongoClient } = require('mongodb');
-const mongoClient = new MongoClient(process.env.MONGODB_URI);
-let mongoDb;
-mongoClient.connect().then(client => {
-  mongoDb = client.db();
-  console.log('Connected to MongoDB');
-}).catch(err => {
-  console.error('MongoDB connection error:', err);
-});
-
-const { Resend } = require('resend');
-const resend = new Resend(process.env.RESEND_API_KEY);
-
+const crypto = require('crypto');
+const nodemailer = require('nodemailer');
 const express = require('express');
 const http = require('http');
 const https = require('https');
@@ -24,10 +14,27 @@ const AI_API_KEY = process.env.AI_API_KEY;
 const AUTH_TOKEN = process.env.AUTH_TOKEN;
 const PORT = process.env.PORT || 3001;
 const SERVER_URL = process.env.SERVER_URL || 'https://localhost';
-const FRONTEND_URL = process.env.FRONTEND_URL|| 'http://localhost:3000';
+const FRONTEND_URL = process.env.FRONTEND_URL || 'http://localhost:3000';
+const EMAIL_USER = process.env.EMAIL_USER;
+const EMAIL_PASS = process.env.EMAIL_PASS;
 const app = express();
 app.use(express.json());
 
+const mongoClient = new MongoClient(process.env.MONGODB_URI);
+let mongoDb;
+mongoClient.connect().then(client => {
+  mongoDb = client.db();
+  console.log('Connected to MongoDB');
+}).catch(err => {
+  console.error('MongoDB connection error:', err);
+});
+
+const transporter = nodemailer.createTransport({
+  host: 'smtp.zoho.eu',
+  port: 465,
+  secure: true,
+  auth: { user: EMAIL_USER, pass: EMAIL_PASS },
+});
 // Create HTTPS server with SSL certificates
 let server;
 try {
@@ -61,86 +68,382 @@ app.get('/health', (req, res) => {
   res.json({ status: 'Server is running', activeGames: games.size });
 });
 
-// Email sending endpoint for password reset
-app.post('/send-reset-email', async (req, res) => {
+app.post("/auth/forgot-password", async (req, res) => {
+  console.log('Received forgot password request:', req.body);
   try {
-    const { email, resetUrl, username } = req.body;
+    const { email } = req.body;
+    const user = await mongoDb.collection('users').findOne({ email });
 
-    if (!email || !resetUrl) {
-      return res.status(400).json({ error: 'Email and reset URL are required' });
+    if (!user) {
+      // Don't reveal whether email exists
+      return res.json({
+        message:
+          "If your email is registered, you will receive reset instructions.",
+      });
     }
 
+    // Generate reset token
+    const resetToken = crypto.randomBytes(32).toString("hex");
+    const passwordResetToken = crypto
+      .createHash("sha256")
+      .update(resetToken)
+      .digest("hex");
+    const passwordResetExpires = Date.now() + 3600000; // 1 hour
+    const resetUrl = `${FRONTEND_URL}/auth/reset-password?token=${resetToken}`;
+
+    await mongoDb.collection('users').updateOne(
+      { _id: user._id },
+      {
+        $set: {
+          passwordResetToken,
+          passwordResetExpires
+        }
+      }
+    );
     const emailHtml = `
       <!DOCTYPE html>
-      <html>
-        <head>
-          <meta charset="utf-8">
-          <meta name="viewport" content="width=device-width, initial-scale=1.0">
-          <title>Reset Your Password - Disputed</title>
-          <style>
-            body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; background-color: #f4f4f4; margin: 0; padding: 20px; }
-            .container { max-width: 600px; margin: 0 auto; background: white; border-radius: 10px; overflow: hidden; box-shadow: 0 0 20px rgba(0,0,0,0.1); }
-            .header { background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; padding: 30px; text-align: center; }
-            .content { padding: 30px; }
-            .button { display: inline-block; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; padding: 15px 30px; text-decoration: none; border-radius: 8px; font-weight: bold; margin: 20px 0; }
-            .footer { background: #f8f9fa; padding: 20px; text-align: center; color: #666; font-size: 14px; }
-            .warning { background: #fff3cd; border: 1px solid #ffeaa7; padding: 15px; border-radius: 5px; margin: 20px 0; }
-          </style>
-        </head>
-        <body>
-          <div class="container">
-            <div class="header">
-              <h1>🏛️ Disputed</h1>
-              <h2>Password Reset Request</h2>
-            </div>
-            <div class="content">
-              <h3>Hello ${username}!</h3>
-              <p>We received a request to reset your password for your Disputed account. If you didn't make this request, you can safely ignore this email.</p>
-              
-              <p>To reset your password, click the button below:</p>
-              
-              <div style="text-align: center;">
-                <a href="${resetUrl}" class="button">Reset My Password</a>
-              </div>
-              
-              <div class="warning">
-                <strong>⚠️ Security Notice:</strong>
-                <ul>
-                  <li>This link will expire in 1 hour for your security</li>
-                  <li>If you didn't request this reset, please ignore this email</li>
-                  <li>Never share this link with anyone</li>
-                </ul>
-              </div>
-              
-              <p>If the button doesn't work, you can copy and paste this link into your browser:</p>
-              <p style="word-break: break-all; background: #f8f9fa; padding: 10px; border-radius: 5px; font-family: monospace;">${resetUrl}</p>
-              
-              <p>Thanks,<br>The Disputed Team</p>
-            </div>
-            <div class="footer">
-              <p>This email was sent to ${email}</p>
-              <p>© 2025 Disputed - The Ultimate Legal Battle Game</p>
-            </div>
-          </div>
-        </body>
-      </html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Reset Your Password - Disputed</title>
+  <style>
+  * { box-sizing: border-box; }
+  body { 
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif; 
+    line-height: 1.6; 
+    color: #1a1a1a; 
+    background: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%);
+    margin: 0; 
+    padding: 40px 20px; 
+  }
+  .email-wrapper {
+    max-width: 600px;
+    margin: 0 auto;
+    background: #ffffff;
+    border-radius: 16px;
+    overflow: hidden;
+    box-shadow: 0 20px 40px rgba(0,0,0,0.1), 0 8px 16px rgba(0,0,0,0.06);
+    border: 1px solid rgba(255,255,255,0.8);
+  }
+  .header {
+    background: linear-gradient(135deg, #2563eb 0%, #3b82f6 25%, #6366f1 75%, #8b5cf6 100%);
+    padding: 50px 40px;
+    text-align: center;
+    position: relative;
+    overflow: hidden;
+  }
+  .header::before {
+    content: '';
+    position: absolute;
+    top: -50%;
+    left: -50%;
+    width: 200%;
+    height: 200%;
+    background: radial-gradient(circle, rgba(255,255,255,0.1) 0%, transparent 70%);
+    animation: shimmer 3s ease-in-out infinite alternate;
+  }
+  @keyframes shimmer {
+    0% { transform: translateX(-20px) translateY(-20px); }
+    100% { transform: translateX(20px) translateY(20px); }
+  }
+  .logo-container {
+    position: relative;
+    z-index: 2;
+    margin-bottom: 20px;
+  }
+  .logo {
+    font-size: 2.8em;
+    font-weight: 800;
+    color: #ffffff;
+    margin: 0;
+    letter-spacing: -0.02em;
+    text-shadow: 0 2px 4px rgba(0,0,0,0.2);
+  }
+  .logo-icon {
+    font-size: 1.2em;
+    margin-right: 8px;
+    filter: drop-shadow(0 2px 4px rgba(0,0,0,0.2));
+  }
+  .header-subtitle {
+    color: rgba(255,255,255,0.9);
+    font-size: 1.1em;
+    font-weight: 500;
+    margin: 0;
+    position: relative;
+    z-index: 2;
+  }
+  .content {
+    padding: 50px 40px;
+    background: #ffffff;
+  }
+  .greeting {
+    font-size: 1.4em;
+    font-weight: 600;
+    color: #1a1a1a;
+    margin: 0 0 24px 0;
+  }
+  .main-text {
+    font-size: 1.05em;
+    color: #4a5568;
+    margin: 0 0 24px 0;
+    line-height: 1.7;
+  }
+  .cta-section {
+    text-align: center;
+    margin: 40px 0;
+    padding: 32px;
+    background: linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%);
+    border-radius: 12px;
+    border: 1px solid #e2e8f0;
+  }
+  .cta-button {
+    display: inline-block;
+    background: linear-gradient(135deg, #2563eb 0%, #3b82f6 25%, #6366f1 75%, #8b5cf6 100%);
+    color: #ffffff !important;
+    padding: 18px 36px;
+    text-decoration: none !important;
+    border-radius: 12px;
+    font-weight: 600;
+    font-size: 1.1em;
+    border: none;
+    cursor: pointer;
+    box-shadow: 0 4px 12px rgba(59, 130, 246, 0.4), 0 2px 4px rgba(0,0,0,0.1);
+    transition: all 0.3s ease;
+    position: relative;
+    overflow: hidden;
+  }
+  .cta-button::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: -100%;
+    width: 100%;
+    height: 100%;
+    background: linear-gradient(90deg, transparent, rgba(255,255,255,0.2), transparent);
+    transition: left 0.5s;
+  }
+  .cta-button:hover::before {
+    left: 100%;
+  }
+  .cta-button:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 8px 25px rgba(59, 130, 246, 0.4), 0 4px 8px rgba(0,0,0,0.15);
+  }
+  .security-notice {
+    background: linear-gradient(135deg, #fef3c7 0%, #fed7aa 100%);
+    border: 1px solid #f59e0b;
+    padding: 24px;
+    border-radius: 12px;
+    margin: 32px 0;
+    position: relative;
+  }
+  .security-notice::before {
+    content: '⚠️';
+    font-size: 1.5em;
+    position: absolute;
+    top: 20px;
+    left: 20px;
+  }
+  .security-title {
+    font-weight: 600;
+    color: #92400e;
+    margin: 0 0 12px 40px;
+    font-size: 1.05em;
+  }
+  .security-list {
+    margin: 0 0 0 40px;
+    padding: 0;
+    color: #78350f;
+  }
+  .security-list li {
+    margin: 8px 0;
+    font-size: 0.95em;
+  }
+  .fallback-url {
+    background: #f8fafc;
+    border: 1px solid #e2e8f0;
+    padding: 20px;
+    border-radius: 8px;
+    margin: 24px 0;
+  }
+  .fallback-text {
+    color: #64748b;
+    font-size: 0.95em;
+    margin: 0 0 12px 0;
+  }
+  .url-text {
+    word-break: break-all;
+    font-family: 'SF Mono', Monaco, 'Cascadia Code', 'Roboto Mono', Consolas, 'Courier New', monospace;
+    font-size: 0.9em;
+    color: #1e293b;
+    background: #ffffff;
+    padding: 12px;
+    border-radius: 6px;
+    border: 1px solid #cbd5e1;
+  }
+  .signature {
+    margin: 40px 0 0 0;
+    color: #4a5568;
+    font-size: 1.05em;
+  }
+  .team-name {
+    font-weight: 600;
+    color: #2563eb;
+  }
+  .footer {
+    background: linear-gradient(135deg, #1e293b 0%, #334155 100%);
+    padding: 40px;
+    text-align: center;
+    color: #94a3b8;
+  }
+  .footer-email {
+    font-size: 0.95em;
+    margin: 0 0 16px 0;
+    color: #cbd5e1;
+  }
+  .footer-copyright {
+    font-size: 0.9em;
+    margin: 0;
+    color: #94a3b8;
+  }
+  .footer-tagline {
+    color: #3b82f6;
+    font-weight: 500;
+  }
+  @media (max-width: 640px) {
+    body { padding: 20px 10px; }
+    .content { padding: 30px 20px; }
+    .header { padding: 30px 20px; }
+    .cta-section { padding: 20px; margin: 30px 0; }
+    .logo { font-size: 2.2em; }
+  }
+  </style>
+</head>
+<body>
+  <div class="email-wrapper">
+    <div class="header">
+      <div class="logo-container">
+        <h1 class="logo">
+          <span class="logo-icon">⚖️</span>DISPUTED
+        </h1>
+        <p class="header-subtitle">Password Reset Request</p>
+      </div>
+    </div>
+    
+    <div class="content">
+      <h2 class="greeting">Hello there!</h2>
+      
+      <p class="main-text">
+        We received a request to reset the password for your Disputed account. If you didn't make this request, you can safely ignore this email and your password will remain unchanged.
+      </p>
+      
+      <div class="cta-section">
+        <a href="${resetUrl}" class="cta-button" target="_blank" rel="noopener noreferrer">
+          Reset My Password
+        </a>
+      </div>
+      
+      <div class="security-notice">
+        <div class="security-title">Security Notice</div>
+        <ul class="security-list">
+          <li>This secure link will expire in 1 hour to protect your account</li>
+          <li>If you didn't request this password reset, please ignore this email</li>
+          <li>Never share this link with anyone for your security</li>
+          <li>Contact our support team if you have any concerns</li>
+        </ul>
+      </div>
+      
+      <div class="fallback-url">
+        <p class="fallback-text">If the button above doesn't work, you can copy and paste this secure link into your browser:</p>
+        <div class="url-text">${resetUrl}</div>
+      </div>
+      
+      <div class="signature">
+        <p>Best regards,<br>
+        <span class="team-name">The Disputed Team</span></p>
+      </div>
+    </div>
+    
+    <div class="footer">
+      <p class="footer-email">This email was sent to <strong>${email}</strong></p>
+      <p class="footer-copyright">
+        © 2025 Disputed • <span class="footer-tagline">The Ultimate Legal Battle Experience</span>
+      </p>
+    </div>
+  </div>
+</body>
+</html>
     `;
-
-    const result = await resend.emails.send({
-      from: 'Disputed <onboarding@resend.dev>',
+    await transporter.sendMail({
+      from: `"Disputed" <${EMAIL_USER}>`,
       to: email,
-      subject: '🔐 Reset Your Disputed Password',
+      subject: "Disputed - Password Reset Request",
       html: emailHtml,
     });
 
-    console.log('Password reset email sent successfully:', result);
-    res.json({ success: true, messageId: result.id });
+    res.json({
+      message:
+        "If your email is registered, you will receive reset instructions.",
+    });
   } catch (error) {
-    console.error('Error sending reset email:', error);
-    res.status(500).json({ error: 'Failed to send email' });
+    console.error("Password reset error:", error);
+    res.status(500).json({ message: "Internal server error" });
   }
 });
- 
+app.post("/auth/reset-password", async (req, res) => {
+  console.log('Received reset password request:', req.body);
+  try {
+    const { token, password } = req.body;
+
+    if (!token || !password) {
+      return res.status(400).json({ message: "Token and password are required" });
+    }
+
+    if (password.length < 6) {
+      return res.status(400).json({ message: "Password must be at least 6 characters long" });
+    }
+
+    // Find user with valid reset token (need to hash the token to compare)
+    const hashedToken = crypto
+      .createHash("sha256")
+      .update(token)
+      .digest("hex");
+      
+    const user = await mongoDb.collection('users').findOne({
+      passwordResetToken: hashedToken,
+      passwordResetExpires: { $gt: Date.now() }, // Token not expired
+    });
+
+    if (!user) {
+      return res.status(400).json({ message: "Invalid or expired reset token" });
+    }
+
+    const bcrypt = require('bcryptjs');
+    const hashedPassword = await bcrypt.hash(password, 12);
+
+    // Update user password and remove reset token
+    await mongoDb.collection('users').updateOne(
+      { _id: user._id },
+      {
+        $set: {
+          password: hashedPassword,
+        },
+        $unset: {
+          passwordResetToken: '',
+          passwordResetExpires: '',
+        },
+      }
+    );
+
+    console.log('Password reset successfully for user:', user.email);
+    res.json({ message: "Password has been reset successfully" });
+  } catch (error) {
+    console.error("Reset password error:", error);
+    res.status(500).json({ message: "Internal server error" });
+  }
+});
+
 app.get('/fix', (req, res) => {
   res.send(`
     <html>
@@ -716,7 +1019,7 @@ Return only the JSON object, no extra text.
         this.gameState = 'game-over';
         await this.updateUserStats();
       } else if (prosecutor.points === 1 && defender.points === 1) {
-       
+
         this.tiebreakerWinner = prosecutorScore > defenderScore ? prosecutor : defender;
         this.players.forEach(p => p.ready = false);
         this.gameState = 'tiebreaker';
@@ -779,7 +1082,7 @@ Return only the JSON object, no extra text.
         player.currentRole = notChosenRole;
       }
     });
-  
+
 
     //this.round.number = 3;
     this.gameState = 'round-start';
@@ -1192,16 +1495,18 @@ app.get('/debug/games/full', (req, res) => {
   res.json(allGames);
 });
 
-// Use server.listen() instead of app.listen() for Socket.IO compatibility
-server.listen(PORT, '0.0.0.0', () => {
-    const protocol = server instanceof https.Server ? 'https' : 'http';
-    console.log(`Server running at ${protocol}://${process.env.SERVER_HOST || '92.5.103.31'}:${PORT}`);
-    console.log(`Allowing CORS from: ${FRONTEND_URL}`);
-    console.log(`Socket.IO CORS origin: ${FRONTEND_URL}`);
-    console.log(`Server listening on all interfaces (0.0.0.0) using ${protocol.toUpperCase()}`);
-    if (protocol === 'https') {
-        console.log('SSL certificates loaded successfully from key.pem and cert.pem');
-    }
+const host = process.env.VM_HOST ? '0.0.0.0' : 'localhost';
+const displayHost = process.env.VM_HOST || 'localhost';
+
+server.listen(PORT, host, () => {
+  const protocol = server instanceof https.Server ? 'https' : 'http';
+  console.log(`Server running at ${protocol}://${displayHost}:${PORT}`);
+  console.log(`Allowing CORS from: ${FRONTEND_URL}`);
+  console.log(`Socket.IO CORS origin: ${FRONTEND_URL}`);
+  console.log(`Server listening on ${host} using ${protocol.toUpperCase()}`);
+  if (protocol === 'https') {
+    console.log('SSL certificates loaded successfully from key.pem and cert.pem');
+  }
 });
 
 module.exports = { app, server, io };

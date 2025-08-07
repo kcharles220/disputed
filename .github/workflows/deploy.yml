@@ -50,7 +50,8 @@ jobs:
           echo "AI_API_KEY=${{ secrets.AI_API_KEY }}" >> .env
           echo "AUTH_TOKEN=${{ secrets.AUTH_TOKEN }}" >> .env
           echo "FRONTEND_URL=${{ secrets.FRONTEND_URL }}" >> .env
-          echo "RESEND_API_KEY=${{ secrets.RESEND_API_KEY }}" >> .env
-          
+          echo "EMAIL_USER=${{ secrets.EMAIL_USER }}" >> .env
+          echo "EMAIL_PASS=${{ secrets.EMAIL_PASS }}" >> .env
+
           npm install
           pm2 start server2.js --name backend || pm2 restart backend --update-env
