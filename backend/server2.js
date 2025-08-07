@@ -492,12 +492,12 @@ class Player {
     this.id = id;
     this.username = username;
     this.avatar = avatar;
-    this.position = null; // 'left' or 'right'
-    this.currentRole = null; // 'prosecutor' or 'defender'
+    this.position = null; 
+    this.currentRole = null; 
     this.lastRole = null;
     this.points = 0;
     this.ready = false;
-    this.score = 0; // sum of argument scores
+    this.score = 0; 
     this.arguments = []; // {argument: string, score: number}
     this.socketId = socketId; 
     this.connected = true;
