@@ -35,22 +35,27 @@ const transporter = nodemailer.createTransport({
   secure: true,
   auth: { user: EMAIL_USER, pass: EMAIL_PASS },
 });
-// Create HTTPS server with SSL certificates
-let server;
+// Create both HTTP and HTTPS servers
+const httpServer = http.createServer(app);
+console.log('HTTP server created');
+
+let httpsServer;
+let httpsEnabled = false;
 try {
   const httpsOptions = {
     key: fs.readFileSync('./key.pem'),
     cert: fs.readFileSync('./cert.pem')
   };
-  server = https.createServer(httpsOptions, app);
+  httpsServer = https.createServer(httpsOptions, app);
+  httpsEnabled = true;
   console.log('HTTPS server created with SSL certificates');
 } catch (error) {
-  console.error('Failed to load SSL certificates, falling back to HTTP:', error.message);
-  server = http.createServer(app);
-  console.log('HTTP server created as fallback');
+  console.error('Failed to load SSL certificates, HTTPS will not be enabled:', error.message);
 }
 
-const io = socketIo(server, {
+// Use HTTPS server for Socket.IO if available, otherwise HTTP
+const socketServer = httpsEnabled ? httpsServer : httpServer;
+const io = socketIo(socketServer, {
   cors: {
     origin: FRONTEND_URL || "https://disputed.vercel.app",
     methods: ["GET", "POST"],
@@ -1495,18 +1500,25 @@ app.get('/debug/games/full', (req, res) => {
   res.json(allGames);
 });
 
-const host = process.env.SERVER_URL ? '0.0.0.0' : 'localhost';
-const displayHost = process.env.SERVER_URL || 'localhost';
+const host = process.env.VM_HOST ? '0.0.0.0' : 'localhost';
+const displayHost = process.env.VM_HOST || 'localhost';
 
-server.listen(PORT, host, () => {
-  const protocol = server instanceof https.Server ? 'https' : 'http';
-  console.log(`Server running at ${protocol}://${displayHost}:${PORT}`);
+// Start HTTP server
+httpServer.listen(PORT, host, () => {
+  console.log(`HTTP server running at http://${displayHost}:${PORT}`);
   console.log(`Allowing CORS from: ${FRONTEND_URL}`);
   console.log(`Socket.IO CORS origin: ${FRONTEND_URL}`);
-  console.log(`Server listening on ${host} using ${protocol.toUpperCase()}`);
-  if (protocol === 'https') {
-    console.log('SSL certificates loaded successfully from key.pem and cert.pem');
-  }
+  console.log(`HTTP server listening on ${host}`);
 });
 
-module.exports = { app, server, io };
+// Start HTTPS server if SSL certificates are available
+if (httpsEnabled) {
+  const httpsPort = parseInt(PORT) + 1; // Use next port for HTTPS (e.g., 3002 if HTTP is 3001)
+  httpsServer.listen(httpsPort, host, () => {
+    console.log(`HTTPS server running at https://${displayHost}:${httpsPort}`);
+    console.log(`SSL certificates loaded successfully from key.pem and cert.pem`);
+    console.log(`HTTPS server listening on ${host}`);
+  });
+}
+
+module.exports = { app, httpServer, httpsServer, io };

@@ -12,8 +12,7 @@ export async function POST(request: NextRequest) {
     }
 
     // Get the backend URL
-    const backendUrl = process.env.NEXT_PUBLIC_SERVER_URL || 'http://localhost:3001'
-    console.log('Forwarding reset password request to backend:', backendUrl)
+    const backendUrl = process.env.NEXT_PUBLIC_SERVER_URL?.replace('https://', 'http://') || 'http://localhost:3001';
     
     // Forward the request to the backend
     const response = await fetch(`${backendUrl}/auth/reset-password`, {

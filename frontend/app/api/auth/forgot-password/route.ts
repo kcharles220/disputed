@@ -12,7 +12,7 @@ export async function POST(request: NextRequest) {
     }
 
     // Get the backend URL
-    const backendUrl = process.env.NEXT_PUBLIC_SERVER_URL || 'https://localhost:3001'
+    const backendUrl = process.env.NEXT_PUBLIC_SERVER_URL?.replace('https://', 'http://') || 'http://localhost:3001';
     console.log('Forwarding request to backend:', backendUrl)
     // Forward the request to the backend
     const response = await fetch(`${backendUrl}/auth/forgot-password`, {
