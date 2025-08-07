@@ -43,14 +43,14 @@ try {
 
 const io = socketIo(server, {
   cors: {
-    origin: "*",  // Temporarily allow all origins for testing
+    origin: FRONTEND_URL || "https://disputed.vercel.app",
     methods: ["GET", "POST"],
     credentials: true
   }
 });
 
 app.use(cors({
-  origin: "*",  //TODO Temporarily allow all origins for testing
+  origin: FRONTEND_URL || "https://disputed.vercel.app",
   credentials: true
 }));
 
