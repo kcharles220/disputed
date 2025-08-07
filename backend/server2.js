@@ -1495,8 +1495,8 @@ app.get('/debug/games/full', (req, res) => {
   res.json(allGames);
 });
 
-const host = process.env.VM_HOST ? '0.0.0.0' : 'localhost';
-const displayHost = process.env.VM_HOST || 'localhost';
+const host = process.env.SERVER_URL ? '0.0.0.0' : 'localhost';
+const displayHost = process.env.SERVER_URL || 'localhost';
 
 server.listen(PORT, host, () => {
   const protocol = server instanceof https.Server ? 'https' : 'http';
