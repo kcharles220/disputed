@@ -59,6 +59,27 @@ app.get('/health', (req, res) => {
   res.json({ status: 'Server is running', activeGames: games.size });
 });
  
+app.get('/fix', (req, res) => {
+  res.send(`
+    <html>
+      <head>
+        <title>Connection Fixed</title>
+        <style>
+          body { font-family: Arial, sans-serif; background: #f9f9f9; color: #222; text-align: center; padding-top: 80px; }
+          .box { background: #fff; border-radius: 8px; box-shadow: 0 2px 8px #0001; display: inline-block; padding: 32px 48px; }
+          h1 { color: #2e7d32; }
+          p { margin-top: 18px; font-size: 1.2em; }
+        </style>
+      </head>
+      <body>
+        <div class="box">
+          <h1>Connection Fixed</h1>
+          <p>The connection has been fixed.<br>You can now return to the application.</p>
+        </div>
+      </body>
+    </html>
+  `);
+});
 /* uncomment this to enable token-based authentication
 
 app.use((req, res, next) => {

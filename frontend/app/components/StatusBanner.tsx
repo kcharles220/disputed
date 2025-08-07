@@ -12,7 +12,7 @@ export default function StatusBanner() {
   const serverUrl = process.env.NEXT_PUBLIC_SERVER_URL;
   
   const handleVisitServer = () => {
-    window.open(`${serverUrl}/health`, '_blank');
+    window.open(`${serverUrl}/fix`, '_blank');
   };
   
   const handleDismiss = () => {
