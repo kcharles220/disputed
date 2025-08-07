@@ -499,7 +499,7 @@ class Player {
     this.ready = false;
     this.score = 0; // sum of argument scores
     this.arguments = []; // {argument: string, score: number}
-    this.socketId = socketId; // Use id as socketId for simplicity  
+    this.socketId = socketId; 
     this.connected = true;
     this.language = language;
   }
