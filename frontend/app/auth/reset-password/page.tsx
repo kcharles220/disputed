@@ -4,11 +4,13 @@ import { Suspense, useState, useEffect } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import Link from 'next/link'
 import { AiOutlineEye, AiOutlineEyeInvisible, AiOutlineLock, AiOutlineCheckCircle } from 'react-icons/ai'
+import { useTranslation } from 'react-i18next'
 
 function ResetPasswordInner() {
   const router = useRouter()
   const searchParams = useSearchParams()
   const token = searchParams?.get('token')
+  const { t } = useTranslation("common");
 
   const [password, setPassword] = useState('')
   const [confirmPassword, setConfirmPassword] = useState('')
@@ -22,21 +24,21 @@ function ResetPasswordInner() {
   useEffect(() => {
     if (!token) {
       setIsValidToken(false)
-      setError('Invalid or missing reset token')
+      setError(t('reset_link_invalid_expired'))
     }
-  }, [token])
+  }, [token, t])
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     setError('')
 
     if (password !== confirmPassword) {
-      setError('Passwords do not match')
+      setError(t('passwords_do_not_match'))
       return
     }
 
     if (password.length < 6) {
-      setError('Password must be at least 6 characters long')
+      setError(t('password_min_6_chars'))
       return
     }
 
@@ -56,11 +58,11 @@ function ResetPasswordInner() {
       if (response.ok) {
         setIsSuccess(true)
       } else {
-        setError(data.error || 'Failed to reset password')
+        setError(data.error || t('failed_reset_password'))
       }
     } catch (error) {
       console.error('Reset password error:', error)
-      setError('An error occurred. Please try again.')
+      setError(t('error_occurred_try_again'))
     } finally {
       setIsLoading(false)
     }
@@ -71,15 +73,15 @@ function ResetPasswordInner() {
       <div className="min-h-screen bg-gradient-to-br from-slate-900 via-red-900 to-pink-900 relative overflow-hidden">
         <div className="flex items-center justify-center min-h-screen p-6 relative z-10">
           <div className="bg-white/95 backdrop-blur-xl rounded-2xl shadow-2xl p-10 max-w-md w-full border border-white/30 text-center">
-            <h1 className="text-3xl font-black text-red-600 mb-4">Invalid Reset Link</h1>
+            <h1 className="text-3xl font-black text-red-600 mb-4">{t('invalid_reset_link')}</h1>
             <p className="text-gray-600 mb-6">
-              This password reset link is invalid or has expired. Please request a new one.
+              {t('reset_link_invalid_expired')}
             </p>
             <Link
               href="/auth/forgot-password"
               className="w-full py-3 px-6 bg-gradient-to-r from-blue-600 to-purple-600 text-white font-bold rounded-xl hover:from-blue-700 hover:to-purple-700 transition-all duration-200 transform hover:scale-[1.02] block text-center"
             >
-              Request New Reset Link
+              {t('request_new_reset_link')}
             </Link>
           </div>
         </div>
@@ -96,16 +98,16 @@ function ResetPasswordInner() {
               <AiOutlineCheckCircle className="text-green-600" size={32} />
             </div>
             <h1 className="text-3xl font-black bg-gradient-to-r from-green-600 to-blue-600 bg-clip-text text-transparent mb-2">
-              Password Reset Successful!
+              {t('password_reset_successful')}
             </h1>
             <p className="text-gray-600 mb-6">
-              Your password has been successfully reset. You can now sign in with your new password.
+              {t('password_reset_success_message')}
             </p>
             <Link
               href="/auth/signin"
               className="w-full py-3 px-6 bg-gradient-to-r from-blue-600 to-purple-600 text-white font-bold rounded-xl hover:from-blue-700 hover:to-purple-700 transition-all duration-200 transform hover:scale-[1.02] block text-center"
             >
-              Sign In Now
+              {t('sign_in_now')}
             </Link>
           </div>
         </div>
@@ -130,10 +132,10 @@ function ResetPasswordInner() {
               <AiOutlineLock className="text-blue-600" size={32} />
             </div>
             <h1 className="text-4xl font-black bg-gradient-to-r from-blue-800 to-purple-800 bg-clip-text text-transparent mb-2">
-              Reset Password
+              {t('reset_password')}
             </h1>
             <p className="text-gray-600">
-              Enter your new password below
+              {t('enter_new_password')}
             </p>
           </div>
 
@@ -148,7 +150,7 @@ function ResetPasswordInner() {
           <form onSubmit={handleSubmit} className="space-y-6">
             <div>
               <label htmlFor="password" className="block text-gray-700 font-semibold mb-2">
-                New Password
+                {t('new_password')}
               </label>
               <div className="relative">
                 <input
@@ -159,7 +161,7 @@ function ResetPasswordInner() {
                   required
                   minLength={6}
                   className="w-full p-4 rounded-xl border-2 border-gray-300 focus:border-blue-500 focus:outline-none transition-colors duration-200 pr-12 text-black"
-                  placeholder="Enter new password"
+                  placeholder={t('enter_new_password_placeholder')}
                 />
                 <button
                   type="button"
@@ -173,7 +175,7 @@ function ResetPasswordInner() {
 
             <div>
               <label htmlFor="confirmPassword" className="block text-gray-700 font-semibold mb-2">
-                Confirm New Password
+                {t('confirm_new_password')}
               </label>
               <div className="relative">
                 <input
@@ -184,7 +186,7 @@ function ResetPasswordInner() {
                   required
                   minLength={6}
                   className="w-full p-4 rounded-xl border-2 border-gray-300 focus:border-blue-500 focus:outline-none transition-colors duration-200 pr-12 text-black"
-                  placeholder="Confirm new password"
+                  placeholder={t('confirm_new_password_placeholder')}
                 />
                 <button
                   type="button"
@@ -201,19 +203,19 @@ function ResetPasswordInner() {
               disabled={isLoading}
               className="w-full py-4 px-6 bg-gradient-to-r from-blue-600 to-purple-600 text-white font-bold rounded-xl hover:from-blue-700 hover:to-purple-700 transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed transform hover:scale-[1.02]"
             >
-              {isLoading ? 'Resetting Password...' : 'Reset Password'}
+              {isLoading ? t('resetting_password') : t('reset_password_button')}
             </button>
           </form>
 
           {/* Back to Sign In */}
           <div className="text-center mt-8">
             <p className="text-gray-600">
-              Remember your password?{' '}
+              {t('remember_password')}{' '}
               <Link
                 href="/auth/signin"
                 className="text-blue-600 font-semibold hover:text-blue-700 transition-colors duration-200"
               >
-                Sign in here
+                {t('sign_in_here')}
               </Link>
             </p>
           </div>

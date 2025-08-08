@@ -1,12 +1,14 @@
 'use client';
 
+import { useTranslation } from "react-i18next";
 import { useStatus } from "../lib/status-provider";
 import { useState } from "react";
 
 export default function StatusBanner() {
   const { serverDown } = useStatus();
   const [isDismissed, setIsDismissed] = useState(false);
-  
+  const { t } = useTranslation("common");
+
   if (!serverDown || isDismissed) return null;
 
   const serverUrl = process.env.NEXT_PUBLIC_HTTPS_SERVER_URL + ':' + process.env.NEXT_PUBLIC_HTTPS_PORT;
@@ -14,7 +16,7 @@ export default function StatusBanner() {
   const handleVisitServer = () => {
     window.open(`${serverUrl}/fix`, '_blank');
   };
-  
+
   const handleDismiss = () => {
     setIsDismissed(true);
   };
@@ -25,7 +27,7 @@ export default function StatusBanner() {
       <div className="relative bg-gradient-to-r from-red-600 via-red-700 to-red-800 border-b-4 border-red-400 shadow-2xl">
         {/* Animated Background Pattern */}
         <div className="absolute inset-0 bg-gradient-to-r from-transparent via-red-500/20 to-transparent animate-shimmer"></div>
-        
+
         {/* Main Content */}
         <div className="relative px-6 py-4 flex items-center justify-between max-w-7xl mx-auto">
           {/* Icon and Message */}
@@ -44,14 +46,14 @@ export default function StatusBanner() {
             {/* Text Content */}
             <div className="text-white">
               <div className="font-bold text-lg mb-1 flex items-center">
-                🔒 SSL Certificate Required
+                🔒 {t('ssl_certificate_required')}
                 <span className="ml-2 px-2 py-1 bg-yellow-400 text-red-800 text-xs font-semibold rounded-full ">
-                  ACTION NEEDED
+                  {t('action_needed')}
                 </span>
               </div>
               <div className="text-red-100 text-sm leading-relaxed max-w-2xl">
-                Your browser needs to trust our self-signed certificate to connect securely. 
-                <span className="font-semibold text-yellow-200"> Click the button to proceed safely!</span>
+                {t('ssl_certificate_message')}
+                <span className="font-semibold text-yellow-200"> {t('ssl_certificate_action')}</span>
               </div>
             </div>
           </div>
@@ -67,7 +69,7 @@ export default function StatusBanner() {
                 <svg className="w-5 h-5 group-hover:rotate-12 transition-transform duration-200" fill="currentColor" viewBox="0 0 20 20">
                   <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM9.555 7.168A1 1 0 008 8v4a1 1 0 001.555.832l3-2a1 1 0 000-1.664l-3-2z" clipRule="evenodd" />
                 </svg>
-                <span>Fix Connection</span>
+                <span>{t('fix_connection')}</span>
               </div>
               {/* Button Glow Effect */}
               <div className="absolute inset-0 bg-gradient-to-r from-yellow-400 to-yellow-500 rounded-lg blur opacity-30 group-hover:opacity-50 transition-opacity duration-200 -z-10"></div>
@@ -77,7 +79,7 @@ export default function StatusBanner() {
             <button
               onClick={handleDismiss}
               className="p-2 text-red-200 hover:text-white hover:bg-red-600 rounded-lg transition-all duration-200 hover:scale-110"
-              title="Dismiss notification"
+              title={t('dismiss_notification')}
             >
               <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
                 <path fillRule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clipRule="evenodd" />

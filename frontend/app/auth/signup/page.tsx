@@ -6,6 +6,7 @@ import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { FcGoogle } from 'react-icons/fc'
 import { AiOutlineEye, AiOutlineEyeInvisible } from 'react-icons/ai'
+import { useTranslation } from 'react-i18next'
 
 export default function SignUp() {
   const router = useRouter()
@@ -21,6 +22,7 @@ export default function SignUp() {
   const [showConfirmPassword, setShowConfirmPassword] = useState(false)
   const [isLoading, setIsLoading] = useState(false)
   const [errors, setErrors] = useState<Record<string, string>>({})
+  const { t } = useTranslation("common");
 
   const avatarOptions = ['⚖️', '👨‍💼', '👩‍💼', '👨‍⚖️', '👩‍⚖️', '🎭', '⚔️', '🏛️', '📚', '🗣️', '💼', '🎯']
 
@@ -37,27 +39,27 @@ export default function SignUp() {
     const newErrors: Record<string, string> = {}
 
     if (!formData.username.trim()) {
-      newErrors.username = 'Username is required'
+      newErrors.username = t('username_required')
     } else if (formData.username.length < 3) {
-      newErrors.username = 'Username must be at least 3 characters'
+      newErrors.username = t('username_min_3_chars')
     } else if (!/^[a-zA-Z0-9_]+$/.test(formData.username)) {
-      newErrors.username = 'Username can only contain letters, numbers, and underscores'
+      newErrors.username = t('username_alphanumeric')
     }
 
     if (!formData.email.trim()) {
-      newErrors.email = 'Email is required'
+      newErrors.email = t('email_required')
     } else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(formData.email)) {
-      newErrors.email = 'Please enter a valid email address'
+      newErrors.email = t('valid_email_required')
     }
 
     if (!formData.password) {
-      newErrors.password = 'Password is required'
+      newErrors.password = t('password_required')
     } else if (formData.password.length < 8) {
-      newErrors.password = 'Password must be at least 8 characters'
+      newErrors.password = t('password_min_8_chars')
     }
 
     if (formData.password !== formData.confirmPassword) {
-      newErrors.confirmPassword = 'Passwords do not match'
+      newErrors.confirmPassword = t('passwords_no_match')
     }
 
     setErrors(newErrors)
@@ -66,7 +68,7 @@ export default function SignUp() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
-    
+
     if (!validateForm()) {
       return
     }
@@ -100,7 +102,7 @@ export default function SignUp() {
           })
           setErrors(newErrors)
         } else {
-          setErrors({ general: data.error || 'Registration failed' })
+          setErrors({ general: data.error || t('registration_failed') })
         }
         setIsLoading(false)
         return
@@ -122,7 +124,7 @@ export default function SignUp() {
 
     } catch (error) {
       console.error('Registration error:', error)
-      setErrors({ general: 'An error occurred during registration' })
+      setErrors({ general: t('error_occurred_registration') })
       setIsLoading(false)
     }
   }
@@ -133,7 +135,7 @@ export default function SignUp() {
       await signIn('google', { callbackUrl: '/' })
     } catch (error) {
       console.error('Google sign in error:', error)
-      setErrors({ general: 'Failed to sign in with Google' })
+      setErrors({ general: t('failed_signin_google') })
       setIsLoading(false)
     }
   }
@@ -153,7 +155,7 @@ export default function SignUp() {
           href="/"
           className="px-5 py-2.5 bg-white/10 backdrop-blur-sm text-white border border-white/20 rounded-lg font-medium hover:bg-white/20 transition-all duration-200"
         >
-          ← Back to Home
+          ← {t('back_to_home')}
         </Link>
       </div>
 
@@ -162,9 +164,9 @@ export default function SignUp() {
         <div className="bg-white/95 backdrop-blur-xl rounded-2xl shadow-2xl p-10 max-w-lg w-full border border-white/30">
           <div className="text-center mb-8">
             <h1 className="text-4xl font-black bg-gradient-to-r from-purple-800 to-blue-800 bg-clip-text text-transparent mb-2">
-              Join the Battle
+              {t('join_the_battle')}
             </h1>
-            <p className="text-gray-600">Create your account to start competing</p>
+            <p className="text-gray-600">{t('create_account_competing')}</p>
           </div>
 
           {/* General Error */}
@@ -179,7 +181,7 @@ export default function SignUp() {
             {/* Avatar Selection */}
             <div>
               <label className="block text-gray-700 font-semibold mb-2">
-                Choose Your Avatar
+                {t('choose_your_avatar')}
               </label>
               <div className="flex flex-wrap gap-2">
                 {avatarOptions.map((avatar) => (
@@ -187,11 +189,10 @@ export default function SignUp() {
                     key={avatar}
                     type="button"
                     onClick={() => setSelectedAvatar(avatar)}
-                    className={`w-12 h-12 text-2xl rounded-full border-2 transition-all duration-200 ${
-                      selectedAvatar === avatar
+                    className={`w-12 h-12 text-2xl rounded-full border-2 transition-all duration-200 ${selectedAvatar === avatar
                         ? 'border-purple-500 bg-purple-100 scale-110'
                         : 'border-gray-300 hover:border-purple-300 hover:scale-105'
-                    }`}
+                      }`}
                   >
                     {avatar}
                   </button>
@@ -202,7 +203,7 @@ export default function SignUp() {
             {/* Username */}
             <div>
               <label htmlFor="username" className="block text-gray-700 font-semibold mb-2">
-                Username
+                {t('username')}
               </label>
               <input
                 id="username"
@@ -210,10 +211,9 @@ export default function SignUp() {
                 type="text"
                 value={formData.username}
                 onChange={handleInputChange}
-                className={`w-full p-4 rounded-xl border-2 focus:outline-none transition-colors duration-200 text-black ${
-                  errors.username ? 'border-red-500' : 'border-gray-300 focus:border-purple-500'
-                }`}
-                placeholder="Choose a unique username"
+                className={`w-full p-4 rounded-xl border-2 focus:outline-none transition-colors duration-200 text-black ${errors.username ? 'border-red-500' : 'border-gray-300 focus:border-purple-500'
+                  }`}
+                placeholder={t('choose_unique_username')}
               />
               {errors.username && <p className="text-red-500 text-sm mt-1">{errors.username}</p>}
             </div>
@@ -221,7 +221,7 @@ export default function SignUp() {
             {/* Email */}
             <div>
               <label htmlFor="email" className="block text-gray-700 font-semibold mb-2">
-                Email Address
+                {t('email_address')}
               </label>
               <input
                 id="email"
@@ -229,9 +229,8 @@ export default function SignUp() {
                 type="email"
                 value={formData.email}
                 onChange={handleInputChange}
-                className={`w-full p-4 rounded-xl border-2 focus:outline-none transition-colors duration-200 text-black ${
-                  errors.email ? 'border-red-500' : 'border-gray-300 focus:border-purple-500'
-                }`}
+                className={`w-full p-4 rounded-xl border-2 focus:outline-none transition-colors duration-200 text-black ${errors.email ? 'border-red-500' : 'border-gray-300 focus:border-purple-500'
+                  }`}
                 placeholder="your@email.com"
               />
               {errors.email && <p className="text-red-500 text-sm mt-1">{errors.email}</p>}
@@ -240,7 +239,7 @@ export default function SignUp() {
             {/* Password */}
             <div>
               <label htmlFor="password" className="block text-gray-700 font-semibold mb-2">
-                Password
+                {t('password')}
               </label>
               <div className="relative">
                 <input
@@ -249,10 +248,9 @@ export default function SignUp() {
                   type={showPassword ? 'text' : 'password'}
                   value={formData.password}
                   onChange={handleInputChange}
-                  className={`w-full p-4 rounded-xl border-2 focus:outline-none transition-colors duration-200 pr-12 text-black ${
-                    errors.password ? 'border-red-500' : 'border-gray-300 focus:border-purple-500'
-                  }`}
-                  placeholder="Create a strong password"
+                  className={`w-full p-4 rounded-xl border-2 focus:outline-none transition-colors duration-200 pr-12 text-black ${errors.password ? 'border-red-500' : 'border-gray-300 focus:border-purple-500'
+                    }`}
+                  placeholder={t('create_strong_password')}
                 />
                 <button
                   type="button"
@@ -268,7 +266,7 @@ export default function SignUp() {
             {/* Confirm Password */}
             <div>
               <label htmlFor="confirmPassword" className="block text-gray-700 font-semibold mb-2">
-                Confirm Password
+                {t('confirm_password')}
               </label>
               <div className="relative">
                 <input
@@ -277,10 +275,9 @@ export default function SignUp() {
                   type={showConfirmPassword ? 'text' : 'password'}
                   value={formData.confirmPassword}
                   onChange={handleInputChange}
-                  className={`w-full p-4 rounded-xl border-2 focus:outline-none transition-colors duration-200 pr-12 text-black ${
-                    errors.confirmPassword ? 'border-red-500' : 'border-gray-300 focus:border-purple-500'
-                  }`}
-                  placeholder="Confirm your password"
+                  className={`w-full p-4 rounded-xl border-2 focus:outline-none transition-colors duration-200 pr-12 text-black ${errors.confirmPassword ? 'border-red-500' : 'border-gray-300 focus:border-purple-500'
+                    }`}
+                  placeholder={t('confirm_your_password')}
                 />
                 <button
                   type="button"
@@ -298,36 +295,36 @@ export default function SignUp() {
               disabled={isLoading}
               className="w-full py-4 px-6 bg-gradient-to-r from-purple-600 to-blue-600 text-white font-bold rounded-xl hover:from-purple-700 hover:to-blue-700 transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed transform hover:scale-[1.02]"
             >
-              {isLoading ? 'Creating Account...' : 'Create Account'}
+              {isLoading ? t('creating_account') : t('create_account')}
             </button>
           </form>
 
           {/* Divider */}
           <div className="flex items-center my-8">
             <div className="flex-1 border-t border-gray-300"></div>
-            <span className="px-4 text-gray-500 bg-white">or</span>
+            <span className="px-4 text-gray-500 ">{t('or')}</span>
             <div className="flex-1 border-t border-gray-300"></div>
           </div>
 
           {/* Google Sign In */}
           <button
             onClick={handleGoogleSignIn}
-            disabled={isLoading}
+            disabled={true} //isLoading
             className="w-full py-4 px-6 bg-white border-2 border-gray-300 text-gray-700 font-semibold rounded-xl hover:bg-gray-50 transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-3 transform hover:scale-[1.02]"
           >
             <FcGoogle size={24} />
-            Continue with Google
+            {t('continue_with_google')}
           </button>
 
           {/* Sign In Link */}
           <div className="text-center mt-8">
             <p className="text-gray-600">
-              Already have an account?{' '}
+              {t('already_have_account')}{' '}
               <Link
                 href="/auth/signin"
                 className="text-purple-600 font-semibold hover:text-purple-700 transition-colors duration-200"
               >
-                Sign in here
+                {t('sign_in_here')}
               </Link>
             </p>
           </div>

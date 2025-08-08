@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { useSession, signOut } from 'next-auth/react';
+import { useTranslation } from 'react-i18next';
 
 interface LeaderboardUser {
   _id: string;
@@ -23,8 +24,8 @@ export default function Leaderboard() {
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState('');
   const [sortBy, setSortBy] = useState<'rating' | 'winPercentage' | 'winStreak'>('rating');
+  const { t } = useTranslation("common");
 
-  // Loading skeleton component
   const LoadingSkeleton = ({ className }: { className?: string }) => (
     <div className={`animate-pulse bg-gray-300 rounded ${className || 'h-4 w-16'}`}></div>
   );
@@ -128,13 +129,13 @@ export default function Leaderboard() {
               onClick={() => router.push('/auth/signin')}
               className="px-8 py-4 bg-white/10 backdrop-blur-sm text-white border border-white/20 rounded-xl font-semibold text-lg hover:bg-white/20 transition-all duration-200 cursor-pointer min-w-[120px]"
             >
-              Login
+              {t('login')}
             </button>
             <button
               onClick={() => router.push('/auth/signup')}
               className="px-8 py-4 bg-blue-600/80 backdrop-blur-sm text-white border border-blue-500/30 rounded-xl font-semibold text-lg hover:bg-blue-600 transition-all duration-200 cursor-pointer min-w-[120px]"
             >
-              Register
+              {t('register')}
             </button>
           </div>
         )}
@@ -143,7 +144,7 @@ export default function Leaderboard() {
       {/* Main Container */}
       <div className="flex items-center justify-center min-h-screen p-6 relative z-10">
         <div className="bg-white/95 backdrop-blur-xl rounded-2xl shadow-2xl p-8 max-w-4xl w-full border border-white/30">
-          
+
           {/* Title */}
           <h1 className="text-4xl font-black text-center mb-8 bg-gradient-to-r from-purple-800 to-blue-800 bg-clip-text text-transparent">
             🏆 LEADERBOARD
@@ -153,31 +154,28 @@ export default function Leaderboard() {
           <div className="flex justify-center gap-4 mb-6">
             <button
               onClick={() => setSortBy('rating')}
-              className={`px-4 py-2 rounded-lg font-medium transition-all duration-200 ${
-                sortBy === 'rating'
-                  ? 'bg-purple-600 text-white'
-                  : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
-              }`}
+              className={`px-4 py-2 rounded-lg font-medium transition-all duration-200 ${sortBy === 'rating'
+                ? 'bg-purple-600 text-white'
+                : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
+                }`}
             >
               Rating
             </button>
             <button
               onClick={() => setSortBy('winPercentage')}
-              className={`px-4 py-2 rounded-lg font-medium transition-all duration-200 ${
-                sortBy === 'winPercentage'
-                  ? 'bg-purple-600 text-white'
-                  : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
-              }`}
+              className={`px-4 py-2 rounded-lg font-medium transition-all duration-200 ${sortBy === 'winPercentage'
+                ? 'bg-purple-600 text-white'
+                : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
+                }`}
             >
               Win Rate
             </button>
             <button
               onClick={() => setSortBy('winStreak')}
-              className={`px-4 py-2 rounded-lg font-medium transition-all duration-200 ${
-                sortBy === 'winStreak'
-                  ? 'bg-purple-600 text-white'
-                  : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
-              }`}
+              className={`px-4 py-2 rounded-lg font-medium transition-all duration-200 ${sortBy === 'winStreak'
+                ? 'bg-purple-600 text-white'
+                : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
+                }`}
             >
               Win Streak
             </button>
@@ -217,13 +215,12 @@ export default function Leaderboard() {
                 {sortedData.map((user, index) => (
                   <div
                     key={user._id}
-                    className={`flex items-center gap-4 p-4 rounded-lg transition-all duration-200 hover:scale-[1.02] ${
-                      index < 3
-                        ? 'bg-gradient-to-r from-yellow-50 to-orange-50 border border-yellow-200'
-                        : session?.user?.id === user._id
+                    className={`flex items-center gap-4 p-4 rounded-lg transition-all duration-200 hover:scale-[1.02] ${index < 3
+                      ? 'bg-gradient-to-r from-yellow-50 to-orange-50 border border-yellow-200'
+                      : session?.user?.id === user._id
                         ? 'bg-gradient-to-r from-blue-50 to-purple-50 border border-blue-200'
                         : 'bg-gray-50 hover:bg-gray-100'
-                    }`}
+                      }`}
                   >
                     {/* Rank */}
                     <div className={`text-2xl font-bold min-w-[3rem] text-center ${getRankColor(index)}`}>
