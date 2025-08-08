@@ -12,7 +12,10 @@ export async function POST(request: NextRequest) {
     }
 
     // Get the backend URL
-    const backendUrl = process.env.NEXT_PUBLIC_SERVER_URL + ':' + process.env.NEXT_PUBLIC_HTTP_PORT || 'http://localhost:3001';
+    const backendHost = process.env.NEXT_PUBLIC_SERVER_URL || 'http://localhost';
+    const backendPort = process.env.NEXT_PUBLIC_HTTP_PORT || '3001';
+    const backendUrl = `${backendHost}:${backendPort}`;
+    console.log('Forwarding request to backend:', backendUrl)
 
     // Forward the request to the backend
     const response = await fetch(`${backendUrl}/auth/reset-password`, {
@@ -24,7 +27,7 @@ export async function POST(request: NextRequest) {
     })
 
     const data = await response.json()
-    
+
     return NextResponse.json(data, { status: response.status })
   } catch (error) {
     console.error('Error forwarding reset password to backend:', error)
