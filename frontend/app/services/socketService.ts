@@ -1,6 +1,6 @@
 import { io, Socket } from 'socket.io-client';
 
-const SERVER_URL = process.env.NEXT_PUBLIC_HTTPS_SERVER_URL + ':' + process.env.HTTPS_PORT || 'http://localhost:3000';
+const SERVER_URL = process.env.NEXT_PUBLIC_HTTPS_SERVER_URL + ':' + process.env.NEXT_PUBLIC_HTTPS_PORT || 'http://localhost:3000';
 
 export interface Player {
   id: string;

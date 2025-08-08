@@ -9,7 +9,7 @@ export default function StatusBanner() {
   
   if (!serverDown || isDismissed) return null;
 
-  const serverUrl = process.env.NEXT_PUBLIC_HTTPS_SERVER_URL + ':' + process.env.HTTPS_PORT;
+  const serverUrl = process.env.NEXT_PUBLIC_HTTPS_SERVER_URL + ':' + process.env.NEXT_PUBLIC_HTTPS_PORT;
 
   const handleVisitServer = () => {
     window.open(`${serverUrl}/fix`, '_blank');
