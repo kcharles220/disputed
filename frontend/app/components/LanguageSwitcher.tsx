@@ -3,18 +3,27 @@
 import { useState } from 'react';
 
 const LANGUAGES = [
-  { code: 'en', label: '🇺🇸 English' },
-  { code: 'pt', label: '🇵🇹 Português' },
+  { code: 'en-US', label: '🇺🇸 English' },
+  { code: 'pt-PT', label: '🇵🇹 Português' },
 ];
 
 export default function LanguageSwitcher({
   onChange,
-  currentLang = 'en',
+  currentLang = 'en-US',
 }: {
   onChange?: (lang: string) => void;
   currentLang?: string;
 }) {
   const [open, setOpen] = useState(false);
+
+  // Normalize the current language to match our supported languages
+  const normalizeLanguage = (lang: string) => {
+    if (lang.startsWith('en')) return 'en-US';
+    if (lang.startsWith('pt')) return 'pt-PT';
+    return 'en-US'; // fallback
+  };
+
+  const normalizedCurrentLang = normalizeLanguage(currentLang);
 
   return (
     <div className="relative inline-block z-50">
@@ -25,10 +34,10 @@ export default function LanguageSwitcher({
         aria-label="Switch Language"
       >
         <span className="text-xl">
-          {LANGUAGES.find(l => l.code === currentLang)?.label.split(' ')[0] || '🌐'}
+          {LANGUAGES.find(l => l.code === normalizedCurrentLang)?.label.split(' ')[0] || '🌐'}
         </span>
         <span className="hidden sm:inline">
-          {LANGUAGES.find(l => l.code === currentLang)?.label.split(' ')[1] || 'Language'}
+          {LANGUAGES.find(l => l.code === normalizedCurrentLang)?.label.split(' ')[1] || 'Language'}
         </span>
         
         <svg 
@@ -58,7 +67,7 @@ export default function LanguageSwitcher({
                 <button
                   key={lang.code}
                   className={`w-full flex items-center gap-3 px-4 py-3 text-left font-semibold transition-all duration-200 hover:bg-white/20 ${
-                    currentLang === lang.code 
+                    normalizedCurrentLang === lang.code 
                       ? 'bg-white/20 text-white' 
                       : 'text-white/90 hover:text-white'
                   } ${index > 0 ? 'border-t border-white/10' : ''}`}
@@ -75,7 +84,7 @@ export default function LanguageSwitcher({
                   </span>
                   
                   {/* Check mark for active language */}
-                  {currentLang === lang.code && (
+                  {normalizedCurrentLang === lang.code && (
                     <svg className="ml-auto w-4 h-4 text-white" fill="currentColor" viewBox="0 0 20 20">
                       <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
                     </svg>

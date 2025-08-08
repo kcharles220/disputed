@@ -150,9 +150,9 @@ export default function Home() {
       <div className="absolute top-6 left-6 z-30">
 
         <LanguageSwitcher
-  currentLang={i18n.language}
-  onChange={(lang) => i18n.changeLanguage(lang)}
-/>
+          currentLang={i18n.language}
+          onChange={(lang) => i18n.changeLanguage(lang)}
+        />
         <button
           onClick={() => setShowHowToPlay(true)}
           className="group mt-4 flex items-center gap-2 px-4 py-3 bg-white/10 backdrop-blur-sm text-white border border-white/20 rounded-xl font-semibold hover:bg-white/20 transition-all duration-200 cursor-pointer"
@@ -160,7 +160,7 @@ export default function Home() {
           <span className="text-xl">❓</span>
           <span className="hidden sm:inline">{t('how_to_play')}</span>
         </button>
-       
+
       </div>
 
       {/* Top Right Corner - Auth Section */}
@@ -475,7 +475,7 @@ export default function Home() {
                 </h3>
                 <p className="text-gray-700 leading-relaxed">
                   {t('game_overview_description')}
-                  
+
                 </p>
               </div>
 
